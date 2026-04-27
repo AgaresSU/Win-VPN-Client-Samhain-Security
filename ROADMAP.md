@@ -1,6 +1,6 @@
 # Samhain Security Roadmap
 
-Version baseline: `0.1.7`
+Version baseline: `0.1.8`
 
 ## Product Goal
 
@@ -177,6 +177,15 @@ The default UI should stay close to the simplicity of Happ: a small set of obvio
 - Done: service owns long-running `sing-box` processes.
 - Done: service writes runtime tunnel configs under `%ProgramData%\SamhainSecurity\Service\runtime`.
 - Done: engine placeholder folders are copied to both desktop and service publish outputs.
+
+### 0.1.8
+
+- Done: default UI begins moving toward a Happ-like simple daily mode.
+- Done: protocol internals, engine paths, raw configs, DNS, and protection policy controls are grouped under `Расширенные настройки`.
+- Done: per-user Windows startup toggle.
+- Done: last successful profile tracking.
+- Done: optional autoconnect of the last successful profile on launch.
+- Done: app behavior settings stored under `%APPDATA%\SamhainSecurity\settings.json`.
 
 ## Design Direction
 

@@ -18,6 +18,8 @@ public partial class MainWindow : Window
     private readonly ObservableCollection<VpnProfile> _profiles = [];
     private readonly ObservableCollection<SubscriptionSourceListItem> _subscriptionSources = [];
     private readonly ProfileStore _profileStore = new();
+    private readonly AppSettingsStore _appSettingsStore = new();
+    private readonly StartupRegistrationService _startupRegistrationService = new();
     private readonly SecureDataProtector _protector = new();
     private readonly SubscriptionStore _subscriptionStore;
     private readonly SubscriptionImportService _subscriptionImportService;
@@ -34,7 +36,9 @@ public partial class MainWindow : Window
     private bool _isBusy;
     private bool _isLoadingProfile;
     private bool _isLoadingSubscriptions;
+    private bool _isLoadingAppSettings;
     private string _lastClipboardSubscriptionUrl = string.Empty;
+    private AppSettings _appSettings = new();
 
     public MainWindow()
     {
@@ -69,6 +73,9 @@ public partial class MainWindow : Window
 
     private async void Window_Loaded(object sender, RoutedEventArgs e)
     {
+        _appSettings = await _appSettingsStore.LoadAsync();
+        ApplyAppSettingsToUi();
+
         await RunUiActionAsync(async () =>
         {
             var profiles = await _profileStore.LoadAsync();
@@ -95,6 +102,8 @@ public partial class MainWindow : Window
             AppendLog($"Профили: {_profiles.Count}. Хранилище: {_profileStore.FilePath}");
             AppendLog($"Подписки: {subscriptions.Count}. Хранилище: {_subscriptionStore.FilePath}");
         }, "Загрузка профилей...");
+
+        await AutoConnectLastProfileIfRequestedAsync();
     }
 
     private void Window_Activated(object sender, EventArgs e)
@@ -161,6 +170,40 @@ public partial class MainWindow : Window
         }
 
         UpdateEngineStatusBadge();
+    }
+
+    private async void AppSettingCheckBox_Changed(object sender, RoutedEventArgs e)
+    {
+        if (_isLoadingAppSettings)
+        {
+            return;
+        }
+
+        _appSettings.LaunchAtStartup = LaunchAtStartupCheckBox.IsChecked == true;
+        _appSettings.AutoConnectLastProfile = AutoConnectLastProfileCheckBox.IsChecked == true;
+
+        try
+        {
+            _startupRegistrationService.SetEnabled(_appSettings.LaunchAtStartup);
+            await _appSettingsStore.SaveAsync(_appSettings);
+            StatusTextBlock.Text = "Настройки сохранены";
+        }
+        catch (Exception ex)
+        {
+            StatusTextBlock.Text = "Не удалось сохранить настройки";
+            AppendLog(ex.Message);
+        }
+    }
+
+    private async void AdvancedSettingsExpander_Changed(object sender, RoutedEventArgs e)
+    {
+        if (_isLoadingAppSettings)
+        {
+            return;
+        }
+
+        _appSettings.AdvancedSettingsExpanded = AdvancedSettingsExpander.IsExpanded;
+        await SaveAppSettingsQuietlyAsync();
     }
 
     private void NewProfileButton_Click(object sender, RoutedEventArgs e)
@@ -238,6 +281,12 @@ public partial class MainWindow : Window
                 "connect",
                 connectResult.IsSuccess ? "Connected" : "Failed",
                 connectResult);
+
+            if (connectResult.IsSuccess)
+            {
+                _appSettings.LastProfileId = profile.Id;
+                await SaveAppSettingsQuietlyAsync();
+            }
 
             StatusTextBlock.Text = connectResult.IsSuccess
                 ? "Подключено"
@@ -927,6 +976,66 @@ public partial class MainWindow : Window
         RunAsAdminButton.Visibility = AdminElevationService.IsAdministrator()
             ? Visibility.Collapsed
             : Visibility.Visible;
+    }
+
+    private void ApplyAppSettingsToUi()
+    {
+        _isLoadingAppSettings = true;
+        try
+        {
+            _appSettings.LaunchAtStartup = _appSettings.LaunchAtStartup || _startupRegistrationService.IsEnabled();
+            LaunchAtStartupCheckBox.IsChecked = _appSettings.LaunchAtStartup;
+            AutoConnectLastProfileCheckBox.IsChecked = _appSettings.AutoConnectLastProfile;
+            AdvancedSettingsExpander.IsExpanded = _appSettings.AdvancedSettingsExpanded;
+        }
+        finally
+        {
+            _isLoadingAppSettings = false;
+        }
+    }
+
+    private async Task AutoConnectLastProfileIfRequestedAsync()
+    {
+        if (!_appSettings.AutoConnectLastProfile || string.IsNullOrWhiteSpace(_appSettings.LastProfileId))
+        {
+            return;
+        }
+
+        var profile = _profiles.FirstOrDefault(item => item.Id == _appSettings.LastProfileId);
+        if (profile is null)
+        {
+            return;
+        }
+
+        ProfilesListBox.SelectedItem = profile;
+        await RunUiActionAsync(async () =>
+        {
+            var connectResult = await _vpnService.ConnectAsync(profile, PasswordBox.Password, GetTunnelConfig());
+            _structuredLogService.WriteCommand("autoconnect", profile, connectResult);
+            AppendCommandResult($"{profile.Protocol.ToDisplayName()} autoconnect", connectResult);
+
+            await _connectionStateStore.UpdateAsync(
+                profile,
+                "autoconnect",
+                connectResult.IsSuccess ? "Connected" : "Failed",
+                connectResult);
+
+            StatusTextBlock.Text = connectResult.IsSuccess
+                ? "Подключено"
+                : "Автоподключение не удалось";
+        }, "Автоподключение...");
+    }
+
+    private async Task SaveAppSettingsQuietlyAsync()
+    {
+        try
+        {
+            await _appSettingsStore.SaveAsync(_appSettings);
+        }
+        catch (Exception ex)
+        {
+            AppendLog(ex.Message);
+        }
     }
 
     private async Task RunUiActionAsync(Func<Task> action, string busyText)

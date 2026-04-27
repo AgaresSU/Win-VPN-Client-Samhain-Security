@@ -1,6 +1,6 @@
 # Samhain Security
 
-Version: `0.1.7`
+Version: `0.1.8`
 
 Desktop secure tunneling client for Windows built with WPF and .NET 9.
 
@@ -25,10 +25,12 @@ Desktop secure tunneling client for Windows built with WPF and .NET 9.
 - Imports Samhain Security AWG reserve links from the connection page or direct API URL, including ready AmneziaWG `.conf` items.
 - Adds a subscription source manager with masked tokens, update selected, update all, delete, clipboard import, and global paste recognition.
 - Supervises VLESS, WireGuard, and AmneziaWG lifecycle through Samhain Security Service when it is running, with desktop fallback when the service is unavailable.
+- Adds a simpler daily UI mode: startup/autoconnect toggles stay visible, while engine paths, raw configs, protocol internals, DNS, and protection controls live under `Расширенные настройки`.
 - Stores service-owned protection state in `%ProgramData%\SamhainSecurity\Service\`.
 - Stores service-owned runtime tunnel configs in `%ProgramData%\SamhainSecurity\Service\runtime\`.
 - Connects and disconnects through `rasdial.exe`.
 - Stores profile data in `%APPDATA%\SamhainSecurity\profiles.json`.
+- Stores app behavior settings in `%APPDATA%\SamhainSecurity\settings.json`.
 - Stores subscription sources in `%APPDATA%\SamhainSecurity\subscriptions.json` with URLs encrypted by Windows DPAPI for the current user.
 - Stores connection state in `%APPDATA%\SamhainSecurity\connection-state.json`.
 - Stores structured logs in `%APPDATA%\SamhainSecurity\logs\`.
@@ -113,6 +115,12 @@ The desktop app can also install/start the service through the `Служба` bu
 Version `0.1.7` moves VLESS TCP Reality, WireGuard, and AmneziaWG connect/disconnect/status actions behind the local Samhain Security Service when it is available. The desktop app sends the selected profile over the local named pipe, and the service owns privileged engine execution and long-running `sing-box` processes.
 
 If the service is unavailable, the desktop app keeps the previous local execution path as a fallback. This keeps portable/dev builds usable while moving the production architecture toward a simple UI that delegates privileged work to the daemon.
+
+## Daily Mode
+
+Version `0.1.8` starts simplifying the desktop screen. The default view keeps subscription import, profile choice, startup/autoconnect toggles, and connect/disconnect actions visible. Low-level protocol and protection fields are still available, but they are grouped under `Расширенные настройки`.
+
+`Запускать с Windows` writes a per-user startup entry under the current user's Run key. `Подключать последний профиль` remembers the last successful profile and reconnects it on launch.
 
 ## Protection Policy
 
