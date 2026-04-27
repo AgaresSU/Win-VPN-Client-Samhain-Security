@@ -4,6 +4,8 @@ namespace VpnClientWindows.Services;
 
 public sealed class EnvironmentDiagnosticsService
 {
+    private readonly EngineVersionService _engineVersionService = new();
+
     public async Task<string> BuildReportAsync(VpnProtocolType protocol, string enginePath, CancellationToken cancellationToken = default)
     {
         var lines = new List<string>
@@ -24,15 +26,18 @@ public sealed class EnvironmentDiagnosticsService
         if (protocol == VpnProtocolType.VlessReality)
         {
             lines.AddRange(BuildEngineReport("sing-box", EnginePathResolver.GetSingBoxCandidates(enginePath), EnginePathResolver.ResolveSingBox(enginePath)));
+            lines.Add($"sing-box version: {await _engineVersionService.DetectVersionAsync(protocol, enginePath, cancellationToken)}");
         }
         else if (protocol == VpnProtocolType.WireGuard)
         {
             lines.AddRange(BuildEngineReport("WireGuard", EnginePathResolver.GetWireGuardCandidates(enginePath), EnginePathResolver.ResolveWireGuard(enginePath)));
+            lines.Add($"WireGuard version: {await _engineVersionService.DetectVersionAsync(protocol, enginePath, cancellationToken)}");
             lines.Add(await CheckCommandAsync("sc.exe", ["query", "state=", "all"], cancellationToken));
         }
         else if (protocol == VpnProtocolType.AmneziaWireGuard)
         {
             lines.AddRange(BuildEngineReport("AmneziaWG", EnginePathResolver.GetAmneziaWireGuardCandidates(enginePath), EnginePathResolver.ResolveAmneziaWireGuard(enginePath)));
+            lines.Add($"AmneziaWG version: {await _engineVersionService.DetectVersionAsync(protocol, enginePath, cancellationToken)}");
         }
 
         lines.Add("Hint: VLESS TUN, WireGuard tunnel services, and AmneziaWG usually need administrator rights.");
@@ -48,6 +53,11 @@ public sealed class EnvironmentDiagnosticsService
         foreach (var candidate in candidates.Take(6))
         {
             yield return $"  candidate: {candidate} [{FormatAvailability(candidate)}]";
+        }
+
+        if (!EnginePathResolver.IsPathAvailable(resolvedPath))
+        {
+            yield return $"Repair: select {title} executable manually or place it in the first portable candidate path above.";
         }
     }
 

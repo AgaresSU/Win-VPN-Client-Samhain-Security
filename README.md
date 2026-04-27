@@ -1,6 +1,6 @@
 # Samhain Security
 
-Version: `0.0.4`
+Version: `0.0.5`
 
 Desktop secure tunneling client for Windows built with WPF and .NET 9.
 
@@ -14,6 +14,7 @@ Desktop secure tunneling client for Windows built with WPF and .NET 9.
 - Includes an in-app diagnostics check for admin rights, Windows native cmdlets, `rasdial`, and external protocol engines.
 - Includes a tray icon with quick open, connect, disconnect, diagnostics, admin relaunch, and exit actions.
 - Shows protocol engine availability badges in the profile editor.
+- Detects external engine versions in diagnostics and prints repair suggestions when an engine is missing.
 - Connects and disconnects through `rasdial.exe`.
 - Stores profile data in `%APPDATA%\SamhainSecurity\profiles.json`.
 - Encrypts saved passwords, L2TP PSK values, and pasted WG/AWG configs with Windows DPAPI for the current user.
@@ -43,6 +44,8 @@ AmneziaWG requires an `awg-quick.exe`-compatible command line tool. Put it in on
 VLESS/WG/AWG TUN or tunnel service operations may require administrator permissions.
 
 Relative engine paths are resolved from the app executable directory first, so portable layouts such as `.\engines\sing-box\sing-box.exe` work after publishing.
+
+The repository includes placeholder engine folders under `engines\`. They are copied to the publish output so a portable package can place binaries next to the app.
 
 ## Run
 

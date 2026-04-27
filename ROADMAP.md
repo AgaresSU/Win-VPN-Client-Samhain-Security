@@ -1,6 +1,6 @@
 # Samhain Security Roadmap
 
-Version baseline: `0.0.4`
+Version baseline: `0.0.5`
 
 ## Product Goal
 
@@ -99,9 +99,9 @@ The desktop UI should never directly own long-running tunnels in the final archi
 
 ### 0.0.5
 
-- Add portable engine folder structure and README placeholders.
-- Add engine version detection.
-- Add repair suggestions when an engine is missing.
+- Done: portable engine folder structure and README placeholders.
+- Done: engine version detection.
+- Done: repair suggestions when an engine is missing.
 
 ### 0.0.6
 
