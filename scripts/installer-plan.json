@@ -1,0 +1,20 @@
+{
+  "product": "Samhain Security",
+  "version": "0.3.7",
+  "windowsRuntime": "win-x64",
+  "appEntry": "app/SamhainSecurity.exe",
+  "serviceEntry": "service/SamhainSecurity.Service.exe",
+  "engineFolders": [
+    "engines/sing-box",
+    "engines/amneziawg",
+    "engines/wireguard"
+  ],
+  "userData": "%APPDATA%/SamhainSecurity",
+  "actions": [
+    "copy portable package",
+    "install local service when elevated",
+    "optionally enable per-user startup",
+    "preserve existing profiles and subscriptions",
+    "remove service on uninstall without deleting user data"
+  ]
+}

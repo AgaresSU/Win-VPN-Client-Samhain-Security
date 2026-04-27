@@ -46,6 +46,8 @@ public partial class MainWindow : Window
     private bool _isLoadingSubscriptions;
     private bool _isLoadingServerChoices;
     private bool _isLoadingAppSettings;
+    private bool _isBackgroundProbeRunning;
+    private bool _isRefreshingSubscriptionsQuietly;
     private string _lastClipboardSubscriptionUrl = string.Empty;
     private string _dailyConnectionState = "Ожидание";
     private string _dailyServiceState = "Служба: проверка";
@@ -114,12 +116,15 @@ public partial class MainWindow : Window
 
             LoadSubscriptionState(subscriptions);
             TryPrimeSubscriptionFromClipboard(replaceCurrent: false);
+            UpdateFirstRunPanel();
 
             AppendLog($"Профили: {_profiles.Count}. Хранилище: {_profileStore.FilePath}");
             AppendLog($"Подписки: {subscriptions.Count}. Хранилище: {_subscriptionStore.FilePath}");
         }, "Загрузка профилей...");
 
         await RefreshDailyServiceStateAsync();
+        _ = RefreshDueSubscriptionsQuietlyAsync();
+        _ = ProbeServerChoicesInBackgroundAsync("проверка при запуске");
         await AutoConnectLastProfileIfRequestedAsync();
     }
 
@@ -167,6 +172,7 @@ public partial class MainWindow : Window
         {
             SubscriptionUrlTextBox.Text = item.Url;
             SubscriptionStatusTextBlock.Text = item.DisplayStatus;
+            UpdateSubscriptionEditor(item);
             SubscriptionSelectorComboBox.SelectedItem = item;
             _ = RememberSubscriptionSelectionAsync(item.Source.Id);
             RenderServerChoices(item);
@@ -190,6 +196,7 @@ public partial class MainWindow : Window
         SubscriptionSourcesListBox.SelectedItem = item;
         SubscriptionUrlTextBox.Text = item.Url;
         SubscriptionStatusTextBlock.Text = item.DisplayStatus;
+        UpdateSubscriptionEditor(item);
         _ = RememberSubscriptionSelectionAsync(item.Source.Id);
         RenderServerChoices(item);
         ApplySelectedServerChoice($"Подписка: {item.DisplayName}");
@@ -346,6 +353,8 @@ public partial class MainWindow : Window
         _appSettings.AutoConnectLastProfile = AutoConnectLastProfileCheckBox.IsChecked == true;
         _appSettings.AutoReconnectOnSystemChange = AutoReconnectCheckBox.IsChecked == true;
         _appSettings.AutoFailoverOnConnectFailure = AutoFailoverCheckBox.IsChecked == true;
+        _appSettings.ConnectBestServerAutomatically = AutoBestServerCheckBox.IsChecked == true;
+        _appSettings.AutoRefreshSubscriptions = AutoRefreshSubscriptionsCheckBox.IsChecked == true;
 
         try
         {
@@ -436,6 +445,11 @@ public partial class MainWindow : Window
     {
         await RunUiActionAsync(async () =>
         {
+            if (_appSettings.ConnectBestServerAutomatically && GetBestServerChoice() is { } bestServer)
+            {
+                ApplyServerChoice(bestServer, $"Лучший сервер: {bestServer.DisplayName}");
+            }
+
             var profile = await SaveCurrentProfileAsync();
             if (profile is null)
             {
@@ -463,7 +477,7 @@ public partial class MainWindow : Window
                 ? connection.UsedFailover
                     ? $"Подключено через резерв: {connectedProfile.Name}"
                     : "Подключено"
-                : "Подключение не удалось";
+                : FriendlyErrorService.ToUserMessage(connectResult);
             UpdateDailyStatusPanel(connectedProfile, connectResult.IsSuccess ? "Подключено" : "Ошибка подключения");
 
             if (connectResult.IsSuccess && IsProtectionRequested(connectedProfile))
@@ -484,6 +498,7 @@ public partial class MainWindow : Window
         string initialTunnelConfig,
         string actionName)
     {
+        SetConnectionStage("Подключается", 18, $"Сервер: {initialProfile.Name}");
         var initialResult = await ConnectSingleProfileAsync(
             initialProfile,
             initialPassword,
@@ -504,6 +519,7 @@ public partial class MainWindow : Window
         foreach (var candidate in candidates)
         {
             attempts++;
+            SetConnectionStage("Резерв", Math.Min(35 + attempts * 12, 82), $"Пробую: {candidate.Name}");
             SelectProfileForConnection(candidate, $"Пробую другой сервер: {candidate.Name}");
 
             var prepareResult = await _vpnService.PrepareProfileAsync(
@@ -526,10 +542,12 @@ public partial class MainWindow : Window
 
             if (lastResult.IsSuccess)
             {
+                SetConnectionStage("Подключено", 100, $"Рабочий сервер: {candidate.Name}", showProgress: false);
                 return new ConnectionFlowResult(candidate, lastResult, true, attempts);
             }
         }
 
+        SetConnectionStage("Ошибка", 0, FriendlyErrorService.ToUserMessage(lastResult), showProgress: false);
         SelectProfileForConnection(initialProfile, "Подключение не удалось");
         return new ConnectionFlowResult(initialProfile, lastResult, false, attempts);
     }
@@ -554,13 +572,25 @@ public partial class MainWindow : Window
         if (connectResult.IsSuccess)
         {
             MarkProfileConnected(profile);
+            SetConnectionStage("Подключено", 100, $"Рабочий сервер: {profile.Name}", showProgress: false);
         }
         else
         {
             MarkProfileConnectFailed(profile);
+            SetConnectionStage("Ошибка", 0, FriendlyErrorService.ToUserMessage(connectResult), showProgress: false);
         }
 
         return connectResult;
+    }
+
+    private void SetConnectionStage(string state, int progress, string detail, bool showProgress = true)
+    {
+        DailyConnectionStateTextBlock.Text = state;
+        StatusTextBlock.Text = detail;
+        ConnectionDetailTextBlock.Text = detail;
+        ConnectionProgressBar.Value = Math.Clamp(progress, 0, 100);
+        ConnectionProgressBar.Visibility = showProgress ? Visibility.Visible : Visibility.Collapsed;
+        ApplyDailyConnectionBrush(state);
     }
 
     private void SelectProfileForConnection(VpnProfile profile, string statusText)
@@ -868,7 +898,7 @@ public partial class MainWindow : Window
 
             var added = 0;
             var updated = 0;
-            foreach (var source in sources.OrderBy(item => item.Name))
+            foreach (var source in sources.Where(item => item.IsEnabled).OrderBy(item => item.Name))
             {
                 var url = _subscriptionStore.UnprotectUrl(source);
                 if (string.IsNullOrWhiteSpace(url))
@@ -881,7 +911,8 @@ public partial class MainWindow : Window
                 updated += refreshResult.Updated;
             }
 
-            var status = $"Источников обновлено: {sources.Count}; профили: +{added}, обновлено {updated}";
+            var refreshedCount = sources.Count(item => item.IsEnabled);
+            var status = $"Источников обновлено: {refreshedCount}; профили: +{added}, обновлено {updated}";
             StatusTextBlock.Text = "Все подписки обновлены";
             SubscriptionStatusTextBlock.Text = status;
             AppendLog(status);
@@ -905,6 +936,34 @@ public partial class MainWindow : Window
                 ? "Подписка из буфера импортирована"
                 : "Подписка из буфера проверена";
         }, "Импорт из буфера...");
+    }
+
+    private async void FirstRunPasteButton_Click(object sender, RoutedEventArgs e)
+    {
+        await RunUiActionAsync(async () =>
+        {
+            if (!TryGetSubscriptionUrlFromClipboard(out var url))
+            {
+                StatusTextBlock.Text = "В буфере нет ссылки подключения";
+                return;
+            }
+
+            SubscriptionUrlTextBox.Text = url;
+            var refreshResult = await RefreshSubscriptionUrlAsync(url, selectImportedProfile: true);
+            _appSettings.FirstRunDismissed = true;
+            await SaveAppSettingsQuietlyAsync();
+            UpdateFirstRunPanel();
+            StatusTextBlock.Text = refreshResult.Added + refreshResult.Updated > 0
+                ? "Подписка импортирована"
+                : "Подписка проверена";
+        }, "Быстрый старт...");
+    }
+
+    private async void DismissFirstRunButton_Click(object sender, RoutedEventArgs e)
+    {
+        _appSettings.FirstRunDismissed = true;
+        await SaveAppSettingsQuietlyAsync();
+        UpdateFirstRunPanel();
     }
 
     private async void DeleteSubscriptionButton_Click(object sender, RoutedEventArgs e)
@@ -934,10 +993,65 @@ public partial class MainWindow : Window
             await _subscriptionStore.SaveAsync(sources);
             RenderSubscriptionSources(sources);
             SubscriptionUrlTextBox.Clear();
+            UpdateSubscriptionEditor(null);
             RenderServerChoices(null);
             StatusTextBlock.Text = "Источник удален";
             SubscriptionStatusTextBlock.Text = "Источник удален. Импортированные профили не удалялись.";
         }, "Удаление источника...");
+    }
+
+    private async void RenameSubscriptionButton_Click(object sender, RoutedEventArgs e)
+    {
+        if (SubscriptionSourcesListBox.SelectedItem is not SubscriptionSourceListItem selected)
+        {
+            StatusTextBlock.Text = "Выберите источник";
+            return;
+        }
+
+        await RunUiActionAsync(async () =>
+        {
+            var sources = (await _subscriptionStore.LoadAsync()).ToList();
+            var source = sources.FirstOrDefault(item => item.Id == selected.Source.Id);
+            if (source is null)
+            {
+                StatusTextBlock.Text = "Источник не найден";
+                return;
+            }
+
+            source.Name = string.IsNullOrWhiteSpace(SubscriptionNameTextBox.Text)
+                ? "Samhain Security"
+                : SubscriptionNameTextBox.Text.Trim();
+            source.UpdatedAt = DateTimeOffset.UtcNow;
+            await _subscriptionStore.SaveAsync(sources);
+            RenderSubscriptionSources(sources, SubscriptionUrlNormalizer.Normalize(selected.Url));
+            StatusTextBlock.Text = "Источник переименован";
+        }, "Переименование...");
+    }
+
+    private async void ToggleSubscriptionButton_Click(object sender, RoutedEventArgs e)
+    {
+        if (SubscriptionSourcesListBox.SelectedItem is not SubscriptionSourceListItem selected)
+        {
+            StatusTextBlock.Text = "Выберите источник";
+            return;
+        }
+
+        await RunUiActionAsync(async () =>
+        {
+            var sources = (await _subscriptionStore.LoadAsync()).ToList();
+            var source = sources.FirstOrDefault(item => item.Id == selected.Source.Id);
+            if (source is null)
+            {
+                StatusTextBlock.Text = "Источник не найден";
+                return;
+            }
+
+            source.IsEnabled = !source.IsEnabled;
+            source.UpdatedAt = DateTimeOffset.UtcNow;
+            await _subscriptionStore.SaveAsync(sources);
+            RenderSubscriptionSources(sources, SubscriptionUrlNormalizer.Normalize(selected.Url));
+            StatusTextBlock.Text = source.IsEnabled ? "Источник включен" : "Источник выключен";
+        }, "Настройка источника...");
     }
 
     private async Task<VpnProfile?> SaveCurrentProfileAsync()
@@ -976,6 +1090,7 @@ public partial class MainWindow : Window
         ProfilesListBox.SelectedItem = profile;
         await _profileStore.SaveAsync(_profiles);
         RenderServerChoices(SubscriptionSelectorComboBox.SelectedItem as SubscriptionSourceListItem, profile.Id);
+        UpdateFirstRunPanel();
 
         if (!string.IsNullOrWhiteSpace(oldName)
             && !string.Equals(oldName, profile.Name, StringComparison.OrdinalIgnoreCase)
@@ -1287,6 +1402,12 @@ public partial class MainWindow : Window
         DailyProtectionTextBlock.Text = BuildDailyProtectionText(snapshot);
         DailyAutoModeTextBlock.Text = BuildDailyAutoModeText();
         DailyServiceTextBlock.Text = _dailyServiceState;
+        if (ConnectionProgressBar.Visibility != Visibility.Visible)
+        {
+            ConnectionDetailTextBlock.Text = hasProfile
+                ? BuildDailyRouteText(snapshot)
+                : "Добавьте подписку или выберите профиль";
+        }
 
         ApplyDailyConnectionBrush(_dailyConnectionState);
     }
@@ -1375,8 +1496,9 @@ public partial class MainWindow : Window
         var reconnect = _appSettings.AutoConnectLastProfile ? "автоподключение" : "без автоподключения";
         var recovery = _appSettings.AutoReconnectOnSystemChange ? "восстановление" : "без восстановления";
         var failover = _appSettings.AutoFailoverOnConnectFailure ? "резерв" : "без резерва";
+        var best = _appSettings.ConnectBestServerAutomatically ? "лучший" : "выбранный";
 
-        return $"{startup}; {reconnect}; {recovery}; {failover}";
+        return $"{startup}; {reconnect}; {recovery}; {failover}; {best}";
     }
 
     private static string BuildDailyConnectionStatus(CommandResult result)
@@ -1458,6 +1580,8 @@ public partial class MainWindow : Window
             AutoConnectLastProfileCheckBox.IsChecked = _appSettings.AutoConnectLastProfile;
             AutoReconnectCheckBox.IsChecked = _appSettings.AutoReconnectOnSystemChange;
             AutoFailoverCheckBox.IsChecked = _appSettings.AutoFailoverOnConnectFailure;
+            AutoBestServerCheckBox.IsChecked = _appSettings.ConnectBestServerAutomatically;
+            AutoRefreshSubscriptionsCheckBox.IsChecked = _appSettings.AutoRefreshSubscriptions;
             AdvancedSettingsExpander.IsExpanded = _appSettings.AdvancedSettingsExpanded;
         }
         finally
@@ -1468,12 +1592,12 @@ public partial class MainWindow : Window
 
     private async Task AutoConnectLastProfileIfRequestedAsync()
     {
-        if (!_appSettings.AutoConnectLastProfile || string.IsNullOrWhiteSpace(_appSettings.LastProfileId))
+        if (!_appSettings.AutoConnectLastProfile)
         {
             return;
         }
 
-        var profile = _profiles.FirstOrDefault(item => item.Id == _appSettings.LastProfileId);
+        var profile = ResolveAutomaticConnectionProfile();
         if (profile is null)
         {
             return;
@@ -1495,7 +1619,7 @@ public partial class MainWindow : Window
                 ? connection.UsedFailover
                     ? $"Подключено через резерв: {connectedProfile.Name}"
                     : "Подключено"
-                : "Автоподключение не удалось";
+                : FriendlyErrorService.ToUserMessage(connectResult);
             if (connectResult.IsSuccess)
             {
                 _appSettings.LastProfileId = connectedProfile.Id;
@@ -1511,6 +1635,18 @@ public partial class MainWindow : Window
 
             UpdateDailyStatusPanel(connectedProfile, connectResult.IsSuccess ? "Подключено" : "Автоподключение не удалось");
         }, "Автоподключение...");
+    }
+
+    private VpnProfile? ResolveAutomaticConnectionProfile()
+    {
+        if (_appSettings.ConnectBestServerAutomatically && GetBestServerChoice() is { } best)
+        {
+            return best.Profile;
+        }
+
+        return string.IsNullOrWhiteSpace(_appSettings.LastProfileId)
+            ? _profiles.FirstOrDefault()
+            : _profiles.FirstOrDefault(item => item.Id == _appSettings.LastProfileId);
     }
 
     private async Task SaveAppSettingsQuietlyAsync()
@@ -1580,6 +1716,8 @@ public partial class MainWindow : Window
         RefreshAllSubscriptionsButton.IsEnabled = !isBusy;
         PasteSubscriptionButton.IsEnabled = !isBusy;
         DeleteSubscriptionButton.IsEnabled = !isBusy;
+        RenameSubscriptionButton.IsEnabled = !isBusy && SubscriptionSourcesListBox.SelectedItem is SubscriptionSourceListItem;
+        ToggleSubscriptionButton.IsEnabled = !isBusy && SubscriptionSourcesListBox.SelectedItem is SubscriptionSourceListItem;
         SubscriptionSelectorComboBox.IsEnabled = !isBusy;
         ServerSelectorComboBox.IsEnabled = !isBusy;
         FavoriteServerButton.IsEnabled = !isBusy;
@@ -1599,6 +1737,10 @@ public partial class MainWindow : Window
     private void AppendCommandResult(string title, CommandResult result)
     {
         AppendLog($"{title}: exit {result.ExitCode}");
+        if (!result.IsSuccess)
+        {
+            AppendLog(FriendlyErrorService.ToUserMessage(result));
+        }
 
         if (!string.IsNullOrWhiteSpace(result.CombinedOutput))
         {
@@ -1667,6 +1809,32 @@ public partial class MainWindow : Window
         RenderSubscriptionSources(subscriptions);
     }
 
+    private void UpdateSubscriptionEditor(SubscriptionSourceListItem? item)
+    {
+        if (item is null)
+        {
+            SubscriptionNameTextBox.Text = string.Empty;
+            ToggleSubscriptionButton.Content = "Выключить";
+            RenameSubscriptionButton.IsEnabled = !_isBusy && false;
+            ToggleSubscriptionButton.IsEnabled = !_isBusy && false;
+            return;
+        }
+
+        SubscriptionNameTextBox.Text = item.DisplayName;
+        ToggleSubscriptionButton.Content = item.Source.IsEnabled ? "Выключить" : "Включить";
+        RenameSubscriptionButton.IsEnabled = !_isBusy;
+        ToggleSubscriptionButton.IsEnabled = !_isBusy;
+    }
+
+    private void UpdateFirstRunPanel()
+    {
+        FirstRunPanel.Visibility = !_appSettings.FirstRunDismissed
+            && _profiles.Count == 0
+            && _subscriptionSources.Count == 0
+                ? Visibility.Visible
+                : Visibility.Collapsed;
+    }
+
     private void RenderSubscriptionSources(
         IReadOnlyList<SubscriptionSource> subscriptions,
         string? preferredNormalizedUrl = null)
@@ -1709,11 +1877,13 @@ public partial class MainWindow : Window
             if (selected is null)
             {
                 SubscriptionStatusTextBlock.Text = "Подписка не добавлена";
+                UpdateSubscriptionEditor(null);
                 RenderServerChoices(null);
                 return;
             }
 
             SubscriptionUrlTextBox.Text = selected.Url;
+            UpdateSubscriptionEditor(selected);
             SubscriptionStatusTextBlock.Text = _subscriptionSources.Count > 1
                 ? $"Источников: {_subscriptionSources.Count}. {selected.DisplayStatus}"
                 : selected.DisplayStatus;
@@ -1723,6 +1893,8 @@ public partial class MainWindow : Window
         {
             _isLoadingSubscriptions = false;
         }
+
+        UpdateFirstRunPanel();
     }
 
     private void RenderServerChoices(SubscriptionSourceListItem? source, string? preferredProfileId = null)
@@ -1899,7 +2071,125 @@ public partial class MainWindow : Window
             RenderServerChoices(SubscriptionSelectorComboBox.SelectedItem as SubscriptionSourceListItem, mergeResult.FirstProfile.Id);
         }
 
+        UpdateFirstRunPanel();
+        _ = ProbeServerChoicesInBackgroundAsync("проверка после обновления");
+
         return new SubscriptionRefreshResult(mergeResult.Added, mergeResult.Updated);
+    }
+
+    private async Task ProbeServerChoicesInBackgroundAsync(string reason)
+    {
+        if (_isBackgroundProbeRunning || _serverChoices.Count == 0)
+        {
+            return;
+        }
+
+        _isBackgroundProbeRunning = true;
+        var selectedProfileId = (ServerSelectorComboBox.SelectedItem as ServerListItem)?.Profile.Id;
+        var source = SubscriptionSelectorComboBox.SelectedItem as SubscriptionSourceListItem;
+        var targets = _serverChoices
+            .Select(item => item.Profile)
+            .Take(24)
+            .ToList();
+
+        try
+        {
+            var completed = 0;
+            var available = 0;
+            using var throttler = new SemaphoreSlim(MaxConcurrentServerProbes);
+
+            var tasks = targets.Select(async profile =>
+            {
+                await throttler.WaitAsync();
+                try
+                {
+                    var tunnelConfig = profile.Protocol is VpnProtocolType.WireGuard or VpnProtocolType.AmneziaWireGuard
+                        ? _protector.Unprotect(profile.EncryptedTunnelConfig)
+                        : string.Empty;
+                    var result = await _serverProbeService.ProbeAsync(profile, tunnelConfig);
+                    profile.LastLatencyMs = result.LatencyMs;
+                    profile.LastProbeStatus = result.Status;
+                    profile.LastProbedAt = DateTimeOffset.UtcNow;
+                    profile.UpdatedAt = DateTimeOffset.UtcNow;
+                    if (result.IsSuccess)
+                    {
+                        Interlocked.Increment(ref available);
+                    }
+                }
+                finally
+                {
+                    Interlocked.Increment(ref completed);
+                    throttler.Release();
+                }
+            });
+
+            await Task.WhenAll(tasks);
+            await _profileStore.SaveAsync(_profiles);
+            await Dispatcher.InvokeAsync(() =>
+            {
+                RenderServerChoices(source, selectedProfileId);
+                SubscriptionStatusTextBlock.Text = $"{reason}: {completed}; доступны: {available}";
+            });
+        }
+        catch (Exception ex)
+        {
+            await Dispatcher.InvokeAsync(() => AppendLog($"Фоновая проверка: {ex.Message}"));
+        }
+        finally
+        {
+            _isBackgroundProbeRunning = false;
+        }
+    }
+
+    private async Task RefreshDueSubscriptionsQuietlyAsync()
+    {
+        if (!_appSettings.AutoRefreshSubscriptions || _isRefreshingSubscriptionsQuietly)
+        {
+            return;
+        }
+
+        _isRefreshingSubscriptionsQuietly = true;
+        try
+        {
+            var sources = (await _subscriptionStore.LoadAsync()).Where(source => source.IsEnabled).ToList();
+            var dueSources = sources
+                .Where(source => source.LastUpdatedAt is null
+                    || DateTimeOffset.UtcNow - source.LastUpdatedAt.Value > TimeSpan.FromHours(12))
+                .ToList();
+
+            if (dueSources.Count == 0)
+            {
+                return;
+            }
+
+            var added = 0;
+            var updated = 0;
+            foreach (var source in dueSources)
+            {
+                var url = _subscriptionStore.UnprotectUrl(source);
+                if (string.IsNullOrWhiteSpace(url))
+                {
+                    continue;
+                }
+
+                var result = await RefreshSubscriptionUrlAsync(url, selectImportedProfile: false);
+                added += result.Added;
+                updated += result.Updated;
+            }
+
+            await Dispatcher.InvokeAsync(() =>
+            {
+                SubscriptionStatusTextBlock.Text = $"Автообновление: источников {dueSources.Count}; +{added}, обновлено {updated}";
+            });
+        }
+        catch (Exception ex)
+        {
+            await Dispatcher.InvokeAsync(() => AppendLog($"Автообновление подписок: {ex.Message}"));
+        }
+        finally
+        {
+            _isRefreshingSubscriptionsQuietly = false;
+        }
     }
 
     private SubscriptionSource GetOrCreateSubscriptionSource(List<SubscriptionSource> sources, string url)
@@ -2274,7 +2564,8 @@ public partial class MainWindow : Window
 
     private void ScheduleReconnect(string reason)
     {
-        if (!_appSettings.AutoReconnectOnSystemChange || string.IsNullOrWhiteSpace(_appSettings.LastProfileId))
+        if (!_appSettings.AutoReconnectOnSystemChange
+            || (string.IsNullOrWhiteSpace(_appSettings.LastProfileId) && !_appSettings.ConnectBestServerAutomatically))
         {
             return;
         }
@@ -2300,7 +2591,7 @@ public partial class MainWindow : Window
             return;
         }
 
-        var profile = _profiles.FirstOrDefault(item => item.Id == _appSettings.LastProfileId);
+        var profile = ResolveAutomaticConnectionProfile();
         if (profile is null)
         {
             return;
@@ -2335,7 +2626,7 @@ public partial class MainWindow : Window
                 ? connection.UsedFailover
                     ? $"Восстановлено через резерв: {reason}"
                     : $"Восстановлено: {reason}"
-                : $"Восстановление не удалось: {reason}";
+                : $"{FriendlyErrorService.ToUserMessage(connectResult)}: {reason}";
             UpdateDailyStatusPanel(connectedProfile, connectResult.IsSuccess ? "Подключено" : "Восстановление не удалось");
         }, $"Восстановление: {reason}...");
     }
@@ -2344,11 +2635,16 @@ public partial class MainWindow : Window
     {
         var menu = new Forms.ContextMenuStrip();
 
+        menu.Items.Add($"Статус: {_dailyConnectionState}", null, (_, _) => Dispatcher.Invoke(ShowFromTray)).Enabled = false;
+        menu.Items.Add(new Forms.ToolStripSeparator());
         menu.Items.Add("Открыть", null, (_, _) => Dispatcher.Invoke(ShowFromTray));
         menu.Items.Add("Подключить выбранный", null, (_, _) => Dispatcher.Invoke(() => ConnectButton_Click(this, new RoutedEventArgs())));
         menu.Items.Add("Подключить лучший", null, (_, _) => Dispatcher.Invoke(ConnectBestServerFromTray));
         menu.Items.Add("Отключить", null, (_, _) => Dispatcher.Invoke(() => DisconnectButton_Click(this, new RoutedEventArgs())));
         menu.Items.Add(BuildTrayServersMenu());
+        menu.Items.Add(BuildTrayFavoritesMenu());
+        menu.Items.Add("Обновить подписки", null, (_, _) => Dispatcher.Invoke(() => RefreshAllSubscriptionsButton_Click(this, new RoutedEventArgs())));
+        menu.Items.Add("Защита", null, (_, _) => Dispatcher.Invoke(ToggleProtectionFromTray));
         menu.Items.Add("Диагностика", null, (_, _) => Dispatcher.Invoke(() => DiagnosticsButton_Click(this, new RoutedEventArgs())));
         menu.Items.Add("Запуск от администратора", null, (_, _) => Dispatcher.Invoke(RelaunchAsAdministrator));
         menu.Items.Add(new Forms.ToolStripSeparator());
@@ -2375,6 +2671,37 @@ public partial class MainWindow : Window
         }
 
         return serversMenu;
+    }
+
+    private Forms.ToolStripMenuItem BuildTrayFavoritesMenu()
+    {
+        var favoritesMenu = new Forms.ToolStripMenuItem("Избранные");
+        var favorites = _serverChoices.Where(server => server.Profile.IsFavorite).Take(10).ToList();
+        if (favorites.Count == 0)
+        {
+            favoritesMenu.DropDownItems.Add(new Forms.ToolStripMenuItem("Нет избранных") { Enabled = false });
+            return favoritesMenu;
+        }
+
+        foreach (var server in favorites)
+        {
+            var menuItem = new Forms.ToolStripMenuItem(server.TrayLabel);
+            menuItem.Click += (_, _) => Dispatcher.Invoke(() => ConnectServerFromTray(server));
+            favoritesMenu.DropDownItems.Add(menuItem);
+        }
+
+        return favoritesMenu;
+    }
+
+    private void ToggleProtectionFromTray()
+    {
+        if (GetCurrentOrSelectedProfile() is { } profile && IsProtectionRequested(profile))
+        {
+            ApplyProtectionButton_Click(this, new RoutedEventArgs());
+            return;
+        }
+
+        RemoveProtectionButton_Click(this, new RoutedEventArgs());
     }
 
     private void ConnectBestServerFromTray()
@@ -2463,7 +2790,9 @@ public partial class MainWindow : Window
             ? "Samhain Security"
             : Source.Name;
 
-        public string SelectorName => $"{DisplayName} · {Source.LastImportedCount} серверов";
+        public string SelectorName => Source.IsEnabled
+            ? $"{DisplayName} · {Source.LastImportedCount} серверов"
+            : $"{DisplayName} · выкл";
 
         public string MaskedUrl => MaskSubscriptionUrl(Url);
 
@@ -2478,7 +2807,8 @@ public partial class MainWindow : Window
                     ? "не обновлялась"
                     : Source.LastUpdatedAt.Value.ToLocalTime().ToString("dd.MM.yyyy HH:mm");
 
-                return $"{imported}; {updated}";
+                var enabled = Source.IsEnabled ? "включена" : "выключена";
+                return $"{enabled}; {imported}; {updated}";
             }
         }
     }
@@ -2494,6 +2824,8 @@ public partial class MainWindow : Window
         public string Details => $"{Profile.Protocol.ToDisplayName()} · {BuildServerEndpoint(Profile)}";
 
         public string MenuLabel => BuildMenuLabel(Profile);
+
+        public string StatusLabel => BuildStatusLabel(Profile);
 
         public string TrayLabel => $"{DisplayName} ({BuildTrayDetails(Profile)})";
 
@@ -2527,6 +2859,26 @@ public partial class MainWindow : Window
             return string.IsNullOrWhiteSpace(probeLabel)
                 ? profile.Protocol.ToDisplayName()
                 : $"{profile.Protocol.ToDisplayName()}, {probeLabel}";
+        }
+
+        private static string BuildStatusLabel(VpnProfile profile)
+        {
+            if (profile.IsFavorite)
+            {
+                return "избранное";
+            }
+
+            if (profile.LastProbeStatus == ServerProbeStatus.Failed)
+            {
+                return "ошибка";
+            }
+
+            if (profile.LastLatencyMs is >= 0)
+            {
+                return $"{profile.LastLatencyMs} мс";
+            }
+
+            return profile.LastConnectedAt is null ? string.Empty : "последний";
         }
 
         private static string BuildProbeLabel(VpnProfile profile)

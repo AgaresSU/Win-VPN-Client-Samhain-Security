@@ -1,6 +1,6 @@
 # Samhain Security Roadmap
 
-Version baseline: `0.2.7`
+Version baseline: `0.3.7`
 
 ## Product Goal
 
@@ -248,6 +248,53 @@ The default UI should stay close to the simplicity of Happ: a small set of obvio
 - Done: automatic reserve-server retry after a failed connection attempt.
 - Done: failed servers are temporarily deprioritized in the server list.
 - Done: manual connect, autoconnect, and recovery flows can land on the working reserve server.
+
+### 0.2.8
+
+- Done: visible connection progress and detail text.
+- Done: connection states for normal connect, reserve connect, success, and failure.
+
+### 0.2.9
+
+- Done: richer server dropdown with inline status.
+- Done: favorites, last-used, latency, and failed status stay visible.
+
+### 0.3.0
+
+- Done: background server checks after launch and subscription refresh.
+- Done: background checks save status without blocking the main UI.
+
+### 0.3.1
+
+- Done: optional automatic best-server mode.
+- Done: manual connect, autoconnect, and recovery can prefer the ranked best server.
+
+### 0.3.2
+
+- Done: rename saved subscription sources.
+- Done: enable or disable saved sources without deleting imported profiles.
+
+### 0.3.3
+
+- Done: quiet scheduled subscription refresh for enabled sources.
+- Done: stale sources refresh on launch while keeping the previous local list if a refresh fails.
+
+### 0.3.4
+
+- Done: tray status, favorites submenu, update subscriptions action, and protection toggle.
+
+### 0.3.5
+
+- Done: common engine, admin, timeout, network, profile, and service failures map to simple user-facing messages.
+
+### 0.3.6
+
+- Done: first-run quick start card for importing a link from the clipboard.
+
+### 0.3.7
+
+- Done: installer preparation manifest.
+- Done: local install and uninstall helper scripts for the packaged service.
 
 ## Design Direction
 

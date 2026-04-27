@@ -216,77 +216,131 @@
                     Padding="22">
                 <ScrollViewer VerticalScrollBarVisibility="Auto">
                     <StackPanel>
+                        <Border x:Name="FirstRunPanel"
+                                Background="#EEF7F3"
+                                BorderBrush="#B9DED1"
+                                BorderThickness="1"
+                                Padding="16"
+                                Margin="0,0,0,20"
+                                Visibility="Collapsed">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="12" />
+                                    <ColumnDefinition Width="112" />
+                                    <ColumnDefinition Width="8" />
+                                    <ColumnDefinition Width="86" />
+                                </Grid.ColumnDefinitions>
+
+                                <StackPanel Grid.Column="0">
+                                    <TextBlock Text="Быстрый старт"
+                                               FontSize="16"
+                                               FontWeight="SemiBold" />
+                                    <TextBlock Text="Вставьте ссылку подключения, обновите подписку и нажмите Подключить."
+                                               Foreground="{StaticResource MutedTextBrush}"
+                                               Margin="0,4,0,0"
+                                               TextWrapping="Wrap" />
+                                </StackPanel>
+
+                                <Button Grid.Column="2"
+                                        Content="Из буфера"
+                                        VerticalAlignment="Center"
+                                        Click="FirstRunPasteButton_Click" />
+
+                                <Button Grid.Column="4"
+                                        Content="Скрыть"
+                                        VerticalAlignment="Center"
+                                        Click="DismissFirstRunButton_Click" />
+                            </Grid>
+                        </Border>
+
                         <Border x:Name="DailyStatusPanel"
                                 Background="#EEF7F3"
                                 BorderBrush="#B9DED1"
                                 BorderThickness="1"
                                 Padding="16"
                                 Margin="0,0,0,20">
-                            <Grid>
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="2*" />
-                                    <ColumnDefinition Width="16" />
-                                    <ColumnDefinition Width="*" />
-                                    <ColumnDefinition Width="16" />
-                                    <ColumnDefinition Width="*" />
-                                </Grid.ColumnDefinitions>
+                            <StackPanel>
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="2*" />
+                                        <ColumnDefinition Width="16" />
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="16" />
+                                        <ColumnDefinition Width="*" />
+                                    </Grid.ColumnDefinitions>
 
-                                <StackPanel Grid.Column="0">
-                                    <Border x:Name="DailyConnectionBadge"
-                                            Background="{StaticResource WarningBrush}"
-                                            Padding="10,6"
-                                            HorizontalAlignment="Left"
-                                            MinWidth="110"
-                                            Margin="0,0,0,10">
-                                        <TextBlock x:Name="DailyConnectionStateTextBlock"
-                                                   Text="Ожидание"
-                                                   Foreground="{StaticResource WarningTextBrush}"
+                                    <StackPanel Grid.Column="0">
+                                        <Border x:Name="DailyConnectionBadge"
+                                                Background="{StaticResource WarningBrush}"
+                                                Padding="10,6"
+                                                HorizontalAlignment="Left"
+                                                MinWidth="110"
+                                                Margin="0,0,0,10">
+                                            <TextBlock x:Name="DailyConnectionStateTextBlock"
+                                                       Text="Ожидание"
+                                                       Foreground="{StaticResource WarningTextBrush}"
+                                                       FontWeight="SemiBold"
+                                                       FontSize="13"
+                                                       TextAlignment="Center" />
+                                        </Border>
+                                        <TextBlock Text="Сегодня" Style="{StaticResource DailyLabelTextStyle}" />
+                                        <TextBlock x:Name="DailyProfileTextBlock"
+                                                   Text="Профиль не выбран"
+                                                   FontSize="20"
                                                    FontWeight="SemiBold"
+                                                   TextTrimming="CharacterEllipsis" />
+                                        <TextBlock x:Name="DailyRouteTextBlock"
+                                                   Text="Маршрут не выбран"
+                                                   Foreground="{StaticResource MutedTextBrush}"
                                                    FontSize="13"
-                                                   TextAlignment="Center" />
-                                    </Border>
-                                    <TextBlock Text="Сегодня" Style="{StaticResource DailyLabelTextStyle}" />
-                                    <TextBlock x:Name="DailyProfileTextBlock"
-                                               Text="Профиль не выбран"
-                                               FontSize="20"
-                                               FontWeight="SemiBold"
-                                               TextTrimming="CharacterEllipsis" />
-                                    <TextBlock x:Name="DailyRouteTextBlock"
-                                               Text="Маршрут не выбран"
-                                               Foreground="{StaticResource MutedTextBrush}"
-                                               FontSize="13"
-                                               Margin="0,5,0,0"
-                                               TextTrimming="CharacterEllipsis" />
-                                </StackPanel>
+                                                   Margin="0,5,0,0"
+                                                   TextTrimming="CharacterEllipsis" />
+                                    </StackPanel>
 
-                                <StackPanel Grid.Column="2" VerticalAlignment="Center">
-                                    <TextBlock Text="Протокол" Style="{StaticResource DailyLabelTextStyle}" />
-                                    <TextBlock x:Name="DailyProtocolTextBlock"
-                                               Text="Windows Native"
-                                               FontWeight="SemiBold"
-                                               TextTrimming="CharacterEllipsis" />
-                                    <TextBlock x:Name="DailyServiceTextBlock"
-                                               Text="Служба: проверка"
-                                               Foreground="{StaticResource MutedTextBrush}"
-                                               FontSize="13"
-                                               Margin="0,10,0,0"
-                                               TextTrimming="CharacterEllipsis" />
-                                </StackPanel>
+                                    <StackPanel Grid.Column="2" VerticalAlignment="Center">
+                                        <TextBlock Text="Протокол" Style="{StaticResource DailyLabelTextStyle}" />
+                                        <TextBlock x:Name="DailyProtocolTextBlock"
+                                                   Text="Windows Native"
+                                                   FontWeight="SemiBold"
+                                                   TextTrimming="CharacterEllipsis" />
+                                        <TextBlock x:Name="DailyServiceTextBlock"
+                                                   Text="Служба: проверка"
+                                                   Foreground="{StaticResource MutedTextBrush}"
+                                                   FontSize="13"
+                                                   Margin="0,10,0,0"
+                                                   TextTrimming="CharacterEllipsis" />
+                                    </StackPanel>
 
-                                <StackPanel Grid.Column="4" VerticalAlignment="Center">
-                                    <TextBlock Text="Защита" Style="{StaticResource DailyLabelTextStyle}" />
-                                    <TextBlock x:Name="DailyProtectionTextBlock"
-                                               Text="Выключена"
-                                               FontWeight="SemiBold"
-                                               TextTrimming="CharacterEllipsis" />
-                                    <TextBlock x:Name="DailyAutoModeTextBlock"
-                                               Text="Автозапуск: выкл"
-                                               Foreground="{StaticResource MutedTextBrush}"
-                                               FontSize="13"
-                                               Margin="0,10,0,0"
-                                               TextTrimming="CharacterEllipsis" />
-                                </StackPanel>
-                            </Grid>
+                                    <StackPanel Grid.Column="4" VerticalAlignment="Center">
+                                        <TextBlock Text="Защита" Style="{StaticResource DailyLabelTextStyle}" />
+                                        <TextBlock x:Name="DailyProtectionTextBlock"
+                                                   Text="Выключена"
+                                                   FontWeight="SemiBold"
+                                                   TextTrimming="CharacterEllipsis" />
+                                        <TextBlock x:Name="DailyAutoModeTextBlock"
+                                                   Text="Автозапуск: выкл"
+                                                   Foreground="{StaticResource MutedTextBrush}"
+                                                   FontSize="13"
+                                                   Margin="0,10,0,0"
+                                                   TextTrimming="CharacterEllipsis" />
+                                    </StackPanel>
+                                </Grid>
+
+                                <ProgressBar x:Name="ConnectionProgressBar"
+                                             Height="6"
+                                             Minimum="0"
+                                             Maximum="100"
+                                             Value="0"
+                                             Margin="0,14,0,0"
+                                             Visibility="Collapsed" />
+                                <TextBlock x:Name="ConnectionDetailTextBlock"
+                                           Text="Готово"
+                                           Foreground="{StaticResource MutedTextBrush}"
+                                           FontSize="12"
+                                           Margin="0,8,0,0"
+                                           TextWrapping="Wrap" />
+                            </StackPanel>
                         </Border>
 
                         <Border Background="#F7FAFC"
@@ -296,6 +350,7 @@
                                 Margin="0,0,0,20">
                             <Grid>
                                 <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto" />
                                     <RowDefinition Height="Auto" />
                                     <RowDefinition Height="Auto" />
                                     <RowDefinition Height="Auto" />
@@ -380,9 +435,20 @@
                                             <ComboBox.ItemTemplate>
                                                 <DataTemplate>
                                                     <StackPanel>
-                                                        <TextBlock Text="{Binding DisplayName}"
-                                                                   FontWeight="SemiBold"
-                                                                   TextTrimming="CharacterEllipsis" />
+                                                        <Grid>
+                                                            <Grid.ColumnDefinitions>
+                                                                <ColumnDefinition Width="*" />
+                                                                <ColumnDefinition Width="Auto" />
+                                                            </Grid.ColumnDefinitions>
+                                                            <TextBlock Text="{Binding DisplayName}"
+                                                                       FontWeight="SemiBold"
+                                                                       TextTrimming="CharacterEllipsis" />
+                                                            <TextBlock Grid.Column="1"
+                                                                       Text="{Binding StatusLabel}"
+                                                                       Foreground="{StaticResource MutedTextBrush}"
+                                                                       FontSize="12"
+                                                                       Margin="10,0,0,0" />
+                                                        </Grid>
                                                         <TextBlock Text="{Binding Details}"
                                                                    Foreground="{StaticResource MutedTextBrush}"
                                                                    FontSize="12"
@@ -419,8 +485,35 @@
                                             Click="ProbeServersButton_Click" />
                                 </Grid>
 
+                                <Grid Grid.Row="3" Margin="0,12,0,0">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="8" />
+                                        <ColumnDefinition Width="116" />
+                                        <ColumnDefinition Width="8" />
+                                        <ColumnDefinition Width="110" />
+                                    </Grid.ColumnDefinitions>
+
+                                    <StackPanel Grid.Column="0">
+                                        <TextBlock Text="Название источника" Style="{StaticResource LabelTextStyle}" />
+                                        <TextBox x:Name="SubscriptionNameTextBox" />
+                                    </StackPanel>
+
+                                    <Button x:Name="RenameSubscriptionButton"
+                                            Grid.Column="2"
+                                            Content="Переим."
+                                            VerticalAlignment="Bottom"
+                                            Click="RenameSubscriptionButton_Click" />
+
+                                    <Button x:Name="ToggleSubscriptionButton"
+                                            Grid.Column="4"
+                                            Content="Выключить"
+                                            VerticalAlignment="Bottom"
+                                            Click="ToggleSubscriptionButton_Click" />
+                                </Grid>
+
                                 <ListBox x:Name="SubscriptionSourcesListBox"
-                                         Grid.Row="3"
+                                         Grid.Row="4"
                                          Height="112"
                                          Margin="0,12,0,0"
                                          BorderBrush="{StaticResource LineBrush}"
@@ -456,7 +549,7 @@
                                 </ListBox>
 
                                 <TextBlock x:Name="SubscriptionStatusTextBlock"
-                                           Grid.Row="4"
+                                           Grid.Row="5"
                                            Text="Подписка не добавлена"
                                            Foreground="{StaticResource MutedTextBrush}"
                                            FontSize="12"
@@ -472,6 +565,7 @@
                                 Margin="0,0,0,20">
                             <Grid>
                                 <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto" />
                                     <RowDefinition Height="Auto" />
                                     <RowDefinition Height="Auto" />
                                 </Grid.RowDefinitions>
@@ -506,6 +600,23 @@
                                           Grid.Column="1"
                                           Margin="0,10,0,0"
                                           Content="Пробовать другой сервер"
+                                          Foreground="{StaticResource TextBrush}"
+                                          Checked="AppSettingCheckBox_Changed"
+                                          Unchecked="AppSettingCheckBox_Changed" />
+
+                                <CheckBox x:Name="AutoBestServerCheckBox"
+                                          Grid.Row="2"
+                                          Margin="0,10,0,0"
+                                          Content="Подключаться к лучшему"
+                                          Foreground="{StaticResource TextBrush}"
+                                          Checked="AppSettingCheckBox_Changed"
+                                          Unchecked="AppSettingCheckBox_Changed" />
+
+                                <CheckBox x:Name="AutoRefreshSubscriptionsCheckBox"
+                                          Grid.Row="2"
+                                          Grid.Column="1"
+                                          Margin="0,10,0,0"
+                                          Content="Обновлять подписки"
                                           Foreground="{StaticResource TextBrush}"
                                           Checked="AppSettingCheckBox_Changed"
                                           Unchecked="AppSettingCheckBox_Changed" />

@@ -8,6 +8,8 @@ public sealed class SubscriptionSource
 
     public string EncryptedUrl { get; set; } = string.Empty;
 
+    public bool IsEnabled { get; set; } = true;
+
     public DateTimeOffset? LastUpdatedAt { get; set; }
 
     public int LastImportedCount { get; set; }

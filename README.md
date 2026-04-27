@@ -1,6 +1,6 @@
 # Samhain Security
 
-Version: `0.2.7`
+Version: `0.3.7`
 
 Desktop secure tunneling client for Windows built with WPF and .NET 9.
 
@@ -28,6 +28,7 @@ Desktop secure tunneling client for Windows built with WPF and .NET 9.
 - Adds server favorites, last-used tracking, and a quick best-server selector.
 - Adds quick server checks with saved status and delay for smarter best-server selection.
 - Adds automatic reserve-server retry when the first connection attempt fails.
+- Adds clearer connection progress, richer server status, background checks, automatic best-server mode, source management, quiet subscription refresh, richer tray actions, friendly errors, a first-run card, and installer preparation scripts.
 - Adds pre-connect validation for VLESS Reality and WireGuard-style configs with clear local errors.
 - Adds optional reconnect after resume or network changes for the last successful profile.
 - Adds tray-first server selection with connect selected, connect best, and current server submenu.
@@ -172,6 +173,8 @@ Version `0.2.5` adds a portable packaging script. It publishes the desktop app a
 Version `0.2.6` adds quick server checks. The server dropdown can check the current subscription list, remember the latest status and delay, and use that signal when selecting `Лучший`.
 
 Version `0.2.7` adds automatic reserve-server retry. When a connection attempt fails, the app can mark that server as temporarily failed and try the next best servers from the current subscription list.
+
+Versions `0.2.8` through `0.3.7` complete the next daily-use pass: visible connection progress, richer server status, background checks, automatic best-server mode, source rename/enable controls, quiet subscription refresh, tray favorites and update actions, friendlier errors, first-run guidance, and installer preparation scripts.
 
 ## Versioning
 
