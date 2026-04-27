@@ -1,6 +1,6 @@
 # Samhain Security
 
-Version: `0.1.3`
+Version: `0.1.4`
 
 Desktop secure tunneling client for Windows built with WPF and .NET 9.
 
@@ -21,9 +21,11 @@ Desktop secure tunneling client for Windows built with WPF and .NET 9.
 - Adds a protection policy panel for kill switch, DNS leak protection, firewall preview, and service-side enforcement.
 - Applies protection with a dedicated Windows Firewall rule group and restores previous firewall defaults on removal.
 - Adds service watchdog, post-apply health checks, automatic rollback, emergency reset, and JSONL protection audit logging.
+- Imports Samhain Security subscription links from the connection page or direct API URL, including raw/base64 VLESS lists and sing-box JSON profiles.
 - Stores service-owned protection state in `%ProgramData%\SamhainSecurity\Service\`.
 - Connects and disconnects through `rasdial.exe`.
 - Stores profile data in `%APPDATA%\SamhainSecurity\profiles.json`.
+- Stores subscription sources in `%APPDATA%\SamhainSecurity\subscriptions.json` with URLs encrypted by Windows DPAPI for the current user.
 - Stores connection state in `%APPDATA%\SamhainSecurity\connection-state.json`.
 - Stores structured logs in `%APPDATA%\SamhainSecurity\logs\`.
 - Encrypts saved passwords, L2TP PSK values, and pasted WG/AWG configs with Windows DPAPI for the current user.
@@ -111,6 +113,12 @@ When Kill switch is enabled, the service creates rules in the `Samhain Security 
 DNS leak protection is enforced together with Kill switch in this build, so approved DNS resolvers are allow-listed before outbound blocking is enabled.
 
 The service runs a protection watchdog every 30 seconds. If the rule group or outbound firewall defaults drift into an unsafe partial state, the service removes protection rules and restores the saved firewall defaults. Protection actions are written to `%ProgramData%\SamhainSecurity\Service\protection-audit.jsonl`.
+
+## Subscriptions
+
+Version `0.1.4` adds local subscription import. Paste the Samhain Security connection page URL or a direct `/api/sub/...` URL into the `Подписка` block and press `Обновить`.
+
+The app normalizes connection page links to the main API subscription, imports VLESS TCP Reality profiles, merges repeated updates into existing profiles, and keeps local engine/protection preferences when an imported profile already exists. Subscription URLs are saved encrypted with DPAPI and raw node data is not written to the UI log.
 
 ## Versioning
 

@@ -15,6 +15,8 @@ public partial class MainWindow : Window
     private readonly ObservableCollection<VpnProfile> _profiles = [];
     private readonly ProfileStore _profileStore = new();
     private readonly SecureDataProtector _protector = new();
+    private readonly SubscriptionStore _subscriptionStore;
+    private readonly SubscriptionImportService _subscriptionImportService = new();
     private readonly MultiProtocolVpnService _vpnService = new();
     private readonly EnvironmentDiagnosticsService _diagnosticsService = new();
     private readonly EngineAvailabilityService _engineAvailabilityService = new();
@@ -30,6 +32,7 @@ public partial class MainWindow : Window
 
     public MainWindow()
     {
+        _subscriptionStore = new SubscriptionStore(_protector);
         _diagnosticsBundleService = new DiagnosticsBundleService(_profileStore, _connectionStateStore, _structuredLogService);
 
         InitializeComponent();
@@ -57,6 +60,7 @@ public partial class MainWindow : Window
         await RunUiActionAsync(async () =>
         {
             var profiles = await _profileStore.LoadAsync();
+            var subscriptions = await _subscriptionStore.LoadAsync();
             _profiles.Clear();
 
             foreach (var profile in profiles.OrderByDescending(profile => profile.UpdatedAt))
@@ -73,7 +77,10 @@ public partial class MainWindow : Window
                 ClearEditor();
             }
 
+            LoadSubscriptionState(subscriptions);
+
             AppendLog($"Профили: {_profiles.Count}. Хранилище: {_profileStore.FilePath}");
+            AppendLog($"Подписки: {subscriptions.Count}. Хранилище: {_subscriptionStore.FilePath}");
         }, "Загрузка профилей...");
     }
 
@@ -426,6 +433,42 @@ public partial class MainWindow : Window
 
         LoadProfileIntoEditor(profile);
         StatusTextBlock.Text = "VLESS импортирован";
+    }
+
+    private async void RefreshSubscriptionButton_Click(object sender, RoutedEventArgs e)
+    {
+        await RunUiActionAsync(async () =>
+        {
+            var url = SubscriptionUrlTextBox.Text.Trim();
+            if (string.IsNullOrWhiteSpace(url))
+            {
+                StatusTextBlock.Text = "Введите ссылку подключения";
+                SubscriptionStatusTextBlock.Text = StatusTextBlock.Text;
+                return;
+            }
+
+            var result = await _subscriptionImportService.ImportFromUrlAsync(url);
+            var mergeResult = MergeSubscriptionProfiles(result.Profiles);
+
+            if (mergeResult.Added > 0 || mergeResult.Updated > 0)
+            {
+                await _profileStore.SaveAsync(_profiles);
+            }
+
+            var status = BuildSubscriptionStatus(result, mergeResult);
+            await SaveSubscriptionStateAsync(url, result, status);
+
+            SubscriptionStatusTextBlock.Text = status;
+            StatusTextBlock.Text = mergeResult.Added + mergeResult.Updated > 0
+                ? "Подписка обновлена"
+                : "Нет новых профилей";
+            AppendLog(status);
+
+            if (mergeResult.FirstProfile is not null)
+            {
+                ProfilesListBox.SelectedItem = mergeResult.FirstProfile;
+            }
+        }, "Обновление подписки...");
     }
 
     private async Task<VpnProfile?> SaveCurrentProfileAsync()
@@ -826,6 +869,7 @@ public partial class MainWindow : Window
         RemoveProtectionButton.IsEnabled = !isBusy;
         ResetProtectionButton.IsEnabled = !isBusy;
         ProtectionStatusButton.IsEnabled = !isBusy;
+        RefreshSubscriptionButton.IsEnabled = !isBusy;
         DiagnosticsButton.IsEnabled = !isBusy;
         ExportDiagnosticsButton.IsEnabled = !isBusy;
         RunAsAdminButton.IsEnabled = !isBusy;
@@ -901,6 +945,129 @@ public partial class MainWindow : Window
             1,
             string.Empty,
             "Samhain Security Service is not running. Start it with the service button first.");
+    }
+
+    private void LoadSubscriptionState(IReadOnlyList<SubscriptionSource> subscriptions)
+    {
+        var source = subscriptions
+            .OrderByDescending(item => item.UpdatedAt)
+            .FirstOrDefault();
+
+        if (source is null)
+        {
+            SubscriptionStatusTextBlock.Text = "Подписка не добавлена";
+            return;
+        }
+
+        SubscriptionUrlTextBox.Text = _subscriptionStore.UnprotectUrl(source);
+        SubscriptionStatusTextBlock.Text = string.IsNullOrWhiteSpace(source.LastStatus)
+            ? "Подписка добавлена"
+            : source.LastStatus;
+    }
+
+    private async Task SaveSubscriptionStateAsync(
+        string url,
+        SubscriptionImportResult result,
+        string status,
+        CancellationToken cancellationToken = default)
+    {
+        var sources = (await _subscriptionStore.LoadAsync(cancellationToken)).ToList();
+        var source = sources.FirstOrDefault();
+        if (source is null)
+        {
+            source = new SubscriptionSource();
+            sources.Add(source);
+        }
+
+        source.Name = "Samhain Security";
+        source.EncryptedUrl = _subscriptionStore.ProtectUrl(url);
+        source.LastUpdatedAt = DateTimeOffset.UtcNow;
+        source.LastImportedCount = result.Profiles.Count;
+        source.LastStatus = status;
+        source.UpdatedAt = DateTimeOffset.UtcNow;
+
+        await _subscriptionStore.SaveAsync(sources, cancellationToken);
+    }
+
+    private SubscriptionMergeResult MergeSubscriptionProfiles(IReadOnlyList<VpnProfile> importedProfiles)
+    {
+        var added = 0;
+        var updated = 0;
+        VpnProfile? firstProfile = null;
+
+        foreach (var imported in importedProfiles)
+        {
+            imported.UpdatedAt = DateTimeOffset.UtcNow;
+            var existing = _profiles.FirstOrDefault(profile => IsSameImportedProfile(profile, imported));
+            if (existing is null)
+            {
+                _profiles.Insert(0, imported);
+                firstProfile ??= imported;
+                added++;
+                continue;
+            }
+
+            PreserveLocalProfileSettings(imported, existing);
+            var index = _profiles.IndexOf(existing);
+            _profiles[index] = imported;
+            firstProfile ??= imported;
+            updated++;
+        }
+
+        return new SubscriptionMergeResult(added, updated, firstProfile);
+    }
+
+    private static bool IsSameImportedProfile(VpnProfile existing, VpnProfile imported)
+    {
+        if (existing.Protocol == VpnProtocolType.VlessReality
+            && imported.Protocol == VpnProtocolType.VlessReality
+            && string.Equals(existing.ServerAddress, imported.ServerAddress, StringComparison.OrdinalIgnoreCase)
+            && existing.ServerPort == imported.ServerPort
+            && string.Equals(existing.VlessUuid, imported.VlessUuid, StringComparison.OrdinalIgnoreCase)
+            && string.Equals(existing.RealityPublicKey, imported.RealityPublicKey, StringComparison.OrdinalIgnoreCase))
+        {
+            return true;
+        }
+
+        return !string.IsNullOrWhiteSpace(imported.Name)
+            && string.Equals(existing.Name, imported.Name, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static void PreserveLocalProfileSettings(VpnProfile target, VpnProfile existing)
+    {
+        target.Id = existing.Id;
+        target.EnginePath = existing.EnginePath;
+        target.EncryptedPassword = existing.EncryptedPassword;
+        target.EncryptedL2tpPsk = existing.EncryptedL2tpPsk;
+        target.EncryptedTunnelConfig = existing.EncryptedTunnelConfig;
+        target.SplitTunneling = existing.SplitTunneling;
+        target.KillSwitchEnabled = existing.KillSwitchEnabled;
+        target.DnsLeakProtectionEnabled = existing.DnsLeakProtectionEnabled;
+        target.AllowLanTraffic = existing.AllowLanTraffic;
+        target.DnsServers = existing.DnsServers;
+    }
+
+    private static string BuildSubscriptionStatus(
+        SubscriptionImportResult result,
+        SubscriptionMergeResult mergeResult)
+    {
+        var parts = new List<string>
+        {
+            $"Профили: +{mergeResult.Added}, обновлено {mergeResult.Updated}",
+            $"формат: {result.SourceFormat}"
+        };
+
+        if (result.UnsupportedLinksSeen > 0)
+        {
+            parts.Add($"неподдерживаемых ссылок: {result.UnsupportedLinksSeen}");
+        }
+
+        if (result.Profiles.Count == 0)
+        {
+            parts.Add(result.Message);
+        }
+
+        return string.Join("; ", parts);
     }
 
     private static int ParsePortOrDefault(string value)
@@ -989,4 +1156,6 @@ public partial class MainWindow : Window
 
         ExitApplication();
     }
+
+    private sealed record SubscriptionMergeResult(int Added, int Updated, VpnProfile? FirstProfile);
 }

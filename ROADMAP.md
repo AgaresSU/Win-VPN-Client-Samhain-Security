@@ -1,6 +1,6 @@
 # Samhain Security Roadmap
 
-Version baseline: `0.1.3`
+Version baseline: `0.1.4`
 
 ## Product Goal
 
@@ -144,6 +144,14 @@ The desktop UI should never directly own long-running tunnels in the final archi
 - Done: background service watchdog for protection drift.
 - Done: emergency reset button in the desktop protection panel.
 - Done: protection audit log in JSONL format.
+
+### 0.1.4
+
+- Done: local subscription block in the desktop app.
+- Done: connection page URL normalization to the main subscription API.
+- Done: raw/base64 VLESS TCP Reality subscription import.
+- Done: sing-box JSON outbound import for VLESS Reality profiles.
+- Done: DPAPI-encrypted subscription source storage under `%APPDATA%\SamhainSecurity\subscriptions.json`.
 
 ## Design Direction
 
