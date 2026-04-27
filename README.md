@@ -1,6 +1,6 @@
 # Samhain Security
 
-Version: `0.2.5`
+Version: `0.2.6`
 
 Desktop secure tunneling client for Windows built with WPF and .NET 9.
 
@@ -26,6 +26,7 @@ Desktop secure tunneling client for Windows built with WPF and .NET 9.
 - Adds a subscription source manager with masked tokens, update selected, update all, delete, clipboard import, and global paste recognition.
 - Adds saved subscription switching and a server dropdown that loads the selected server profile.
 - Adds server favorites, last-used tracking, and a quick best-server selector.
+- Adds quick server checks with saved status and delay for smarter best-server selection.
 - Adds pre-connect validation for VLESS Reality and WireGuard-style configs with clear local errors.
 - Adds optional reconnect after resume or network changes for the last successful profile.
 - Adds tray-first server selection with connect selected, connect best, and current server submenu.
@@ -166,6 +167,8 @@ Version `0.2.3` adds a simple recovery loop. When Windows resumes from sleep or 
 Version `0.2.4` expands tray-first daily use. The tray menu can connect the selected server, connect the best currently ranked server, or pick one of the current subscription servers from the `Серверы` submenu.
 
 Version `0.2.5` adds a portable packaging script. It publishes the desktop app and service into `dist\SamhainSecurity-0.2.5-win-x64\`, copies engine placeholders, writes a portable README, creates a release manifest, and produces a zip archive.
+
+Version `0.2.6` adds quick server checks. The server dropdown can check the current subscription list, remember the latest status and delay, and use that signal when selecting `Лучший`.
 
 ## Versioning
 

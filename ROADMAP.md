@@ -1,6 +1,6 @@
 # Samhain Security Roadmap
 
-Version baseline: `0.2.5`
+Version baseline: `0.2.6`
 
 ## Product Goal
 
@@ -236,6 +236,12 @@ The default UI should stay close to the simplicity of Happ: a small set of obvio
 - Done: clean `dist/` output ignored by git.
 - Done: package README and release manifest generation.
 - Done: zip archive generation for handoff builds.
+
+### 0.2.6
+
+- Done: quick server checks from the current dropdown list.
+- Done: saved server status and delay for ranking.
+- Done: `Лучший` now prefers recently checked available servers.
 
 ## Design Direction
 

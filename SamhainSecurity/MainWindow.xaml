@@ -355,13 +355,15 @@
 
                                 <Grid Grid.Row="2" Margin="0,12,0,0">
                                     <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="260" />
+                                        <ColumnDefinition Width="240" />
                                         <ColumnDefinition Width="12" />
                                         <ColumnDefinition Width="*" />
                                         <ColumnDefinition Width="12" />
-                                        <ColumnDefinition Width="112" />
+                                        <ColumnDefinition Width="104" />
                                         <ColumnDefinition Width="8" />
-                                        <ColumnDefinition Width="96" />
+                                        <ColumnDefinition Width="88" />
+                                        <ColumnDefinition Width="8" />
+                                        <ColumnDefinition Width="104" />
                                     </Grid.ColumnDefinitions>
 
                                     <StackPanel Grid.Column="0">
@@ -409,6 +411,12 @@
                                             Style="{StaticResource PrimaryButtonStyle}"
                                             VerticalAlignment="Bottom"
                                             Click="BestServerButton_Click" />
+
+                                    <Button x:Name="ProbeServersButton"
+                                            Grid.Column="8"
+                                            Content="Проверить"
+                                            VerticalAlignment="Bottom"
+                                            Click="ProbeServersButton_Click" />
                                 </Grid>
 
                                 <ListBox x:Name="SubscriptionSourcesListBox"

@@ -4,6 +4,7 @@ using System.Drawing;
 using System.Net.NetworkInformation;
 using System.Reflection;
 using System.Text.RegularExpressions;
+using System.Threading;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
@@ -16,6 +17,9 @@ namespace SamhainSecurity;
 
 public partial class MainWindow : Window
 {
+    private const int MaxServerProbesPerRun = 60;
+    private const int MaxConcurrentServerProbes = 6;
+
     private readonly ObservableCollection<VpnProfile> _profiles = [];
     private readonly ObservableCollection<SubscriptionSourceListItem> _subscriptionSources = [];
     private readonly ObservableCollection<ServerListItem> _serverChoices = [];
@@ -26,6 +30,7 @@ public partial class MainWindow : Window
     private readonly SubscriptionStore _subscriptionStore;
     private readonly SubscriptionImportService _subscriptionImportService;
     private readonly MultiProtocolVpnService _vpnService = new();
+    private readonly ServerProbeService _serverProbeService = new();
     private readonly EnvironmentDiagnosticsService _diagnosticsService = new();
     private readonly EngineAvailabilityService _engineAvailabilityService = new();
     private readonly ServiceControlService _serviceControlService = new();
@@ -235,11 +240,7 @@ public partial class MainWindow : Window
 
     private void BestServerButton_Click(object sender, RoutedEventArgs e)
     {
-        var best = _serverChoices
-            .OrderByDescending(item => item.Profile.IsFavorite)
-            .ThenByDescending(item => item.Profile.LastConnectedAt ?? DateTimeOffset.MinValue)
-            .ThenBy(item => item.DisplayName, StringComparer.CurrentCultureIgnoreCase)
-            .FirstOrDefault();
+        var best = GetBestServerChoice();
 
         if (best is null)
         {
@@ -249,6 +250,68 @@ public partial class MainWindow : Window
 
         ServerSelectorComboBox.SelectedItem = best;
         ApplyServerChoice(best, $"Лучший сервер: {best.DisplayName}");
+    }
+
+    private async void ProbeServersButton_Click(object sender, RoutedEventArgs e)
+    {
+        await RunUiActionAsync(async () =>
+        {
+            var selectedProfileId = (ServerSelectorComboBox.SelectedItem as ServerListItem)?.Profile.Id;
+            var source = SubscriptionSelectorComboBox.SelectedItem as SubscriptionSourceListItem;
+            var targets = _serverChoices
+                .Select(item => item.Profile)
+                .Take(MaxServerProbesPerRun)
+                .ToList();
+
+            if (targets.Count == 0)
+            {
+                StatusTextBlock.Text = "Нет серверов для проверки";
+                return;
+            }
+
+            var completed = 0;
+            var available = 0;
+            using var throttler = new SemaphoreSlim(MaxConcurrentServerProbes);
+
+            var tasks = targets.Select(async profile =>
+            {
+                await throttler.WaitAsync();
+                try
+                {
+                    var tunnelConfig = profile.Protocol is VpnProtocolType.WireGuard or VpnProtocolType.AmneziaWireGuard
+                        ? _protector.Unprotect(profile.EncryptedTunnelConfig)
+                        : string.Empty;
+                    var result = await _serverProbeService.ProbeAsync(profile, tunnelConfig);
+
+                    profile.LastLatencyMs = result.LatencyMs;
+                    profile.LastProbeStatus = result.Status;
+                    profile.LastProbedAt = DateTimeOffset.UtcNow;
+                    profile.UpdatedAt = DateTimeOffset.UtcNow;
+
+                    if (result.IsSuccess)
+                    {
+                        Interlocked.Increment(ref available);
+                    }
+                }
+                finally
+                {
+                    var count = Interlocked.Increment(ref completed);
+                    await Dispatcher.InvokeAsync(() =>
+                    {
+                        StatusTextBlock.Text = $"Проверка серверов: {count}/{targets.Count}";
+                    });
+                    throttler.Release();
+                }
+            });
+
+            await Task.WhenAll(tasks);
+            await _profileStore.SaveAsync(_profiles);
+            RenderServerChoices(source, selectedProfileId);
+
+            StatusTextBlock.Text = targets.Count >= MaxServerProbesPerRun && _serverChoices.Count > MaxServerProbesPerRun
+                ? $"Проверено серверов: {completed}; доступны: {available}; лимит за раз: {MaxServerProbesPerRun}"
+                : $"Проверено серверов: {completed}; доступны: {available}";
+        }, "Проверка серверов...");
     }
 
     private void ProtocolComboBox_SelectionChanged(object sender, System.Windows.Controls.SelectionChangedEventArgs e)
@@ -1370,6 +1433,7 @@ public partial class MainWindow : Window
         ServerSelectorComboBox.IsEnabled = !isBusy;
         FavoriteServerButton.IsEnabled = !isBusy;
         BestServerButton.IsEnabled = !isBusy;
+        ProbeServersButton.IsEnabled = !isBusy;
         DiagnosticsButton.IsEnabled = !isBusy;
         ExportDiagnosticsButton.IsEnabled = !isBusy;
         RunAsAdminButton.IsEnabled = !isBusy;
@@ -1518,7 +1582,9 @@ public partial class MainWindow : Window
             _serverChoices.Clear();
 
             var profiles = GetProfilesForSubscription(source)
-                .OrderByDescending(profile => profile.IsFavorite)
+                .OrderBy(profile => GetServerSortKey(profile).ProbeBucket)
+                .ThenByDescending(profile => profile.IsFavorite)
+                .ThenBy(profile => GetServerSortKey(profile).LatencyMs)
                 .ThenByDescending(profile => profile.LastConnectedAt ?? DateTimeOffset.MinValue)
                 .ThenBy(profile => profile.Name, StringComparer.CurrentCultureIgnoreCase)
                 .ThenBy(profile => profile.ServerAddress)
@@ -1610,6 +1676,32 @@ public partial class MainWindow : Window
         FavoriteServerButton.Content = item.Profile.IsFavorite ? "Убрать" : "Избранное";
         FavoriteServerButton.IsEnabled = !_isBusy;
         RefreshTrayMenu();
+    }
+
+    private ServerListItem? GetBestServerChoice()
+    {
+        return _serverChoices
+            .OrderBy(item => GetServerSortKey(item.Profile).ProbeBucket)
+            .ThenByDescending(item => item.Profile.IsFavorite)
+            .ThenBy(item => GetServerSortKey(item.Profile).LatencyMs)
+            .ThenByDescending(item => item.Profile.LastConnectedAt ?? DateTimeOffset.MinValue)
+            .ThenBy(item => item.DisplayName, StringComparer.CurrentCultureIgnoreCase)
+            .FirstOrDefault();
+    }
+
+    private static ServerSortKey GetServerSortKey(VpnProfile profile)
+    {
+        var hasFreshProbe = profile.LastProbedAt is not null
+            && DateTimeOffset.UtcNow - profile.LastProbedAt.Value < TimeSpan.FromHours(6);
+        var isAvailable = hasFreshProbe
+            && profile.LastProbeStatus is ServerProbeStatus.TcpOk or ServerProbeStatus.EndpointResolved
+            && profile.LastLatencyMs is not null;
+        var isFailed = hasFreshProbe
+            && profile.LastProbeStatus is ServerProbeStatus.Failed or ServerProbeStatus.Skipped;
+
+        return new ServerSortKey(
+            isAvailable ? 0 : isFailed ? 2 : 1,
+            isAvailable ? profile.LastLatencyMs.GetValueOrDefault() : int.MaxValue);
     }
 
     private async Task<SubscriptionRefreshResult> RefreshSubscriptionUrlAsync(
@@ -2129,7 +2221,7 @@ public partial class MainWindow : Window
 
     private void ConnectBestServerFromTray()
     {
-        var best = _serverChoices.FirstOrDefault();
+        var best = GetBestServerChoice();
         if (best is null)
         {
             StatusTextBlock.Text = "Нет серверов";
@@ -2245,11 +2337,17 @@ public partial class MainWindow : Window
 
         public string MenuLabel => BuildMenuLabel(Profile);
 
-        public string TrayLabel => $"{DisplayName} ({Profile.Protocol.ToDisplayName()})";
+        public string TrayLabel => $"{DisplayName} ({BuildTrayDetails(Profile)})";
 
         private static string BuildMenuLabel(VpnProfile profile)
         {
             var markers = new List<string>();
+            var probeLabel = BuildProbeLabel(profile);
+            if (!string.IsNullOrWhiteSpace(probeLabel))
+            {
+                markers.Add(probeLabel);
+            }
+
             if (profile.IsFavorite)
             {
                 markers.Add("избранный");
@@ -2265,6 +2363,27 @@ public partial class MainWindow : Window
                 : $"{profile.Protocol.ToDisplayName()} · {string.Join(", ", markers)}";
         }
 
+        private static string BuildTrayDetails(VpnProfile profile)
+        {
+            var probeLabel = BuildProbeLabel(profile);
+            return string.IsNullOrWhiteSpace(probeLabel)
+                ? profile.Protocol.ToDisplayName()
+                : $"{profile.Protocol.ToDisplayName()}, {probeLabel}";
+        }
+
+        private static string BuildProbeLabel(VpnProfile profile)
+        {
+            var hasLatency = profile.LastLatencyMs is >= 0;
+            return profile.LastProbeStatus switch
+            {
+                ServerProbeStatus.TcpOk when hasLatency => $"{profile.LastLatencyMs} мс",
+                ServerProbeStatus.EndpointResolved when hasLatency => $"адрес {profile.LastLatencyMs} мс",
+                ServerProbeStatus.Failed => "нет ответа",
+                ServerProbeStatus.Skipped => "нет адреса",
+                _ => string.Empty
+            };
+        }
+
         private static string BuildServerEndpoint(VpnProfile profile)
         {
             if (string.IsNullOrWhiteSpace(profile.ServerAddress))
@@ -2277,6 +2396,8 @@ public partial class MainWindow : Window
                 : profile.ServerAddress;
         }
     }
+
+    private readonly record struct ServerSortKey(int ProbeBucket, int LatencyMs);
 
     [GeneratedRegex(@"https?://[^\s""'<>]+", RegexOptions.Compiled)]
     private static partial Regex SubscriptionUrlCandidateRegex();

@@ -16,6 +16,12 @@ public sealed class VpnProfile
 
     public DateTimeOffset? LastConnectedAt { get; set; }
 
+    public int? LastLatencyMs { get; set; }
+
+    public string LastProbeStatus { get; set; } = string.Empty;
+
+    public DateTimeOffset? LastProbedAt { get; set; }
+
     public string ServerAddress { get; set; } = string.Empty;
 
     public int ServerPort { get; set; } = 443;
