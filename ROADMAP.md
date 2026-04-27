@@ -1,6 +1,6 @@
 # Samhain Security Roadmap
 
-Version baseline: `0.2.2`
+Version baseline: `0.2.3`
 
 ## Product Goal
 
@@ -215,6 +215,13 @@ The default UI should stay close to the simplicity of Happ: a small set of obvio
 - Done: VLESS Reality shape validation before save/connect.
 - Done: WireGuard and AmneziaWG config validation before save/connect.
 - Done: connection path stops locally with clear errors before invoking engines or service.
+
+### 0.2.3
+
+- Done: resume-from-sleep reconnect trigger.
+- Done: network availability and address change reconnect triggers.
+- Done: reconnect throttle to avoid repeated connection storms.
+- Done: visible setting for automatic connection recovery.
 
 ## Design Direction
 

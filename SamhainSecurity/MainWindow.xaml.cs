@@ -1,6 +1,7 @@
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Drawing;
+using System.Net.NetworkInformation;
 using System.Reflection;
 using System.Text.RegularExpressions;
 using System.Windows;
@@ -42,6 +43,7 @@ public partial class MainWindow : Window
     private string _lastClipboardSubscriptionUrl = string.Empty;
     private string _dailyConnectionState = "Ожидание";
     private string _dailyServiceState = "Служба: проверка";
+    private DateTimeOffset _lastReconnectAttemptAt = DateTimeOffset.MinValue;
     private AppSettings _appSettings = new();
 
     public MainWindow()
@@ -74,6 +76,7 @@ public partial class MainWindow : Window
 
         UpdateProtocolFields();
         InitializeTrayIcon();
+        InitializeReconnectMonitors();
         UpdateAdminButton();
         UpdateDailyStatusPanel();
     }
@@ -129,6 +132,7 @@ public partial class MainWindow : Window
             return;
         }
 
+        UnsubscribeReconnectMonitors();
         _notifyIcon?.Dispose();
         base.OnClosing(e);
     }
@@ -276,6 +280,7 @@ public partial class MainWindow : Window
 
         _appSettings.LaunchAtStartup = LaunchAtStartupCheckBox.IsChecked == true;
         _appSettings.AutoConnectLastProfile = AutoConnectLastProfileCheckBox.IsChecked == true;
+        _appSettings.AutoReconnectOnSystemChange = AutoReconnectCheckBox.IsChecked == true;
 
         try
         {
@@ -1163,8 +1168,9 @@ public partial class MainWindow : Window
     {
         var startup = _appSettings.LaunchAtStartup ? "автозапуск" : "ручной запуск";
         var reconnect = _appSettings.AutoConnectLastProfile ? "автоподключение" : "без автоподключения";
+        var recovery = _appSettings.AutoReconnectOnSystemChange ? "восстановление" : "без восстановления";
 
-        return $"{startup}; {reconnect}";
+        return $"{startup}; {reconnect}; {recovery}";
     }
 
     private static string BuildDailyConnectionStatus(CommandResult result)
@@ -1244,6 +1250,7 @@ public partial class MainWindow : Window
             _appSettings.LaunchAtStartup = _appSettings.LaunchAtStartup || _startupRegistrationService.IsEnabled();
             LaunchAtStartupCheckBox.IsChecked = _appSettings.LaunchAtStartup;
             AutoConnectLastProfileCheckBox.IsChecked = _appSettings.AutoConnectLastProfile;
+            AutoReconnectCheckBox.IsChecked = _appSettings.AutoReconnectOnSystemChange;
             AdvancedSettingsExpander.IsExpanded = _appSettings.AdvancedSettingsExpanded;
         }
         finally
@@ -1979,6 +1986,105 @@ public partial class MainWindow : Window
         };
 
         _notifyIcon.DoubleClick += (_, _) => ShowFromTray();
+    }
+
+    private void InitializeReconnectMonitors()
+    {
+        SystemEvents.PowerModeChanged += SystemEvents_PowerModeChanged;
+        NetworkChange.NetworkAvailabilityChanged += NetworkChange_NetworkAvailabilityChanged;
+        NetworkChange.NetworkAddressChanged += NetworkChange_NetworkAddressChanged;
+    }
+
+    private void UnsubscribeReconnectMonitors()
+    {
+        SystemEvents.PowerModeChanged -= SystemEvents_PowerModeChanged;
+        NetworkChange.NetworkAvailabilityChanged -= NetworkChange_NetworkAvailabilityChanged;
+        NetworkChange.NetworkAddressChanged -= NetworkChange_NetworkAddressChanged;
+    }
+
+    private void SystemEvents_PowerModeChanged(object sender, PowerModeChangedEventArgs e)
+    {
+        if (e.Mode == PowerModes.Resume)
+        {
+            ScheduleReconnect("выход из сна");
+        }
+    }
+
+    private void NetworkChange_NetworkAvailabilityChanged(object? sender, NetworkAvailabilityEventArgs e)
+    {
+        if (e.IsAvailable)
+        {
+            ScheduleReconnect("сеть доступна");
+        }
+    }
+
+    private void NetworkChange_NetworkAddressChanged(object? sender, EventArgs e)
+    {
+        ScheduleReconnect("смена сети");
+    }
+
+    private void ScheduleReconnect(string reason)
+    {
+        if (!_appSettings.AutoReconnectOnSystemChange || string.IsNullOrWhiteSpace(_appSettings.LastProfileId))
+        {
+            return;
+        }
+
+        var now = DateTimeOffset.UtcNow;
+        if (now - _lastReconnectAttemptAt < TimeSpan.FromSeconds(30))
+        {
+            return;
+        }
+
+        _lastReconnectAttemptAt = now;
+        _ = Dispatcher.InvokeAsync(async () =>
+        {
+            await Task.Delay(TimeSpan.FromSeconds(3));
+            await TryReconnectLastProfileAsync(reason);
+        });
+    }
+
+    private async Task TryReconnectLastProfileAsync(string reason)
+    {
+        if (_isBusy)
+        {
+            return;
+        }
+
+        var profile = _profiles.FirstOrDefault(item => item.Id == _appSettings.LastProfileId);
+        if (profile is null)
+        {
+            return;
+        }
+
+        ProfilesListBox.SelectedItem = profile;
+        LoadProfileIntoEditor(profile);
+        await RunUiActionAsync(async () =>
+        {
+            var password = _protector.Unprotect(profile.EncryptedPassword);
+            var tunnelConfig = _protector.Unprotect(profile.EncryptedTunnelConfig);
+            var connectResult = await _vpnService.ConnectAsync(profile, password, tunnelConfig);
+            _structuredLogService.WriteCommand("reconnect", profile, connectResult);
+            AppendCommandResult($"{profile.Protocol.ToDisplayName()} reconnect", connectResult);
+
+            await _connectionStateStore.UpdateAsync(
+                profile,
+                "reconnect",
+                connectResult.IsSuccess ? "Connected" : "Failed",
+                connectResult);
+
+            if (connectResult.IsSuccess)
+            {
+                profile.LastConnectedAt = DateTimeOffset.UtcNow;
+                await _profileStore.SaveAsync(_profiles);
+                RenderServerChoices(SubscriptionSelectorComboBox.SelectedItem as SubscriptionSourceListItem, profile.Id);
+            }
+
+            StatusTextBlock.Text = connectResult.IsSuccess
+                ? $"Восстановлено: {reason}"
+                : $"Восстановление не удалось: {reason}";
+            UpdateDailyStatusPanel(profile, connectResult.IsSuccess ? "Подключено" : "Восстановление не удалось");
+        }, $"Восстановление: {reason}...");
     }
 
     private Forms.ContextMenuStrip BuildTrayMenu()

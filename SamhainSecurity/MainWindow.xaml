@@ -466,6 +466,7 @@
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="*" />
                                     <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="*" />
                                 </Grid.ColumnDefinitions>
 
                                 <CheckBox x:Name="LaunchAtStartupCheckBox"
@@ -477,6 +478,13 @@
                                 <CheckBox x:Name="AutoConnectLastProfileCheckBox"
                                           Grid.Column="1"
                                           Content="Подключать последний профиль"
+                                          Foreground="{StaticResource TextBrush}"
+                                          Checked="AppSettingCheckBox_Changed"
+                                          Unchecked="AppSettingCheckBox_Changed" />
+
+                                <CheckBox x:Name="AutoReconnectCheckBox"
+                                          Grid.Column="2"
+                                          Content="Восстанавливать подключение"
                                           Foreground="{StaticResource TextBrush}"
                                           Checked="AppSettingCheckBox_Changed"
                                           Unchecked="AppSettingCheckBox_Changed" />
