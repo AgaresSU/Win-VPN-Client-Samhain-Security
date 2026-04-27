@@ -2,7 +2,7 @@ using System.IO;
 using System.IO.Compression;
 using System.Text;
 
-namespace VpnClientWindows.Services;
+namespace SamhainSecurity.Services;
 
 public sealed class DiagnosticsBundleService
 {

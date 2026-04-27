@@ -4,11 +4,11 @@ using System.Drawing;
 using System.Reflection;
 using System.Windows;
 using Microsoft.Win32;
-using VpnClientWindows.Models;
-using VpnClientWindows.Services;
+using SamhainSecurity.Models;
+using SamhainSecurity.Services;
 using Forms = System.Windows.Forms;
 
-namespace VpnClientWindows;
+namespace SamhainSecurity;
 
 public partial class MainWindow : Window
 {
@@ -18,6 +18,7 @@ public partial class MainWindow : Window
     private readonly MultiProtocolVpnService _vpnService = new();
     private readonly EnvironmentDiagnosticsService _diagnosticsService = new();
     private readonly EngineAvailabilityService _engineAvailabilityService = new();
+    private readonly ServiceControlService _serviceControlService = new();
     private readonly ConnectionStateStore _connectionStateStore = new();
     private readonly StructuredLogService _structuredLogService = new();
     private readonly DiagnosticsBundleService _diagnosticsBundleService;
@@ -275,6 +276,18 @@ public partial class MainWindow : Window
     private void RunAsAdminButton_Click(object sender, RoutedEventArgs e)
     {
         RelaunchAsAdministrator();
+    }
+
+    private async void ServiceButton_Click(object sender, RoutedEventArgs e)
+    {
+        await RunUiActionAsync(async () =>
+        {
+            var result = await _serviceControlService.EnsureInstalledAndStartedAsync();
+            AppendCommandResult("service ensure", result);
+            StatusTextBlock.Text = result.IsSuccess
+                ? "Служба готова"
+                : "Служба недоступна";
+        }, "Проверка службы...");
     }
 
     private async void DiagnosticsButton_Click(object sender, RoutedEventArgs e)
@@ -661,6 +674,7 @@ public partial class MainWindow : Window
         DeleteProfileButton.IsEnabled = !isBusy;
         ConnectButton.IsEnabled = !isBusy;
         DisconnectButton.IsEnabled = !isBusy;
+        ServiceButton.IsEnabled = !isBusy;
         DiagnosticsButton.IsEnabled = !isBusy;
         ExportDiagnosticsButton.IsEnabled = !isBusy;
         RunAsAdminButton.IsEnabled = !isBusy;

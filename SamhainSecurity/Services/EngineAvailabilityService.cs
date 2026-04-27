@@ -1,6 +1,6 @@
-using VpnClientWindows.Models;
+using SamhainSecurity.Models;
 
-namespace VpnClientWindows.Services;
+namespace SamhainSecurity.Services;
 
 public sealed record EngineAvailability(string Label, bool IsAvailable, bool NeedsAdmin);
 

@@ -2,9 +2,9 @@ using System.IO.Pipes;
 using System.IO;
 using System.Text;
 using System.Text.Json;
-using VpnClientWindows.Models;
+using SamhainSecurity.Models;
 
-namespace VpnClientWindows.Services;
+namespace SamhainSecurity.Services;
 
 public sealed class SamhainServiceClient
 {

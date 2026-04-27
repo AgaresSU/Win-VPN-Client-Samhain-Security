@@ -1,4 +1,4 @@
-namespace VpnClientWindows.Services;
+namespace SamhainSecurity.Services;
 
 public sealed record CommandResult(int ExitCode, string Output, string Error)
 {

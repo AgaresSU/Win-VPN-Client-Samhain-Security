@@ -2,9 +2,9 @@ using System.Diagnostics;
 using System.IO;
 using System.Text.Json;
 using System.Text.Json.Serialization;
-using VpnClientWindows.Models;
+using SamhainSecurity.Models;
 
-namespace VpnClientWindows.Services;
+namespace SamhainSecurity.Services;
 
 public sealed class SingBoxVpnService
 {

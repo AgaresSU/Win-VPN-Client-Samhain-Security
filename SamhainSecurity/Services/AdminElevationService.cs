@@ -2,7 +2,7 @@ using System.Diagnostics;
 using System.Reflection;
 using System.Security.Principal;
 
-namespace VpnClientWindows.Services;
+namespace SamhainSecurity.Services;
 
 public static class AdminElevationService
 {

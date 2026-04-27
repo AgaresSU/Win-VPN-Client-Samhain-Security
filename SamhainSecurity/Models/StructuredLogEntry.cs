@@ -1,4 +1,4 @@
-namespace VpnClientWindows.Models;
+namespace SamhainSecurity.Models;
 
 public sealed class StructuredLogEntry
 {

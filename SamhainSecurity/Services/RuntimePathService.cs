@@ -1,7 +1,7 @@
 using System.IO;
 using System.Text.RegularExpressions;
 
-namespace VpnClientWindows.Services;
+namespace SamhainSecurity.Services;
 
 public sealed class RuntimePathService
 {

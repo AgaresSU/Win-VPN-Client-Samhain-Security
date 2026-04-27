@@ -1,7 +1,7 @@
 using System.Text;
-using VpnClientWindows.Models;
+using SamhainSecurity.Models;
 
-namespace VpnClientWindows.Services;
+namespace SamhainSecurity.Services;
 
 public sealed class PowerShellVpnService
 {

@@ -1,6 +1,6 @@
 # Samhain Security Roadmap
 
-Version baseline: `0.0.7`
+Version baseline: `0.1.0`
 
 ## Product Goal
 
@@ -115,6 +115,12 @@ The desktop UI should never directly own long-running tunnels in the final archi
 - Done: local named-pipe API between UI and service.
 - Done: Windows Native connect/disconnect/status use the service when available, with desktop fallback.
 
+### 0.1.0
+
+- Done: Windows service host with install/start/stop/restart/status/uninstall commands.
+- Done: desktop service control button for elevated install/start checks.
+- Done: diagnostics now report installed service state and named-pipe availability separately.
+
 ## Design Direction
 
 The UI should feel like a quiet security control center:
@@ -127,7 +133,7 @@ The UI should feel like a quiet security control center:
 
 ## Engineering Rules
 
-- Every update bumps the patch version.
+- Every update bumps the version.
 - Every protocol action must have a diagnostic result.
 - Long-running engines are supervised.
 - Generated configs are stored under `%APPDATA%\SamhainSecurity\runtime`.

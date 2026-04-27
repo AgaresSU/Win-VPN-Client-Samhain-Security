@@ -1,8 +1,8 @@
 using System.IO;
 using System.Text.Json;
-using VpnClientWindows.Models;
+using SamhainSecurity.Models;
 
-namespace VpnClientWindows.Services;
+namespace SamhainSecurity.Services;
 
 public sealed class ProfileStore
 {

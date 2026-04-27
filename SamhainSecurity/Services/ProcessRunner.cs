@@ -1,6 +1,6 @@
 using System.Diagnostics;
 
-namespace VpnClientWindows.Services;
+namespace SamhainSecurity.Services;
 
 public static class ProcessRunner
 {

@@ -1,6 +1,6 @@
 using System.IO;
 
-namespace VpnClientWindows.Services;
+namespace SamhainSecurity.Services;
 
 public static class EnginePathResolver
 {
