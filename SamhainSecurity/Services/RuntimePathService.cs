@@ -10,7 +10,7 @@ public sealed class RuntimePathService
     public RuntimePathService()
     {
         var appData = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
-        _runtimeDirectory = Path.Combine(appData, "VpnClientWindows", "runtime");
+        _runtimeDirectory = Path.Combine(appData, "SamhainSecurity", "runtime");
         Directory.CreateDirectory(_runtimeDirectory);
     }
 
@@ -27,7 +27,7 @@ public sealed class RuntimePathService
         var sanitized = Regex.Replace(value.Trim(), @"[^A-Za-z0-9_.-]+", "-").Trim('-', '.', '_');
 
         return string.IsNullOrWhiteSpace(sanitized)
-            ? "vpn-profile"
+            ? "samhain-security-profile"
             : sanitized;
     }
 }

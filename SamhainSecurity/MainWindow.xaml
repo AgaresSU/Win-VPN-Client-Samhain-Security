@@ -4,7 +4,7 @@
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         mc:Ignorable="d"
-        Title="VPN Client Windows"
+        Title="Samhain Security"
         Height="780"
         Width="1180"
         MinHeight="680"
@@ -91,7 +91,7 @@
         <Border Grid.Column="0" Background="{StaticResource SidebarBrush}">
             <DockPanel Margin="22">
                 <StackPanel DockPanel.Dock="Top" Margin="0,0,0,18">
-                    <TextBlock Text="Samhain VPN"
+                    <TextBlock Text="Samhain Security"
                                Foreground="#FFFFFF"
                                FontSize="26"
                                FontWeight="SemiBold" />

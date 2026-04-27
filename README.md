@@ -1,19 +1,19 @@
-# Samhain VPN Client Windows
+# Samhain Security
 
-Version: `0.0.2`
+Version: `0.0.3`
 
-Desktop VPN client for Windows built with WPF and .NET 9.
+Desktop secure tunneling client for Windows built with WPF and .NET 9.
 
 ## What it does
 
-- Creates and updates per-user Windows VPN profiles.
-- Supports Windows native VPN tunnel types: IKEv2, SSTP, L2TP, PPTP, and Automatic.
+- Creates and updates per-user Windows native tunnel profiles.
+- Supports Windows native tunnel types: IKEv2, SSTP, L2TP, PPTP, and Automatic.
 - Supports VLESS TCP Reality through `sing-box`.
 - Supports WireGuard through the official Windows `wireguard.exe` tunnel service.
 - Supports AmneziaWG through an external `awg-quick.exe`-compatible backend.
-- Includes an in-app diagnostics check for admin rights, Windows VPN cmdlets, `rasdial`, and external protocol engines.
+- Includes an in-app diagnostics check for admin rights, Windows native cmdlets, `rasdial`, and external protocol engines.
 - Connects and disconnects through `rasdial.exe`.
-- Stores profile data in `%APPDATA%\VpnClientWindows\profiles.json`.
+- Stores profile data in `%APPDATA%\SamhainSecurity\profiles.json`.
 - Encrypts saved passwords, L2TP PSK values, and pasted WG/AWG configs with Windows DPAPI for the current user.
 
 ## External engines
@@ -45,25 +45,25 @@ Relative engine paths are resolved from the app executable directory first, so p
 ## Run
 
 ```powershell
-dotnet run --project ".\VpnClientWindows\VpnClientWindows.csproj"
+dotnet run --project ".\SamhainSecurity\SamhainSecurity.csproj"
 ```
 
 ## Build
 
 ```powershell
-dotnet build ".\VpnClientWindows.sln"
+dotnet build ".\SamhainSecurity.sln"
 ```
 
 ## Publish
 
 ```powershell
-dotnet publish ".\VpnClientWindows\VpnClientWindows.csproj" -c Release -r win-x64 --self-contained false
+dotnet publish ".\SamhainSecurity\SamhainSecurity.csproj" -c Release -r win-x64 --self-contained false
 ```
 
-The published executable will be under:
+The published executable is `SamhainSecurity.exe` and will be under:
 
 ```text
-VpnClientWindows\bin\Release\net9.0-windows\win-x64\publish\
+SamhainSecurity\bin\Release\net9.0-windows\win-x64\publish\
 ```
 
 ## Versioning

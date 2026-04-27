@@ -19,8 +19,8 @@ public sealed class EnvironmentDiagnosticsService
         };
 
         lines.Add(await CheckCommandAsync("rasdial.exe", ["rasdial"], cancellationToken));
-        lines.Add(await CheckPowerShellCmdletAsync("Add-VpnConnection", cancellationToken));
-        lines.Add(await CheckPowerShellCmdletAsync("Get-VpnConnection", cancellationToken));
+        lines.Add(await CheckPowerShellCmdletAsync("Add-VpnConnection", "Windows native add cmdlet", cancellationToken));
+        lines.Add(await CheckPowerShellCmdletAsync("Get-VpnConnection", "Windows native status cmdlet", cancellationToken));
 
         if (protocol == VpnProtocolType.VlessReality)
         {
@@ -70,7 +70,7 @@ public sealed class EnvironmentDiagnosticsService
         }
     }
 
-    private static async Task<string> CheckPowerShellCmdletAsync(string commandName, CancellationToken cancellationToken)
+    private static async Task<string> CheckPowerShellCmdletAsync(string commandName, string displayName, CancellationToken cancellationToken)
     {
         try
         {
@@ -80,12 +80,12 @@ public sealed class EnvironmentDiagnosticsService
                 cancellationToken);
 
             return result.IsSuccess && result.Output.Contains(commandName, StringComparison.OrdinalIgnoreCase)
-                ? $"{commandName}: found"
-                : $"{commandName}: not found";
+                ? $"{displayName}: found"
+                : $"{displayName}: not found";
         }
         catch (Exception ex)
         {
-            return $"{commandName}: check failed: {ex.Message}";
+            return $"{displayName}: check failed: {ex.Message}";
         }
     }
 

@@ -14,7 +14,7 @@ public static class VpnProtocolTypeExtensions
     {
         return protocolType switch
         {
-            VpnProtocolType.WindowsNative => "Windows VPN",
+            VpnProtocolType.WindowsNative => "Windows Native",
             VpnProtocolType.VlessReality => "VLESS TCP Reality",
             VpnProtocolType.WireGuard => "WireGuard",
             VpnProtocolType.AmneziaWireGuard => "AmneziaWG",

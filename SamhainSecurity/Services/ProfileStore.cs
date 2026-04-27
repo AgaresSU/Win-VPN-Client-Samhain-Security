@@ -16,10 +16,16 @@ public sealed class ProfileStore
     public ProfileStore()
     {
         var appData = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
-        var directory = Path.Combine(appData, "VpnClientWindows");
+        var directory = Path.Combine(appData, "SamhainSecurity");
         Directory.CreateDirectory(directory);
 
         _filePath = Path.Combine(directory, "profiles.json");
+
+        var legacyPath = Path.Combine(appData, "VpnClientWindows", "profiles.json");
+        if (!File.Exists(_filePath) && File.Exists(legacyPath))
+        {
+            File.Copy(legacyPath, _filePath);
+        }
     }
 
     public string FilePath => _filePath;

@@ -284,7 +284,7 @@ public partial class MainWindow : Window
             var removeOldResult = await _vpnService.RemoveProfileAsync(oldProfile, GetTunnelConfig());
             if (!removeOldResult.IsSuccess)
             {
-                AppendCommandResult("old Windows VPN profile remove", removeOldResult);
+                AppendCommandResult("old Windows native profile remove", removeOldResult);
             }
         }
 
