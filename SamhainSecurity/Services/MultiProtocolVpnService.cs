@@ -4,6 +4,7 @@ namespace SamhainSecurity.Services;
 
 public sealed class MultiProtocolVpnService
 {
+    private readonly SamhainServiceClient _serviceClient = new();
     private readonly PowerShellVpnService _windowsNativeService = new();
     private readonly SingBoxVpnService _singBoxVpnService = new();
     private readonly WireGuardTunnelService _wireGuardTunnelService = new();
@@ -21,21 +22,67 @@ public sealed class MultiProtocolVpnService
 
     public Task<CommandResult> RemoveProfileAsync(VpnProfile profile, string tunnelConfig, CancellationToken cancellationToken = default)
     {
-        return profile.Protocol switch
-        {
-            VpnProtocolType.WindowsNative => _windowsNativeService.RemoveProfileAsync(profile.Name, cancellationToken),
-            VpnProtocolType.VlessReality => Task.FromResult(_singBoxVpnService.Disconnect(profile.Id)),
-            VpnProtocolType.WireGuard => _wireGuardTunnelService.DisconnectAsync(profile, cancellationToken),
-            VpnProtocolType.AmneziaWireGuard => _amneziaWireGuardService.DisconnectAsync(profile, tunnelConfig, cancellationToken),
-            _ => Task.FromResult(new CommandResult(1, string.Empty, "Неизвестный протокол"))
-        };
+        return profile.Protocol == VpnProtocolType.WindowsNative
+            ? _windowsNativeService.RemoveProfileAsync(profile.Name, cancellationToken)
+            : DisconnectAsync(profile, tunnelConfig, cancellationToken);
     }
 
-    public Task<CommandResult> ConnectAsync(
+    public async Task<CommandResult> ConnectAsync(
         VpnProfile profile,
         string password,
         string tunnelConfig,
         CancellationToken cancellationToken = default)
+    {
+        if (profile.Protocol != VpnProtocolType.WindowsNative)
+        {
+            var serviceResult = await _serviceClient.ConnectTunnelAsync(profile, tunnelConfig, cancellationToken);
+            if (serviceResult is not null)
+            {
+                return serviceResult;
+            }
+        }
+
+        return await ConnectLocalAsync(profile, password, tunnelConfig, cancellationToken);
+    }
+
+    public async Task<CommandResult> DisconnectAsync(
+        VpnProfile profile,
+        string tunnelConfig,
+        CancellationToken cancellationToken = default)
+    {
+        if (profile.Protocol != VpnProtocolType.WindowsNative)
+        {
+            var serviceResult = await _serviceClient.DisconnectTunnelAsync(profile, tunnelConfig, cancellationToken);
+            if (serviceResult is not null)
+            {
+                return serviceResult;
+            }
+        }
+
+        return await DisconnectLocalAsync(profile, tunnelConfig, cancellationToken);
+    }
+
+    public async Task<CommandResult> GetStatusAsync(
+        VpnProfile profile,
+        CancellationToken cancellationToken = default)
+    {
+        if (profile.Protocol != VpnProtocolType.WindowsNative)
+        {
+            var serviceResult = await _serviceClient.GetTunnelStatusAsync(profile, cancellationToken);
+            if (serviceResult is not null)
+            {
+                return serviceResult;
+            }
+        }
+
+        return await GetLocalStatusAsync(profile, cancellationToken);
+    }
+
+    private Task<CommandResult> ConnectLocalAsync(
+        VpnProfile profile,
+        string password,
+        string tunnelConfig,
+        CancellationToken cancellationToken)
     {
         return profile.Protocol switch
         {
@@ -47,10 +94,10 @@ public sealed class MultiProtocolVpnService
         };
     }
 
-    public Task<CommandResult> DisconnectAsync(
+    private Task<CommandResult> DisconnectLocalAsync(
         VpnProfile profile,
         string tunnelConfig,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken)
     {
         return profile.Protocol switch
         {
@@ -62,9 +109,9 @@ public sealed class MultiProtocolVpnService
         };
     }
 
-    public Task<CommandResult> GetStatusAsync(
+    private Task<CommandResult> GetLocalStatusAsync(
         VpnProfile profile,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken)
     {
         return profile.Protocol switch
         {

@@ -1,6 +1,6 @@
 # Samhain Security Roadmap
 
-Version baseline: `0.1.6`
+Version baseline: `0.1.7`
 
 ## Product Goal
 
@@ -30,6 +30,8 @@ The app should be split into four layers:
 - Control plane: subscription, server catalog, updates, telemetry opt-in, and remote config.
 
 The desktop UI should never directly own long-running tunnels in the final architecture. It should call the daemon over a local named pipe or gRPC-over-named-pipe channel.
+
+The default UI should stay close to the simplicity of Happ: a small set of obvious actions, subscription/import handled automatically, and thin protocol settings hidden behind a dedicated advanced settings surface.
 
 ## Version Plan
 
@@ -168,6 +170,14 @@ The desktop UI should never directly own long-running tunnels in the final archi
 - Done: clipboard detection for Samhain Security connection links.
 - Done: `Ctrl+V` import when focus is outside text fields, while standard text copy/paste remains intact.
 
+### 0.1.7
+
+- Done: service-side tunnel supervisor for VLESS TCP Reality, WireGuard, and AmneziaWG actions.
+- Done: desktop non-native protocol actions call the service first and fall back to local execution if unavailable.
+- Done: service owns long-running `sing-box` processes.
+- Done: service writes runtime tunnel configs under `%ProgramData%\SamhainSecurity\Service\runtime`.
+- Done: engine placeholder folders are copied to both desktop and service publish outputs.
+
 ## Design Direction
 
 The UI should feel like a quiet security control center:
@@ -176,6 +186,8 @@ The UI should feel like a quiet security control center:
 - Main panel: selected profile, route health, protocol status.
 - Details drawer: logs, diagnostics, generated config preview.
 - Tray-first daily workflow.
+- Default mode: one-click connect, subscription source, and status only.
+- Advanced settings: protocol internals, engine paths, raw configs, DNS, and protection policy details.
 - No marketing pages inside the app.
 
 ## Engineering Rules

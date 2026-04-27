@@ -1,6 +1,6 @@
 # Samhain Security
 
-Version: `0.1.6`
+Version: `0.1.7`
 
 Desktop secure tunneling client for Windows built with WPF and .NET 9.
 
@@ -24,7 +24,9 @@ Desktop secure tunneling client for Windows built with WPF and .NET 9.
 - Imports Samhain Security subscription links from the connection page or direct API URL, including raw/base64 VLESS lists and sing-box JSON profiles.
 - Imports Samhain Security AWG reserve links from the connection page or direct API URL, including ready AmneziaWG `.conf` items.
 - Adds a subscription source manager with masked tokens, update selected, update all, delete, clipboard import, and global paste recognition.
+- Supervises VLESS, WireGuard, and AmneziaWG lifecycle through Samhain Security Service when it is running, with desktop fallback when the service is unavailable.
 - Stores service-owned protection state in `%ProgramData%\SamhainSecurity\Service\`.
+- Stores service-owned runtime tunnel configs in `%ProgramData%\SamhainSecurity\Service\runtime\`.
 - Connects and disconnects through `rasdial.exe`.
 - Stores profile data in `%APPDATA%\SamhainSecurity\profiles.json`.
 - Stores subscription sources in `%APPDATA%\SamhainSecurity\subscriptions.json` with URLs encrypted by Windows DPAPI for the current user.
@@ -58,7 +60,7 @@ VLESS/WG/AWG TUN or tunnel service operations may require administrator permissi
 
 Relative engine paths are resolved from the app executable directory first, so portable layouts such as `.\engines\sing-box\sing-box.exe` work after publishing.
 
-The repository includes placeholder engine folders under `engines\`. They are copied to the publish output so a portable package can place binaries next to the app.
+The repository includes placeholder engine folders under `engines\`. They are copied to the desktop and service publish outputs so a portable package can place binaries next to the owning executable.
 
 ## Run
 
@@ -105,6 +107,12 @@ Run these commands from an elevated terminal when managing the service manually:
 ```
 
 The desktop app can also install/start the service through the `Служба` button when launched as administrator. If the service is not running, Windows Native actions fall back to direct local execution.
+
+## Service-Supervised Protocols
+
+Version `0.1.7` moves VLESS TCP Reality, WireGuard, and AmneziaWG connect/disconnect/status actions behind the local Samhain Security Service when it is available. The desktop app sends the selected profile over the local named pipe, and the service owns privileged engine execution and long-running `sing-box` processes.
+
+If the service is unavailable, the desktop app keeps the previous local execution path as a fallback. This keeps portable/dev builds usable while moving the production architecture toward a simple UI that delegates privileged work to the daemon.
 
 ## Protection Policy
 

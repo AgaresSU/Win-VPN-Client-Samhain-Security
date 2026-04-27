@@ -22,6 +22,7 @@ builder.Services.AddWindowsService(options =>
     options.ServiceName = ServiceName;
 });
 builder.Services.AddSingleton<ProtectionPolicyService>();
+builder.Services.AddSingleton<TunnelSupervisorService>();
 builder.Services.AddHostedService<PipeServerWorker>();
 builder.Services.AddHostedService<ProtectionWatchdogWorker>();
 builder.Logging.AddSimpleConsole(options =>
@@ -171,13 +172,16 @@ public sealed class PipeServerWorker : BackgroundService
     private const string PipeName = "SamhainSecurity.Service.v1";
     private readonly ILogger<PipeServerWorker> _logger;
     private readonly ProtectionPolicyService _protectionPolicyService;
+    private readonly TunnelSupervisorService _tunnelSupervisorService;
 
     public PipeServerWorker(
         ILogger<PipeServerWorker> logger,
-        ProtectionPolicyService protectionPolicyService)
+        ProtectionPolicyService protectionPolicyService,
+        TunnelSupervisorService tunnelSupervisorService)
     {
         _logger = logger;
         _protectionPolicyService = protectionPolicyService;
+        _tunnelSupervisorService = tunnelSupervisorService;
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -231,6 +235,9 @@ public sealed class PipeServerWorker : BackgroundService
             "connect-windows-native" => ConnectWindowsNativeAsync(request, cancellationToken),
             "disconnect-windows-native" => DisconnectWindowsNativeAsync(request, cancellationToken),
             "status-windows-native" => StatusWindowsNativeAsync(request, cancellationToken),
+            "tunnel-connect" => _tunnelSupervisorService.ConnectAsync(request, cancellationToken),
+            "tunnel-disconnect" => _tunnelSupervisorService.DisconnectAsync(request, cancellationToken),
+            "tunnel-status" => _tunnelSupervisorService.StatusAsync(request, cancellationToken),
             "protection-preview" => _protectionPolicyService.PreviewAsync(request, cancellationToken),
             "protection-apply" => _protectionPolicyService.ApplyAsync(request, cancellationToken),
             "protection-remove" => _protectionPolicyService.RemoveAsync(cancellationToken),
@@ -362,6 +369,8 @@ public sealed class PipeRequest
 {
     public string Action { get; set; } = string.Empty;
 
+    public string ProfileId { get; set; } = string.Empty;
+
     public string ProfileName { get; set; } = string.Empty;
 
     public string UserName { get; set; } = string.Empty;
@@ -376,7 +385,21 @@ public sealed class PipeRequest
 
     public string EnginePath { get; set; } = string.Empty;
 
+    public string TunnelConfig { get; set; } = string.Empty;
+
     public string TunnelInterfaceAlias { get; set; } = string.Empty;
+
+    public string VlessUuid { get; set; } = string.Empty;
+
+    public string VlessFlow { get; set; } = string.Empty;
+
+    public string RealityServerName { get; set; } = string.Empty;
+
+    public string RealityPublicKey { get; set; } = string.Empty;
+
+    public string RealityShortId { get; set; } = string.Empty;
+
+    public string RealityFingerprint { get; set; } = string.Empty;
 
     public bool KillSwitchEnabled { get; set; }
 

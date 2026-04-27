@@ -10,7 +10,7 @@ public sealed class SamhainServiceClient
 {
     private const string PipeName = "SamhainSecurity.Service.v1";
     private static readonly TimeSpan PingTimeout = TimeSpan.FromMilliseconds(650);
-    private static readonly TimeSpan CommandTimeout = TimeSpan.FromSeconds(20);
+    private static readonly TimeSpan CommandTimeout = TimeSpan.FromSeconds(45);
 
     public async Task<bool> IsAvailableAsync(CancellationToken cancellationToken = default)
     {
@@ -52,6 +52,32 @@ public sealed class SamhainServiceClient
             Action = "status-windows-native",
             ProfileName = profileName
         }, CommandTimeout, cancellationToken);
+    }
+
+    public Task<CommandResult?> ConnectTunnelAsync(
+        VpnProfile profile,
+        string tunnelConfig,
+        CancellationToken cancellationToken = default)
+    {
+        var request = BuildTunnelRequest("tunnel-connect", profile, tunnelConfig);
+        return SendAsync(request, CommandTimeout, cancellationToken);
+    }
+
+    public Task<CommandResult?> DisconnectTunnelAsync(
+        VpnProfile profile,
+        string tunnelConfig,
+        CancellationToken cancellationToken = default)
+    {
+        var request = BuildTunnelRequest("tunnel-disconnect", profile, tunnelConfig);
+        return SendAsync(request, CommandTimeout, cancellationToken);
+    }
+
+    public Task<CommandResult?> GetTunnelStatusAsync(
+        VpnProfile profile,
+        CancellationToken cancellationToken = default)
+    {
+        var request = BuildTunnelRequest("tunnel-status", profile, string.Empty);
+        return SendAsync(request, CommandTimeout, cancellationToken);
     }
 
     public Task<CommandResult?> ApplyProtectionAsync(
@@ -120,6 +146,31 @@ public sealed class SamhainServiceClient
         };
     }
 
+    private static ServicePipeRequest BuildTunnelRequest(
+        string action,
+        VpnProfile profile,
+        string tunnelConfig)
+    {
+        return new ServicePipeRequest
+        {
+            Action = action,
+            ProfileId = profile.Id,
+            ProfileName = profile.Name,
+            ProtocolName = profile.Protocol.ToString(),
+            ServerAddress = profile.ServerAddress,
+            ServerPort = profile.ServerPort,
+            EnginePath = profile.EnginePath,
+            TunnelConfig = tunnelConfig,
+            TunnelInterfaceAlias = profile.Name,
+            VlessUuid = profile.VlessUuid,
+            VlessFlow = profile.VlessFlow,
+            RealityServerName = profile.RealityServerName,
+            RealityPublicKey = profile.RealityPublicKey,
+            RealityShortId = profile.RealityShortId,
+            RealityFingerprint = profile.RealityFingerprint
+        };
+    }
+
     private static async Task<CommandResult?> SendAsync(
         ServicePipeRequest request,
         TimeSpan timeoutValue,
@@ -162,6 +213,8 @@ public sealed class ServicePipeRequest
 {
     public string Action { get; set; } = string.Empty;
 
+    public string ProfileId { get; set; } = string.Empty;
+
     public string ProfileName { get; set; } = string.Empty;
 
     public string UserName { get; set; } = string.Empty;
@@ -176,7 +229,21 @@ public sealed class ServicePipeRequest
 
     public string EnginePath { get; set; } = string.Empty;
 
+    public string TunnelConfig { get; set; } = string.Empty;
+
     public string TunnelInterfaceAlias { get; set; } = string.Empty;
+
+    public string VlessUuid { get; set; } = string.Empty;
+
+    public string VlessFlow { get; set; } = string.Empty;
+
+    public string RealityServerName { get; set; } = string.Empty;
+
+    public string RealityPublicKey { get; set; } = string.Empty;
+
+    public string RealityShortId { get; set; } = string.Empty;
+
+    public string RealityFingerprint { get; set; } = string.Empty;
 
     public bool KillSwitchEnabled { get; set; }
 
