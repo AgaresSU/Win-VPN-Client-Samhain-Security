@@ -1,6 +1,6 @@
 # Samhain Security
 
-Version: `0.2.3`
+Version: `0.2.4`
 
 Desktop secure tunneling client for Windows built with WPF and .NET 9.
 
@@ -28,6 +28,7 @@ Desktop secure tunneling client for Windows built with WPF and .NET 9.
 - Adds server favorites, last-used tracking, and a quick best-server selector.
 - Adds pre-connect validation for VLESS Reality and WireGuard-style configs with clear local errors.
 - Adds optional reconnect after resume or network changes for the last successful profile.
+- Adds tray-first server selection with connect selected, connect best, and current server submenu.
 - Supervises VLESS, WireGuard, and AmneziaWG lifecycle through Samhain Security Service when it is running, with desktop fallback when the service is unavailable.
 - Adds a simpler daily UI mode: startup/autoconnect toggles stay visible, while engine paths, raw configs, protocol internals, DNS, and protection controls live under `Расширенные настройки`.
 - Adds a daily status band with selected profile, route, protocol, service readiness, protection state, and the current connection result.
@@ -154,6 +155,8 @@ Version `0.2.1` adds lightweight server ranking. Favorite servers float to the t
 Version `0.2.2` adds local protocol validation before connect. VLESS Reality profiles are checked for UUID, port, SNI, public key, and Short ID shape; WireGuard and AmneziaWG configs are checked for required sections, keys, Endpoint, size, and invalid characters before the engine or service is called.
 
 Version `0.2.3` adds a simple recovery loop. When Windows resumes from sleep or the network changes, the app can reconnect the last successful profile with a short delay and a 30-second throttle. The behavior is controlled by `Восстанавливать подключение`.
+
+Version `0.2.4` expands tray-first daily use. The tray menu can connect the selected server, connect the best currently ranked server, or pick one of the current subscription servers from the `Серверы` submenu.
 
 ## Versioning
 

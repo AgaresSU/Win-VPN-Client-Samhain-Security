@@ -1556,6 +1556,8 @@ public partial class MainWindow : Window
         {
             _isLoadingServerChoices = false;
         }
+
+        RefreshTrayMenu();
     }
 
     private IEnumerable<VpnProfile> GetProfilesForSubscription(SubscriptionSourceListItem? source)
@@ -1607,6 +1609,7 @@ public partial class MainWindow : Window
 
         FavoriteServerButton.Content = item.Profile.IsFavorite ? "Убрать" : "Избранное";
         FavoriteServerButton.IsEnabled = !_isBusy;
+        RefreshTrayMenu();
     }
 
     private async Task<SubscriptionRefreshResult> RefreshSubscriptionUrlAsync(
@@ -2092,14 +2095,67 @@ public partial class MainWindow : Window
         var menu = new Forms.ContextMenuStrip();
 
         menu.Items.Add("Открыть", null, (_, _) => Dispatcher.Invoke(ShowFromTray));
-        menu.Items.Add("Подключить", null, (_, _) => Dispatcher.Invoke(() => ConnectButton_Click(this, new RoutedEventArgs())));
+        menu.Items.Add("Подключить выбранный", null, (_, _) => Dispatcher.Invoke(() => ConnectButton_Click(this, new RoutedEventArgs())));
+        menu.Items.Add("Подключить лучший", null, (_, _) => Dispatcher.Invoke(ConnectBestServerFromTray));
         menu.Items.Add("Отключить", null, (_, _) => Dispatcher.Invoke(() => DisconnectButton_Click(this, new RoutedEventArgs())));
+        menu.Items.Add(BuildTrayServersMenu());
         menu.Items.Add("Диагностика", null, (_, _) => Dispatcher.Invoke(() => DiagnosticsButton_Click(this, new RoutedEventArgs())));
         menu.Items.Add("Запуск от администратора", null, (_, _) => Dispatcher.Invoke(RelaunchAsAdministrator));
         menu.Items.Add(new Forms.ToolStripSeparator());
         menu.Items.Add("Выход", null, (_, _) => Dispatcher.Invoke(ExitApplication));
 
         return menu;
+    }
+
+    private Forms.ToolStripMenuItem BuildTrayServersMenu()
+    {
+        var serversMenu = new Forms.ToolStripMenuItem("Серверы");
+        if (_serverChoices.Count == 0)
+        {
+            var emptyItem = new Forms.ToolStripMenuItem("Нет серверов") { Enabled = false };
+            serversMenu.DropDownItems.Add(emptyItem);
+            return serversMenu;
+        }
+
+        foreach (var server in _serverChoices.Take(10))
+        {
+            var menuItem = new Forms.ToolStripMenuItem(server.TrayLabel);
+            menuItem.Click += (_, _) => Dispatcher.Invoke(() => ConnectServerFromTray(server));
+            serversMenu.DropDownItems.Add(menuItem);
+        }
+
+        return serversMenu;
+    }
+
+    private void ConnectBestServerFromTray()
+    {
+        var best = _serverChoices.FirstOrDefault();
+        if (best is null)
+        {
+            StatusTextBlock.Text = "Нет серверов";
+            return;
+        }
+
+        ConnectServerFromTray(best);
+    }
+
+    private void ConnectServerFromTray(ServerListItem server)
+    {
+        ServerSelectorComboBox.SelectedItem = server;
+        ApplyServerChoice(server, $"Сервер: {server.DisplayName}");
+        ConnectButton_Click(this, new RoutedEventArgs());
+    }
+
+    private void RefreshTrayMenu()
+    {
+        if (_notifyIcon is null)
+        {
+            return;
+        }
+
+        var oldMenu = _notifyIcon.ContextMenuStrip;
+        _notifyIcon.ContextMenuStrip = BuildTrayMenu();
+        oldMenu?.Dispose();
     }
 
     private void ShowFromTray()

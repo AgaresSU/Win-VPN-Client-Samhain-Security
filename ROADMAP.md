@@ -1,6 +1,6 @@
 # Samhain Security Roadmap
 
-Version baseline: `0.2.3`
+Version baseline: `0.2.4`
 
 ## Product Goal
 
@@ -222,6 +222,13 @@ The default UI should stay close to the simplicity of Happ: a small set of obvio
 - Done: network availability and address change reconnect triggers.
 - Done: reconnect throttle to avoid repeated connection storms.
 - Done: visible setting for automatic connection recovery.
+
+### 0.2.4
+
+- Done: tray menu action to connect selected server.
+- Done: tray menu action to connect best ranked server.
+- Done: current subscription server submenu in tray.
+- Done: tray server menu refreshes when the server list changes.
 
 ## Design Direction
 
