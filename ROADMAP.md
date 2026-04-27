@@ -1,6 +1,6 @@
 # Samhain Security Roadmap
 
-Version baseline: `0.1.2`
+Version baseline: `0.1.3`
 
 ## Product Goal
 
@@ -136,6 +136,14 @@ The desktop UI should never directly own long-running tunnels in the final archi
 - Done: firewall profile outbound default snapshot and restore.
 - Done: emergency `reset-protection` service command.
 - Done: WireGuard/AmneziaWG endpoint extraction from pasted config for allow-list planning.
+
+### 0.1.3
+
+- Done: post-apply protection health check.
+- Done: automatic rollback when firewall enforcement fails health checks.
+- Done: background service watchdog for protection drift.
+- Done: emergency reset button in the desktop protection panel.
+- Done: protection audit log in JSONL format.
 
 ## Design Direction
 

@@ -23,6 +23,7 @@ builder.Services.AddWindowsService(options =>
 });
 builder.Services.AddSingleton<ProtectionPolicyService>();
 builder.Services.AddHostedService<PipeServerWorker>();
+builder.Services.AddHostedService<ProtectionWatchdogWorker>();
 builder.Logging.AddSimpleConsole(options =>
 {
     options.SingleLine = true;
@@ -62,6 +63,9 @@ static async Task<bool> TryHandleCommandAsync(string[] args)
             return true;
         case "protection-status":
             await PrintResponseAsync(await new ProtectionPolicyService().StatusAsync(CancellationToken.None));
+            return true;
+        case "watchdog-check":
+            await PrintResponseAsync(await new ProtectionPolicyService().WatchdogCheckAsync(CancellationToken.None));
             return true;
         case "run":
         case "--run-service":
@@ -141,6 +145,7 @@ static void PrintUsage()
       status     Query Windows Service status
       protection-status  Query protection policy status
       reset-protection   Remove protection rules and restore firewall defaults
+      watchdog-check     Run protection watchdog once
       run        Run as console host
     """);
 }
@@ -231,6 +236,7 @@ public sealed class PipeServerWorker : BackgroundService
             "protection-remove" => _protectionPolicyService.RemoveAsync(cancellationToken),
             "protection-reset" => _protectionPolicyService.ResetAsync(cancellationToken),
             "protection-status" => _protectionPolicyService.StatusAsync(cancellationToken),
+            "protection-watchdog-check" => _protectionPolicyService.WatchdogCheckAsync(cancellationToken),
             _ => Task.FromResult(PipeResponse.Fail("Unknown action: " + request.Action))
         };
     }
@@ -310,6 +316,48 @@ public sealed class PipeServerWorker : BackgroundService
     }
 }
 
+public sealed class ProtectionWatchdogWorker : BackgroundService
+{
+    private static readonly TimeSpan CheckInterval = TimeSpan.FromSeconds(30);
+
+    private readonly ILogger<ProtectionWatchdogWorker> _logger;
+    private readonly ProtectionPolicyService _protectionPolicyService;
+
+    public ProtectionWatchdogWorker(
+        ILogger<ProtectionWatchdogWorker> logger,
+        ProtectionPolicyService protectionPolicyService)
+    {
+        _logger = logger;
+        _protectionPolicyService = protectionPolicyService;
+    }
+
+    protected override async Task ExecuteAsync(CancellationToken stoppingToken)
+    {
+        using var timer = new PeriodicTimer(CheckInterval);
+
+        while (!stoppingToken.IsCancellationRequested)
+        {
+            try
+            {
+                await timer.WaitForNextTickAsync(stoppingToken);
+                var result = await _protectionPolicyService.WatchdogCheckAsync(stoppingToken);
+                if (!result.IsSuccess)
+                {
+                    _logger.LogWarning("Protection watchdog reported a failure: {Output} {Error}", result.Output, result.Error);
+                }
+            }
+            catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
+            {
+                return;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Protection watchdog failed");
+            }
+        }
+    }
+}
+
 public sealed class PipeRequest
 {
     public string Action { get; set; } = string.Empty;
@@ -342,6 +390,18 @@ public sealed class PipeRequest
 public sealed record PipeResponse(int ExitCode, string Output, string Error)
 {
     public bool IsSuccess => ExitCode == 0;
+
+    public string CombinedOutput
+    {
+        get
+        {
+            var parts = new[] { Output, Error }
+                .Where(part => !string.IsNullOrWhiteSpace(part))
+                .Select(part => part.Trim());
+
+            return string.Join(Environment.NewLine, parts);
+        }
+    }
 
     public static PipeResponse Success(string output)
     {

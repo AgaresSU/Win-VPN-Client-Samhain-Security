@@ -467,6 +467,11 @@
                                         Content="Снять"
                                         Click="RemoveProtectionButton_Click"
                                         Margin="0,0,8,0" />
+                                <Button x:Name="ResetProtectionButton"
+                                        Content="Сброс"
+                                        Style="{StaticResource DangerButtonStyle}"
+                                        Click="ResetProtectionButton_Click"
+                                        Margin="0,0,8,0" />
                                 <Button x:Name="ApplyProtectionButton"
                                         Content="Применить"
                                         Style="{StaticResource PrimaryButtonStyle}"

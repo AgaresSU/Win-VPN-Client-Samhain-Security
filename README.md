@@ -1,6 +1,6 @@
 # Samhain Security
 
-Version: `0.1.2`
+Version: `0.1.3`
 
 Desktop secure tunneling client for Windows built with WPF and .NET 9.
 
@@ -20,6 +20,7 @@ Desktop secure tunneling client for Windows built with WPF and .NET 9.
 - Adds in-app service control for install/start checks when running elevated.
 - Adds a protection policy panel for kill switch, DNS leak protection, firewall preview, and service-side enforcement.
 - Applies protection with a dedicated Windows Firewall rule group and restores previous firewall defaults on removal.
+- Adds service watchdog, post-apply health checks, automatic rollback, emergency reset, and JSONL protection audit logging.
 - Stores service-owned protection state in `%ProgramData%\SamhainSecurity\Service\`.
 - Connects and disconnects through `rasdial.exe`.
 - Stores profile data in `%APPDATA%\SamhainSecurity\profiles.json`.
@@ -94,6 +95,7 @@ Run these commands from an elevated terminal when managing the service manually:
 .\SamhainSecurity.Service.exe status
 .\SamhainSecurity.Service.exe protection-status
 .\SamhainSecurity.Service.exe reset-protection
+.\SamhainSecurity.Service.exe watchdog-check
 .\SamhainSecurity.Service.exe stop
 .\SamhainSecurity.Service.exe uninstall
 ```
@@ -102,11 +104,13 @@ The desktop app can also install/start the service through the `Служба` bu
 
 ## Protection Policy
 
-Version `0.1.2` introduces service-owned firewall enforcement. The desktop app can preview the rule plan, apply protection, query the current policy, and remove it.
+Version `0.1.3` hardens service-owned firewall enforcement. The desktop app can preview the rule plan, apply protection, query the current policy, remove it, or run an emergency reset.
 
 When Kill switch is enabled, the service creates rules in the `Samhain Security Protection` group, stores the previous Windows Firewall outbound defaults, then switches Domain/Private/Public outbound policy to block. Removing or resetting protection deletes the group and restores the saved defaults.
 
 DNS leak protection is enforced together with Kill switch in this build, so approved DNS resolvers are allow-listed before outbound blocking is enabled.
+
+The service runs a protection watchdog every 30 seconds. If the rule group or outbound firewall defaults drift into an unsafe partial state, the service removes protection rules and restores the saved firewall defaults. Protection actions are written to `%ProgramData%\SamhainSecurity\Service\protection-audit.jsonl`.
 
 ## Versioning
 

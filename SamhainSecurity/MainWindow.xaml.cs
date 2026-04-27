@@ -352,6 +352,19 @@ public partial class MainWindow : Window
         }, "Отключение защиты...");
     }
 
+    private async void ResetProtectionButton_Click(object sender, RoutedEventArgs e)
+    {
+        await RunUiActionAsync(async () =>
+        {
+            var result = await _serviceClient.ResetProtectionAsync()
+                ?? ServiceUnavailableResult();
+            AppendCommandResult("protection reset", result);
+            StatusTextBlock.Text = result.IsSuccess
+                ? "Защита сброшена"
+                : "Сброс защиты недоступен";
+        }, "Аварийный сброс защиты...");
+    }
+
     private async void ProtectionStatusButton_Click(object sender, RoutedEventArgs e)
     {
         await RunUiActionAsync(async () =>
@@ -811,6 +824,7 @@ public partial class MainWindow : Window
         PreviewProtectionButton.IsEnabled = !isBusy;
         ApplyProtectionButton.IsEnabled = !isBusy;
         RemoveProtectionButton.IsEnabled = !isBusy;
+        ResetProtectionButton.IsEnabled = !isBusy;
         ProtectionStatusButton.IsEnabled = !isBusy;
         DiagnosticsButton.IsEnabled = !isBusy;
         ExportDiagnosticsButton.IsEnabled = !isBusy;

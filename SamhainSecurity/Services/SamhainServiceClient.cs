@@ -86,6 +86,14 @@ public sealed class SamhainServiceClient
         }, CommandTimeout, cancellationToken);
     }
 
+    public Task<CommandResult?> RunProtectionWatchdogAsync(CancellationToken cancellationToken = default)
+    {
+        return SendAsync(new ServicePipeRequest
+        {
+            Action = "protection-watchdog-check"
+        }, CommandTimeout, cancellationToken);
+    }
+
     public Task<CommandResult?> GetProtectionStatusAsync(CancellationToken cancellationToken = default)
     {
         return SendAsync(new ServicePipeRequest
