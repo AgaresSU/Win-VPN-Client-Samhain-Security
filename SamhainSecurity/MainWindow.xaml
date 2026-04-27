@@ -358,6 +358,10 @@
                                         <ColumnDefinition Width="260" />
                                         <ColumnDefinition Width="12" />
                                         <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="12" />
+                                        <ColumnDefinition Width="112" />
+                                        <ColumnDefinition Width="8" />
+                                        <ColumnDefinition Width="96" />
                                     </Grid.ColumnDefinitions>
 
                                     <StackPanel Grid.Column="0">
@@ -382,11 +386,29 @@
                                                                    FontSize="12"
                                                                    Margin="0,2,0,0"
                                                                    TextTrimming="CharacterEllipsis" />
+                                                        <TextBlock Text="{Binding MenuLabel}"
+                                                                   Foreground="{StaticResource MutedTextBrush}"
+                                                                   FontSize="12"
+                                                                   Margin="0,2,0,0"
+                                                                   TextTrimming="CharacterEllipsis" />
                                                     </StackPanel>
                                                 </DataTemplate>
                                             </ComboBox.ItemTemplate>
                                         </ComboBox>
                                     </StackPanel>
+
+                                    <Button x:Name="FavoriteServerButton"
+                                            Grid.Column="4"
+                                            Content="Избранное"
+                                            VerticalAlignment="Bottom"
+                                            Click="FavoriteServerButton_Click" />
+
+                                    <Button x:Name="BestServerButton"
+                                            Grid.Column="6"
+                                            Content="Лучший"
+                                            Style="{StaticResource PrimaryButtonStyle}"
+                                            VerticalAlignment="Bottom"
+                                            Click="BestServerButton_Click" />
                                 </Grid>
 
                                 <ListBox x:Name="SubscriptionSourcesListBox"

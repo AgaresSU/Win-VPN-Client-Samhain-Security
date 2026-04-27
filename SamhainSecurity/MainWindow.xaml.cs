@@ -209,6 +209,42 @@ public partial class MainWindow : Window
         LoadProfileIntoEditor(item.Profile);
         StatusTextBlock.Text = statusText;
         UpdateDailyStatusPanel(item.Profile);
+        UpdateFavoriteServerButton();
+    }
+
+    private async void FavoriteServerButton_Click(object sender, RoutedEventArgs e)
+    {
+        if (ServerSelectorComboBox.SelectedItem is not ServerListItem item)
+        {
+            StatusTextBlock.Text = "Выберите сервер";
+            return;
+        }
+
+        item.Profile.IsFavorite = !item.Profile.IsFavorite;
+        item.Profile.UpdatedAt = DateTimeOffset.UtcNow;
+        await _profileStore.SaveAsync(_profiles);
+        RenderServerChoices(SubscriptionSelectorComboBox.SelectedItem as SubscriptionSourceListItem, item.Profile.Id);
+        StatusTextBlock.Text = item.Profile.IsFavorite
+            ? "Сервер добавлен в избранное"
+            : "Сервер убран из избранного";
+    }
+
+    private void BestServerButton_Click(object sender, RoutedEventArgs e)
+    {
+        var best = _serverChoices
+            .OrderByDescending(item => item.Profile.IsFavorite)
+            .ThenByDescending(item => item.Profile.LastConnectedAt ?? DateTimeOffset.MinValue)
+            .ThenBy(item => item.DisplayName, StringComparer.CurrentCultureIgnoreCase)
+            .FirstOrDefault();
+
+        if (best is null)
+        {
+            StatusTextBlock.Text = "Нет серверов";
+            return;
+        }
+
+        ServerSelectorComboBox.SelectedItem = best;
+        ApplyServerChoice(best, $"Лучший сервер: {best.DisplayName}");
     }
 
     private void ProtocolComboBox_SelectionChanged(object sender, System.Windows.Controls.SelectionChangedEventArgs e)
@@ -348,8 +384,11 @@ public partial class MainWindow : Window
 
             if (connectResult.IsSuccess)
             {
+                profile.LastConnectedAt = DateTimeOffset.UtcNow;
                 _appSettings.LastProfileId = profile.Id;
+                await _profileStore.SaveAsync(_profiles);
                 await SaveAppSettingsQuietlyAsync();
+                RenderServerChoices(SubscriptionSelectorComboBox.SelectedItem as SubscriptionSourceListItem, profile.Id);
             }
 
             StatusTextBlock.Text = connectResult.IsSuccess
@@ -688,6 +727,7 @@ public partial class MainWindow : Window
             await _subscriptionStore.SaveAsync(sources);
             RenderSubscriptionSources(sources);
             SubscriptionUrlTextBox.Clear();
+            RenderServerChoices(null);
             StatusTextBlock.Text = "Источник удален";
             SubscriptionStatusTextBlock.Text = "Источник удален. Импортированные профили не удалялись.";
         }, "Удаление источника...");
@@ -787,6 +827,8 @@ public partial class MainWindow : Window
             Protocol = protocol,
             SubscriptionSourceId = oldProfile?.SubscriptionSourceId ?? string.Empty,
             SubscriptionName = oldProfile?.SubscriptionName ?? string.Empty,
+            IsFavorite = oldProfile?.IsFavorite ?? false,
+            LastConnectedAt = oldProfile?.LastConnectedAt,
             ServerAddress = serverAddress,
             ServerPort = serverPort,
             TunnelType = TunnelTypeComboBox.SelectedValue is VpnTunnelType tunnelType
@@ -1273,6 +1315,13 @@ public partial class MainWindow : Window
             StatusTextBlock.Text = connectResult.IsSuccess
                 ? "Подключено"
                 : "Автоподключение не удалось";
+            if (connectResult.IsSuccess)
+            {
+                profile.LastConnectedAt = DateTimeOffset.UtcNow;
+                await _profileStore.SaveAsync(_profiles);
+                RenderServerChoices(SubscriptionSelectorComboBox.SelectedItem as SubscriptionSourceListItem, profile.Id);
+            }
+
             UpdateDailyStatusPanel(profile, connectResult.IsSuccess ? "Подключено" : "Автоподключение не удалось");
         }, "Автоподключение...");
     }
@@ -1346,6 +1395,8 @@ public partial class MainWindow : Window
         DeleteSubscriptionButton.IsEnabled = !isBusy;
         SubscriptionSelectorComboBox.IsEnabled = !isBusy;
         ServerSelectorComboBox.IsEnabled = !isBusy;
+        FavoriteServerButton.IsEnabled = !isBusy;
+        BestServerButton.IsEnabled = !isBusy;
         DiagnosticsButton.IsEnabled = !isBusy;
         ExportDiagnosticsButton.IsEnabled = !isBusy;
         RunAsAdminButton.IsEnabled = !isBusy;
@@ -1494,7 +1545,9 @@ public partial class MainWindow : Window
             _serverChoices.Clear();
 
             var profiles = GetProfilesForSubscription(source)
-                .OrderBy(profile => profile.Name)
+                .OrderByDescending(profile => profile.IsFavorite)
+                .ThenByDescending(profile => profile.LastConnectedAt ?? DateTimeOffset.MinValue)
+                .ThenBy(profile => profile.Name, StringComparer.CurrentCultureIgnoreCase)
                 .ThenBy(profile => profile.ServerAddress)
                 .ToList();
 
@@ -1514,6 +1567,7 @@ public partial class MainWindow : Window
                 : null;
             selected ??= _serverChoices.FirstOrDefault();
             ServerSelectorComboBox.SelectedItem = selected;
+            UpdateFavoriteServerButton();
 
             if (source is null)
             {
@@ -1567,6 +1621,19 @@ public partial class MainWindow : Window
         return sourceIsAwg
             ? profile.Protocol == VpnProtocolType.AmneziaWireGuard
             : profile.Protocol == VpnProtocolType.VlessReality;
+    }
+
+    private void UpdateFavoriteServerButton()
+    {
+        if (ServerSelectorComboBox.SelectedItem is not ServerListItem item)
+        {
+            FavoriteServerButton.Content = "Избранное";
+            FavoriteServerButton.IsEnabled = !_isBusy && _serverChoices.Count > 0;
+            return;
+        }
+
+        FavoriteServerButton.Content = item.Profile.IsFavorite ? "Убрать" : "Избранное";
+        FavoriteServerButton.IsEnabled = !_isBusy;
     }
 
     private async Task<SubscriptionRefreshResult> RefreshSubscriptionUrlAsync(
@@ -1727,6 +1794,8 @@ public partial class MainWindow : Window
         target.DnsLeakProtectionEnabled = existing.DnsLeakProtectionEnabled;
         target.AllowLanTraffic = existing.AllowLanTraffic;
         target.DnsServers = existing.DnsServers;
+        target.IsFavorite = existing.IsFavorite;
+        target.LastConnectedAt = existing.LastConnectedAt;
     }
 
     private static string BuildSubscriptionStatus(
@@ -2045,6 +2114,28 @@ public partial class MainWindow : Window
             : Profile.Name;
 
         public string Details => $"{Profile.Protocol.ToDisplayName()} · {BuildServerEndpoint(Profile)}";
+
+        public string MenuLabel => BuildMenuLabel(Profile);
+
+        public string TrayLabel => $"{DisplayName} ({Profile.Protocol.ToDisplayName()})";
+
+        private static string BuildMenuLabel(VpnProfile profile)
+        {
+            var markers = new List<string>();
+            if (profile.IsFavorite)
+            {
+                markers.Add("избранный");
+            }
+
+            if (profile.LastConnectedAt is not null)
+            {
+                markers.Add("последний");
+            }
+
+            return markers.Count == 0
+                ? profile.Protocol.ToDisplayName()
+                : $"{profile.Protocol.ToDisplayName()} · {string.Join(", ", markers)}";
+        }
 
         private static string BuildServerEndpoint(VpnProfile profile)
         {

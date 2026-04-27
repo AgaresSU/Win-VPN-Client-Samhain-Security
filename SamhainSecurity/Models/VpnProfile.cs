@@ -12,6 +12,10 @@ public sealed class VpnProfile
 
     public string SubscriptionName { get; set; } = string.Empty;
 
+    public bool IsFavorite { get; set; }
+
+    public DateTimeOffset? LastConnectedAt { get; set; }
+
     public string ServerAddress { get; set; } = string.Empty;
 
     public int ServerPort { get; set; } = 443;

@@ -1,6 +1,6 @@
 # Samhain Security Roadmap
 
-Version baseline: `0.2.0`
+Version baseline: `0.2.1`
 
 ## Product Goal
 
@@ -201,6 +201,13 @@ The default UI should stay close to the simplicity of Happ: a small set of obvio
 - Done: server dropdown filters by the selected saved subscription and loads the chosen server profile.
 - Done: last selected subscription is remembered in app behavior settings.
 - Done: legacy VLESS/AWG imports are still shown with protocol-based fallback until the source is refreshed.
+
+### 0.2.1
+
+- Done: favorite server flag on profiles.
+- Done: last successful connection timestamp on profiles.
+- Done: server dropdown sorting by favorites, last used, then name.
+- Done: quick best-server selection from the current subscription.
 
 ## Design Direction
 
