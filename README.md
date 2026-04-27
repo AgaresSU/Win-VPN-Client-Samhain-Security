@@ -1,6 +1,6 @@
 # Samhain Security
 
-Version: `0.1.4`
+Version: `0.1.5`
 
 Desktop secure tunneling client for Windows built with WPF and .NET 9.
 
@@ -22,6 +22,7 @@ Desktop secure tunneling client for Windows built with WPF and .NET 9.
 - Applies protection with a dedicated Windows Firewall rule group and restores previous firewall defaults on removal.
 - Adds service watchdog, post-apply health checks, automatic rollback, emergency reset, and JSONL protection audit logging.
 - Imports Samhain Security subscription links from the connection page or direct API URL, including raw/base64 VLESS lists and sing-box JSON profiles.
+- Imports Samhain Security AWG reserve links from the connection page or direct API URL, including ready AmneziaWG `.conf` items.
 - Stores service-owned protection state in `%ProgramData%\SamhainSecurity\Service\`.
 - Connects and disconnects through `rasdial.exe`.
 - Stores profile data in `%APPDATA%\SamhainSecurity\profiles.json`.
@@ -116,9 +117,9 @@ The service runs a protection watchdog every 30 seconds. If the rule group or ou
 
 ## Subscriptions
 
-Version `0.1.4` adds local subscription import. Paste the Samhain Security connection page URL or a direct `/api/sub/...` URL into the `Подписка` block and press `Обновить`.
+Version `0.1.5` adds local subscription import. Paste the Samhain Security connection page URL, AWG reserve page URL, or a direct `/api/sub/...` URL into the `Подписка` block and press `Обновить`.
 
-The app normalizes connection page links to the main API subscription, imports VLESS TCP Reality profiles, merges repeated updates into existing profiles, and keeps local engine/protection preferences when an imported profile already exists. Subscription URLs are saved encrypted with DPAPI and raw node data is not written to the UI log.
+The app normalizes connection page links to the matching API subscription, imports VLESS TCP Reality profiles and AmneziaWG reserve configs, merges repeated updates into existing profiles, and keeps local engine/protection preferences when an imported profile already exists. Subscription URLs are saved encrypted with DPAPI and raw node data is not written to the UI log.
 
 ## Versioning
 

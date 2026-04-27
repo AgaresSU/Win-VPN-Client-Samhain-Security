@@ -8,6 +8,8 @@ public sealed class SubscriptionImportResult
 
     public int JsonProfilesSeen { get; init; }
 
+    public int AwgProfilesSeen { get; init; }
+
     public int UnsupportedLinksSeen { get; init; }
 
     public bool WasBase64Decoded { get; init; }

@@ -16,7 +16,7 @@ public partial class MainWindow : Window
     private readonly ProfileStore _profileStore = new();
     private readonly SecureDataProtector _protector = new();
     private readonly SubscriptionStore _subscriptionStore;
-    private readonly SubscriptionImportService _subscriptionImportService = new();
+    private readonly SubscriptionImportService _subscriptionImportService;
     private readonly MultiProtocolVpnService _vpnService = new();
     private readonly EnvironmentDiagnosticsService _diagnosticsService = new();
     private readonly EngineAvailabilityService _engineAvailabilityService = new();
@@ -33,6 +33,7 @@ public partial class MainWindow : Window
     public MainWindow()
     {
         _subscriptionStore = new SubscriptionStore(_protector);
+        _subscriptionImportService = new SubscriptionImportService(_protector);
         _diagnosticsBundleService = new DiagnosticsBundleService(_profileStore, _connectionStateStore, _structuredLogService);
 
         InitializeComponent();
@@ -914,7 +915,7 @@ public partial class MainWindow : Window
         port = 0;
 
         var endpointLine = config
-            .Split(Environment.NewLine, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Split(['\r', '\n'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
             .FirstOrDefault(line => line.StartsWith("Endpoint", StringComparison.OrdinalIgnoreCase));
 
         if (string.IsNullOrWhiteSpace(endpointLine))
@@ -960,9 +961,12 @@ public partial class MainWindow : Window
         }
 
         SubscriptionUrlTextBox.Text = _subscriptionStore.UnprotectUrl(source);
-        SubscriptionStatusTextBlock.Text = string.IsNullOrWhiteSpace(source.LastStatus)
+        var status = string.IsNullOrWhiteSpace(source.LastStatus)
             ? "Подписка добавлена"
             : source.LastStatus;
+        SubscriptionStatusTextBlock.Text = subscriptions.Count > 1
+            ? $"Источников: {subscriptions.Count}. {status}"
+            : status;
     }
 
     private async Task SaveSubscriptionStateAsync(
@@ -972,14 +976,22 @@ public partial class MainWindow : Window
         CancellationToken cancellationToken = default)
     {
         var sources = (await _subscriptionStore.LoadAsync(cancellationToken)).ToList();
-        var source = sources.FirstOrDefault();
+        var normalizedUrl = SubscriptionUrlNormalizer.Normalize(url);
+        var source = sources.FirstOrDefault(item =>
+            string.Equals(
+                SubscriptionUrlNormalizer.Normalize(_subscriptionStore.UnprotectUrl(item)),
+                normalizedUrl,
+                StringComparison.OrdinalIgnoreCase));
+
         if (source is null)
         {
             source = new SubscriptionSource();
             sources.Add(source);
         }
 
-        source.Name = "Samhain Security";
+        source.Name = result.SourceFormat.Contains("AWG", StringComparison.OrdinalIgnoreCase)
+            ? "Samhain Security AWG"
+            : "Samhain Security";
         source.EncryptedUrl = _subscriptionStore.ProtectUrl(url);
         source.LastUpdatedAt = DateTimeOffset.UtcNow;
         source.LastImportedCount = result.Profiles.Count;
@@ -1029,17 +1041,38 @@ public partial class MainWindow : Window
             return true;
         }
 
+        if (existing.Protocol is VpnProtocolType.WireGuard or VpnProtocolType.AmneziaWireGuard
+            && existing.Protocol == imported.Protocol
+            && !string.IsNullOrWhiteSpace(imported.Name)
+            && string.Equals(existing.Name, imported.Name, StringComparison.OrdinalIgnoreCase))
+        {
+            return true;
+        }
+
+        if (existing.Protocol is VpnProtocolType.WireGuard or VpnProtocolType.AmneziaWireGuard
+            && existing.Protocol == imported.Protocol
+            && !string.IsNullOrWhiteSpace(imported.ServerAddress)
+            && string.Equals(existing.ServerAddress, imported.ServerAddress, StringComparison.OrdinalIgnoreCase)
+            && existing.ServerPort == imported.ServerPort)
+        {
+            return true;
+        }
+
         return !string.IsNullOrWhiteSpace(imported.Name)
             && string.Equals(existing.Name, imported.Name, StringComparison.OrdinalIgnoreCase);
     }
 
     private static void PreserveLocalProfileSettings(VpnProfile target, VpnProfile existing)
     {
+        var importedTunnelConfig = target.EncryptedTunnelConfig;
+
         target.Id = existing.Id;
         target.EnginePath = existing.EnginePath;
         target.EncryptedPassword = existing.EncryptedPassword;
         target.EncryptedL2tpPsk = existing.EncryptedL2tpPsk;
-        target.EncryptedTunnelConfig = existing.EncryptedTunnelConfig;
+        target.EncryptedTunnelConfig = string.IsNullOrWhiteSpace(importedTunnelConfig)
+            ? existing.EncryptedTunnelConfig
+            : importedTunnelConfig;
         target.SplitTunneling = existing.SplitTunneling;
         target.KillSwitchEnabled = existing.KillSwitchEnabled;
         target.DnsLeakProtectionEnabled = existing.DnsLeakProtectionEnabled;

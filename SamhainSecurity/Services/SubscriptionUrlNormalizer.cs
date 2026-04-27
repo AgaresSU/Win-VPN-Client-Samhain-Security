@@ -10,14 +10,19 @@ public static class SubscriptionUrlNormalizer
             return trimmed;
         }
 
-        if (uri.AbsolutePath.EndsWith("/subscription.html", StringComparison.OrdinalIgnoreCase))
+        if (uri.AbsolutePath.EndsWith("/subscription.html", StringComparison.OrdinalIgnoreCase)
+            || uri.AbsolutePath.EndsWith("/subscription-awg.html", StringComparison.OrdinalIgnoreCase))
         {
             var query = ParseQuery(uri.Query);
             if (query.TryGetValue("token", out var token) && !string.IsNullOrWhiteSpace(token))
             {
+                var path = uri.AbsolutePath.EndsWith("/subscription-awg.html", StringComparison.OrdinalIgnoreCase)
+                    ? $"api/sub/{Uri.EscapeDataString(token)}/awg"
+                    : $"api/sub/{Uri.EscapeDataString(token)}";
+
                 var builder = new UriBuilder(uri.Scheme, uri.Host, uri.IsDefaultPort ? -1 : uri.Port)
                 {
-                    Path = $"api/sub/{Uri.EscapeDataString(token)}",
+                    Path = path,
                     Query = string.Empty
                 };
 

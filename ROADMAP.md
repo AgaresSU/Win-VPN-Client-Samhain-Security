@@ -1,6 +1,6 @@
 # Samhain Security Roadmap
 
-Version baseline: `0.1.4`
+Version baseline: `0.1.5`
 
 ## Product Goal
 
@@ -152,6 +152,13 @@ The desktop UI should never directly own long-running tunnels in the final archi
 - Done: raw/base64 VLESS TCP Reality subscription import.
 - Done: sing-box JSON outbound import for VLESS Reality profiles.
 - Done: DPAPI-encrypted subscription source storage under `%APPDATA%\SamhainSecurity\subscriptions.json`.
+
+### 0.1.5
+
+- Done: AWG reserve page URL normalization to `/api/sub/{token}/awg`.
+- Done: AmneziaWG JSON catalog import from ready `config_text` items.
+- Done: endpoint extraction from LF/CRLF tunnel configs for WG/AWG allow-list planning.
+- Done: multiple subscription sources preserved in encrypted local storage.
 
 ## Design Direction
 
