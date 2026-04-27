@@ -415,6 +415,61 @@
                                      VerticalContentAlignment="Top" />
                         </StackPanel>
 
+                        <Border Height="1"
+                                Background="{StaticResource LineBrush}"
+                                Margin="0,20,0,18" />
+
+                        <StackPanel>
+                            <TextBlock Text="Защита"
+                                       FontSize="16"
+                                       FontWeight="SemiBold"
+                                       Margin="0,0,0,12" />
+
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="18" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
+
+                                <StackPanel Grid.Column="0">
+                                    <CheckBox x:Name="KillSwitchCheckBox"
+                                              Content="Kill switch"
+                                              Foreground="{StaticResource TextBrush}"
+                                              Margin="0,0,0,10" />
+                                    <CheckBox x:Name="DnsLeakProtectionCheckBox"
+                                              Content="DNS leak protection"
+                                              Foreground="{StaticResource TextBrush}"
+                                              Margin="0,0,0,10" />
+                                    <CheckBox x:Name="AllowLanTrafficCheckBox"
+                                              Content="Локальная сеть"
+                                              Foreground="{StaticResource TextBrush}" />
+                                </StackPanel>
+
+                                <StackPanel Grid.Column="2">
+                                    <TextBlock Text="DNS servers" Style="{StaticResource LabelTextStyle}" />
+                                    <TextBox x:Name="DnsServersTextBox" />
+                                </StackPanel>
+                            </Grid>
+
+                            <StackPanel Orientation="Horizontal"
+                                        HorizontalAlignment="Right"
+                                        Margin="0,14,0,0">
+                                <Button x:Name="ProtectionStatusButton"
+                                        Content="Проверить"
+                                        Click="ProtectionStatusButton_Click"
+                                        Margin="0,0,8,0" />
+                                <Button x:Name="RemoveProtectionButton"
+                                        Content="Снять"
+                                        Click="RemoveProtectionButton_Click"
+                                        Margin="0,0,8,0" />
+                                <Button x:Name="ApplyProtectionButton"
+                                        Content="Применить"
+                                        Style="{StaticResource PrimaryButtonStyle}"
+                                        Click="ApplyProtectionButton_Click" />
+                            </StackPanel>
+                        </StackPanel>
+
                         <StackPanel Orientation="Horizontal"
                                     HorizontalAlignment="Right"
                                     Margin="0,18,0,0">

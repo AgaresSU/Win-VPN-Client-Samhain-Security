@@ -9,10 +9,12 @@ namespace SamhainSecurity.Services;
 public sealed class SamhainServiceClient
 {
     private const string PipeName = "SamhainSecurity.Service.v1";
+    private static readonly TimeSpan PingTimeout = TimeSpan.FromMilliseconds(650);
+    private static readonly TimeSpan CommandTimeout = TimeSpan.FromSeconds(20);
 
     public async Task<bool> IsAvailableAsync(CancellationToken cancellationToken = default)
     {
-        var response = await SendAsync(new ServicePipeRequest { Action = "ping" }, cancellationToken);
+        var response = await SendAsync(new ServicePipeRequest { Action = "ping" }, PingTimeout, cancellationToken);
         return response?.IsSuccess == true;
     }
 
@@ -27,7 +29,7 @@ public sealed class SamhainServiceClient
             ProfileName = profile.Name,
             UserName = profile.UserName,
             Password = password
-        }, cancellationToken);
+        }, CommandTimeout, cancellationToken);
     }
 
     public Task<CommandResult?> DisconnectWindowsNativeAsync(
@@ -38,7 +40,7 @@ public sealed class SamhainServiceClient
         {
             Action = "disconnect-windows-native",
             ProfileName = profileName
-        }, cancellationToken);
+        }, CommandTimeout, cancellationToken);
     }
 
     public Task<CommandResult?> GetWindowsNativeStatusAsync(
@@ -49,10 +51,48 @@ public sealed class SamhainServiceClient
         {
             Action = "status-windows-native",
             ProfileName = profileName
-        }, cancellationToken);
+        }, CommandTimeout, cancellationToken);
     }
 
-    private static async Task<CommandResult?> SendAsync(ServicePipeRequest request, CancellationToken cancellationToken)
+    public Task<CommandResult?> ApplyProtectionAsync(
+        VpnProfile profile,
+        CancellationToken cancellationToken = default)
+    {
+        return SendAsync(new ServicePipeRequest
+        {
+            Action = "protection-apply",
+            ProfileName = profile.Name,
+            ProtocolName = profile.Protocol.ToDisplayName(),
+            ServerAddress = profile.ServerAddress,
+            ServerPort = profile.ServerPort,
+            EnginePath = profile.EnginePath,
+            KillSwitchEnabled = profile.KillSwitchEnabled,
+            DnsLeakProtectionEnabled = profile.DnsLeakProtectionEnabled,
+            AllowLanTraffic = profile.AllowLanTraffic,
+            DnsServers = profile.DnsServers
+        }, CommandTimeout, cancellationToken);
+    }
+
+    public Task<CommandResult?> RemoveProtectionAsync(CancellationToken cancellationToken = default)
+    {
+        return SendAsync(new ServicePipeRequest
+        {
+            Action = "protection-remove"
+        }, CommandTimeout, cancellationToken);
+    }
+
+    public Task<CommandResult?> GetProtectionStatusAsync(CancellationToken cancellationToken = default)
+    {
+        return SendAsync(new ServicePipeRequest
+        {
+            Action = "protection-status"
+        }, CommandTimeout, cancellationToken);
+    }
+
+    private static async Task<CommandResult?> SendAsync(
+        ServicePipeRequest request,
+        TimeSpan timeoutValue,
+        CancellationToken cancellationToken)
     {
         try
         {
@@ -63,7 +103,7 @@ public sealed class SamhainServiceClient
                 PipeOptions.Asynchronous);
 
             using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-            timeout.CancelAfter(TimeSpan.FromMilliseconds(650));
+            timeout.CancelAfter(timeoutValue);
             await pipe.ConnectAsync(timeout.Token);
 
             await using var writer = new StreamWriter(pipe, Encoding.UTF8, leaveOpen: true)
@@ -96,6 +136,22 @@ public sealed class ServicePipeRequest
     public string UserName { get; set; } = string.Empty;
 
     public string Password { get; set; } = string.Empty;
+
+    public string ProtocolName { get; set; } = string.Empty;
+
+    public string ServerAddress { get; set; } = string.Empty;
+
+    public int ServerPort { get; set; }
+
+    public string EnginePath { get; set; } = string.Empty;
+
+    public bool KillSwitchEnabled { get; set; }
+
+    public bool DnsLeakProtectionEnabled { get; set; }
+
+    public bool AllowLanTraffic { get; set; }
+
+    public string DnsServers { get; set; } = string.Empty;
 }
 
 public sealed class ServicePipeResponse

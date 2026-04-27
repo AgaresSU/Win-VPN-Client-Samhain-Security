@@ -1,6 +1,6 @@
 # Samhain Security Roadmap
 
-Version baseline: `0.1.0`
+Version baseline: `0.1.1`
 
 ## Product Goal
 
@@ -120,6 +120,14 @@ The desktop UI should never directly own long-running tunnels in the final archi
 - Done: Windows service host with install/start/stop/restart/status/uninstall commands.
 - Done: desktop service control button for elevated install/start checks.
 - Done: diagnostics now report installed service state and named-pipe availability separately.
+
+### 0.1.1
+
+- Done: protection policy fields on profiles.
+- Done: desktop protection panel for kill switch and DNS leak protection staging.
+- Done: service pipe actions for protection apply, remove, and status.
+- Done: service-owned protection state under `%ProgramData%\SamhainSecurity\Service`.
+- Done: diagnostics include protection policy status.
 
 ## Design Direction
 

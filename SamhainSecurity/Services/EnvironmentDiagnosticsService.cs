@@ -19,6 +19,7 @@ public sealed class EnvironmentDiagnosticsService
             $"Admin: {(AdminElevationService.IsAdministrator() ? "yes" : "no")}",
             $"Service control: {await GetServiceStatusAsync(cancellationToken)}",
             $"Service pipe: {(await _serviceClient.IsAvailableAsync(cancellationToken) ? "available" : "not running")}",
+            $"Protection: {await GetProtectionStatusAsync(cancellationToken)}",
             $"App directory: {AppContext.BaseDirectory}",
             $"Current directory: {Environment.CurrentDirectory}"
         };
@@ -122,5 +123,22 @@ public sealed class EnvironmentDiagnosticsService
         return string.IsNullOrWhiteSpace(stateLine)
             ? "installed"
             : stateLine.Trim();
+    }
+
+    private async Task<string> GetProtectionStatusAsync(CancellationToken cancellationToken)
+    {
+        var result = await _serviceClient.GetProtectionStatusAsync(cancellationToken);
+        if (result is null)
+        {
+            return "service unavailable";
+        }
+
+        var firstLine = result.Output
+            .Split(Environment.NewLine, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .FirstOrDefault();
+
+        return string.IsNullOrWhiteSpace(firstLine)
+            ? "unknown"
+            : firstLine;
     }
 }

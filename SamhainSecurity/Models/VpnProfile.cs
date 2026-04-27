@@ -22,6 +22,14 @@ public sealed class VpnProfile
 
     public bool SplitTunneling { get; set; }
 
+    public bool KillSwitchEnabled { get; set; }
+
+    public bool DnsLeakProtectionEnabled { get; set; }
+
+    public bool AllowLanTraffic { get; set; } = true;
+
+    public string DnsServers { get; set; } = "1.1.1.1, 9.9.9.9";
+
     public string VlessUuid { get; set; } = string.Empty;
 
     public string VlessFlow { get; set; } = "xtls-rprx-vision";

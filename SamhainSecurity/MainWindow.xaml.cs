@@ -19,6 +19,7 @@ public partial class MainWindow : Window
     private readonly EnvironmentDiagnosticsService _diagnosticsService = new();
     private readonly EngineAvailabilityService _engineAvailabilityService = new();
     private readonly ServiceControlService _serviceControlService = new();
+    private readonly SamhainServiceClient _serviceClient = new();
     private readonly ConnectionStateStore _connectionStateStore = new();
     private readonly StructuredLogService _structuredLogService = new();
     private readonly DiagnosticsBundleService _diagnosticsBundleService;
@@ -202,6 +203,13 @@ public partial class MainWindow : Window
             StatusTextBlock.Text = connectResult.IsSuccess
                 ? "Подключено"
                 : "Подключение не удалось";
+
+            if (connectResult.IsSuccess && IsProtectionRequested(profile))
+            {
+                var protectionResult = await _serviceClient.ApplyProtectionAsync(profile)
+                    ?? ServiceUnavailableResult();
+                AppendCommandResult("protection apply", protectionResult);
+            }
         }, "Подключение...");
     }
 
@@ -288,6 +296,51 @@ public partial class MainWindow : Window
                 ? "Служба готова"
                 : "Служба недоступна";
         }, "Проверка службы...");
+    }
+
+    private async void ApplyProtectionButton_Click(object sender, RoutedEventArgs e)
+    {
+        await RunUiActionAsync(async () =>
+        {
+            var profile = await SaveCurrentProfileAsync();
+            if (profile is null)
+            {
+                return;
+            }
+
+            var result = await _serviceClient.ApplyProtectionAsync(profile)
+                ?? ServiceUnavailableResult();
+            AppendCommandResult("protection apply", result);
+            StatusTextBlock.Text = result.IsSuccess
+                ? "Защита применена"
+                : "Защита недоступна";
+        }, "Применение защиты...");
+    }
+
+    private async void RemoveProtectionButton_Click(object sender, RoutedEventArgs e)
+    {
+        await RunUiActionAsync(async () =>
+        {
+            var result = await _serviceClient.RemoveProtectionAsync()
+                ?? ServiceUnavailableResult();
+            AppendCommandResult("protection remove", result);
+            StatusTextBlock.Text = result.IsSuccess
+                ? "Защита снята"
+                : "Защита недоступна";
+        }, "Отключение защиты...");
+    }
+
+    private async void ProtectionStatusButton_Click(object sender, RoutedEventArgs e)
+    {
+        await RunUiActionAsync(async () =>
+        {
+            var result = await _serviceClient.GetProtectionStatusAsync()
+                ?? ServiceUnavailableResult();
+            AppendCommandResult("protection status", result);
+            StatusTextBlock.Text = result.IsSuccess
+                ? "Защита проверена"
+                : "Защита недоступна";
+        }, "Проверка защиты...");
     }
 
     private async void DiagnosticsButton_Click(object sender, RoutedEventArgs e)
@@ -430,6 +483,10 @@ public partial class MainWindow : Window
             EncryptedPassword = _protector.Protect(PasswordBox.Password),
             EncryptedL2tpPsk = _protector.Protect(L2tpPskPasswordBox.Password),
             SplitTunneling = SplitTunnelingCheckBox.IsChecked == true,
+            KillSwitchEnabled = KillSwitchCheckBox.IsChecked == true,
+            DnsLeakProtectionEnabled = DnsLeakProtectionCheckBox.IsChecked == true,
+            AllowLanTraffic = AllowLanTrafficCheckBox.IsChecked == true,
+            DnsServers = DnsServersTextBox.Text.Trim(),
             VlessUuid = VlessUuidTextBox.Text.Trim(),
             VlessFlow = VlessFlowTextBox.Text.Trim(),
             RealityServerName = RealityServerNameTextBox.Text.Trim(),
@@ -484,6 +541,11 @@ public partial class MainWindow : Window
             return "Вставьте .conf";
         }
 
+        if (profile.DnsLeakProtectionEnabled && string.IsNullOrWhiteSpace(profile.DnsServers))
+        {
+            return "Введите DNS servers";
+        }
+
         return string.Empty;
     }
 
@@ -514,6 +576,12 @@ public partial class MainWindow : Window
             PasswordBox.Password = _protector.Unprotect(profile.EncryptedPassword);
             L2tpPskPasswordBox.Password = _protector.Unprotect(profile.EncryptedL2tpPsk);
             SplitTunnelingCheckBox.IsChecked = profile.SplitTunneling;
+            KillSwitchCheckBox.IsChecked = profile.KillSwitchEnabled;
+            DnsLeakProtectionCheckBox.IsChecked = profile.DnsLeakProtectionEnabled;
+            AllowLanTrafficCheckBox.IsChecked = profile.AllowLanTraffic;
+            DnsServersTextBox.Text = string.IsNullOrWhiteSpace(profile.DnsServers)
+                ? "1.1.1.1, 9.9.9.9"
+                : profile.DnsServers;
             VlessUuidTextBox.Text = profile.VlessUuid;
             VlessFlowTextBox.Text = string.IsNullOrWhiteSpace(profile.VlessFlow)
                 ? "xtls-rprx-vision"
@@ -550,6 +618,10 @@ public partial class MainWindow : Window
             PasswordBox.Password = string.Empty;
             L2tpPskPasswordBox.Password = string.Empty;
             SplitTunnelingCheckBox.IsChecked = false;
+            KillSwitchCheckBox.IsChecked = false;
+            DnsLeakProtectionCheckBox.IsChecked = false;
+            AllowLanTrafficCheckBox.IsChecked = true;
+            DnsServersTextBox.Text = "1.1.1.1, 9.9.9.9";
             VlessUriTextBox.Text = string.Empty;
             VlessUuidTextBox.Text = string.Empty;
             VlessFlowTextBox.Text = "xtls-rprx-vision";
@@ -675,6 +747,9 @@ public partial class MainWindow : Window
         ConnectButton.IsEnabled = !isBusy;
         DisconnectButton.IsEnabled = !isBusy;
         ServiceButton.IsEnabled = !isBusy;
+        ApplyProtectionButton.IsEnabled = !isBusy;
+        RemoveProtectionButton.IsEnabled = !isBusy;
+        ProtectionStatusButton.IsEnabled = !isBusy;
         DiagnosticsButton.IsEnabled = !isBusy;
         ExportDiagnosticsButton.IsEnabled = !isBusy;
         RunAsAdminButton.IsEnabled = !isBusy;
@@ -706,6 +781,19 @@ public partial class MainWindow : Window
     private string GetTunnelConfig()
     {
         return TunnelConfigTextBox.Text.Trim();
+    }
+
+    private static bool IsProtectionRequested(VpnProfile profile)
+    {
+        return profile.KillSwitchEnabled || profile.DnsLeakProtectionEnabled;
+    }
+
+    private static CommandResult ServiceUnavailableResult()
+    {
+        return new CommandResult(
+            1,
+            string.Empty,
+            "Samhain Security Service is not running. Start it with the service button first.");
     }
 
     private static int ParsePortOrDefault(string value)

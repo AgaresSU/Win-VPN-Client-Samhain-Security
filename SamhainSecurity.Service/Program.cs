@@ -21,6 +21,7 @@ builder.Services.AddWindowsService(options =>
 {
     options.ServiceName = ServiceName;
 });
+builder.Services.AddSingleton<ProtectionPolicyService>();
 builder.Services.AddHostedService<PipeServerWorker>();
 builder.Logging.AddSimpleConsole(options =>
 {
@@ -140,10 +141,14 @@ public sealed class PipeServerWorker : BackgroundService
 {
     private const string PipeName = "SamhainSecurity.Service.v1";
     private readonly ILogger<PipeServerWorker> _logger;
+    private readonly ProtectionPolicyService _protectionPolicyService;
 
-    public PipeServerWorker(ILogger<PipeServerWorker> logger)
+    public PipeServerWorker(
+        ILogger<PipeServerWorker> logger,
+        ProtectionPolicyService protectionPolicyService)
     {
         _logger = logger;
+        _protectionPolicyService = protectionPolicyService;
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -189,7 +194,7 @@ public sealed class PipeServerWorker : BackgroundService
         await writer.WriteLineAsync(JsonSerializer.Serialize(response));
     }
 
-    private static Task<PipeResponse> HandleAsync(PipeRequest request, CancellationToken cancellationToken)
+    private Task<PipeResponse> HandleAsync(PipeRequest request, CancellationToken cancellationToken)
     {
         return request.Action switch
         {
@@ -197,6 +202,9 @@ public sealed class PipeServerWorker : BackgroundService
             "connect-windows-native" => ConnectWindowsNativeAsync(request, cancellationToken),
             "disconnect-windows-native" => DisconnectWindowsNativeAsync(request, cancellationToken),
             "status-windows-native" => StatusWindowsNativeAsync(request, cancellationToken),
+            "protection-apply" => _protectionPolicyService.ApplyAsync(request, cancellationToken),
+            "protection-remove" => _protectionPolicyService.RemoveAsync(cancellationToken),
+            "protection-status" => _protectionPolicyService.StatusAsync(cancellationToken),
             _ => Task.FromResult(PipeResponse.Fail("Unknown action: " + request.Action))
         };
     }
@@ -285,6 +293,22 @@ public sealed class PipeRequest
     public string UserName { get; set; } = string.Empty;
 
     public string Password { get; set; } = string.Empty;
+
+    public string ProtocolName { get; set; } = string.Empty;
+
+    public string ServerAddress { get; set; } = string.Empty;
+
+    public int ServerPort { get; set; }
+
+    public string EnginePath { get; set; } = string.Empty;
+
+    public bool KillSwitchEnabled { get; set; }
+
+    public bool DnsLeakProtectionEnabled { get; set; }
+
+    public bool AllowLanTraffic { get; set; }
+
+    public string DnsServers { get; set; } = string.Empty;
 }
 
 public sealed record PipeResponse(int ExitCode, string Output, string Error)

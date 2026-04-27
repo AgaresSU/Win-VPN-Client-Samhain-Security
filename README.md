@@ -1,6 +1,6 @@
 # Samhain Security
 
-Version: `0.1.0`
+Version: `0.1.1`
 
 Desktop secure tunneling client for Windows built with WPF and .NET 9.
 
@@ -18,6 +18,8 @@ Desktop secure tunneling client for Windows built with WPF and .NET 9.
 - Persists connection state, writes structured JSONL logs, and exports diagnostics bundles.
 - Includes a local Windows service host with named pipe API for Windows Native connect, disconnect, and status actions.
 - Adds in-app service control for install/start checks when running elevated.
+- Adds a protection policy panel for kill switch and DNS leak protection staging through the service.
+- Stores service-owned protection state in `%ProgramData%\SamhainSecurity\Service\`.
 - Connects and disconnects through `rasdial.exe`.
 - Stores profile data in `%APPDATA%\SamhainSecurity\profiles.json`.
 - Stores connection state in `%APPDATA%\SamhainSecurity\connection-state.json`.
@@ -94,6 +96,12 @@ Run these commands from an elevated terminal when managing the service manually:
 ```
 
 The desktop app can also install/start the service through the `Служба` button when launched as administrator. If the service is not running, Windows Native actions fall back to direct local execution.
+
+## Protection policy
+
+Version `0.1.1` introduces service-owned protection policy staging. The desktop app can send kill switch and DNS leak protection settings to the local service, query the current policy, and remove it.
+
+This build reports an audit-only WFP plan and does not install blocking filters yet. That keeps early builds from accidentally cutting off all network access while the service and diagnostics flow are hardened.
 
 ## Versioning
 
