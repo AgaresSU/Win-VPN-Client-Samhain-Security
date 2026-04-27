@@ -1,0 +1,104 @@
+using System.Security.Principal;
+using VpnClientWindows.Models;
+
+namespace VpnClientWindows.Services;
+
+public sealed class EnvironmentDiagnosticsService
+{
+    public async Task<string> BuildReportAsync(VpnProtocolType protocol, string enginePath, CancellationToken cancellationToken = default)
+    {
+        var lines = new List<string>
+        {
+            "Diagnostics",
+            $"Version: {GetType().Assembly.GetName().Version}",
+            $"OS: {Environment.OSVersion}",
+            $"Process: {(Environment.Is64BitProcess ? "x64" : "x86")}",
+            $"Admin: {(IsAdministrator() ? "yes" : "no")}",
+            $"App directory: {AppContext.BaseDirectory}",
+            $"Current directory: {Environment.CurrentDirectory}"
+        };
+
+        lines.Add(await CheckCommandAsync("rasdial.exe", ["rasdial"], cancellationToken));
+        lines.Add(await CheckPowerShellCmdletAsync("Add-VpnConnection", cancellationToken));
+        lines.Add(await CheckPowerShellCmdletAsync("Get-VpnConnection", cancellationToken));
+
+        if (protocol == VpnProtocolType.VlessReality)
+        {
+            lines.AddRange(BuildEngineReport("sing-box", EnginePathResolver.GetSingBoxCandidates(enginePath), EnginePathResolver.ResolveSingBox(enginePath)));
+        }
+        else if (protocol == VpnProtocolType.WireGuard)
+        {
+            lines.AddRange(BuildEngineReport("WireGuard", EnginePathResolver.GetWireGuardCandidates(enginePath), EnginePathResolver.ResolveWireGuard(enginePath)));
+            lines.Add(await CheckCommandAsync("sc.exe", ["query", "state=", "all"], cancellationToken));
+        }
+        else if (protocol == VpnProtocolType.AmneziaWireGuard)
+        {
+            lines.AddRange(BuildEngineReport("AmneziaWG", EnginePathResolver.GetAmneziaWireGuardCandidates(enginePath), EnginePathResolver.ResolveAmneziaWireGuard(enginePath)));
+        }
+
+        lines.Add("Hint: VLESS TUN, WireGuard tunnel services, and AmneziaWG usually need administrator rights.");
+
+        return string.Join(Environment.NewLine, lines);
+    }
+
+    private static IEnumerable<string> BuildEngineReport(string title, IReadOnlyList<string> candidates, string resolvedPath)
+    {
+        yield return $"{title}: {FormatAvailability(resolvedPath)}";
+        yield return $"{title} resolved: {resolvedPath}";
+
+        foreach (var candidate in candidates.Take(6))
+        {
+            yield return $"  candidate: {candidate} [{FormatAvailability(candidate)}]";
+        }
+    }
+
+    private static async Task<string> CheckCommandAsync(
+        string title,
+        IReadOnlyList<string> arguments,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            var result = await ProcessRunner.RunProcessAsync("where.exe", [arguments[0]], cancellationToken);
+            return result.IsSuccess
+                ? $"{title}: found {result.Output.Trim().Split(Environment.NewLine).FirstOrDefault()}"
+                : $"{title}: not found";
+        }
+        catch (Exception ex)
+        {
+            return $"{title}: check failed: {ex.Message}";
+        }
+    }
+
+    private static async Task<string> CheckPowerShellCmdletAsync(string commandName, CancellationToken cancellationToken)
+    {
+        try
+        {
+            var result = await ProcessRunner.RunProcessAsync(
+                "powershell.exe",
+                ["-NoProfile", "-Command", $"Get-Command {commandName} -ErrorAction SilentlyContinue | Select-Object -ExpandProperty Name"],
+                cancellationToken);
+
+            return result.IsSuccess && result.Output.Contains(commandName, StringComparison.OrdinalIgnoreCase)
+                ? $"{commandName}: found"
+                : $"{commandName}: not found";
+        }
+        catch (Exception ex)
+        {
+            return $"{commandName}: check failed: {ex.Message}";
+        }
+    }
+
+    private static string FormatAvailability(string path)
+    {
+        return EnginePathResolver.IsPathAvailable(path) ? "found" : "missing";
+    }
+
+    private static bool IsAdministrator()
+    {
+        using var identity = WindowsIdentity.GetCurrent();
+        var principal = new WindowsPrincipal(identity);
+
+        return principal.IsInRole(WindowsBuiltInRole.Administrator);
+    }
+}

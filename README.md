@@ -1,6 +1,6 @@
 # Samhain VPN Client Windows
 
-Version: `0.0.1`
+Version: `0.0.2`
 
 Desktop VPN client for Windows built with WPF and .NET 9.
 
@@ -11,6 +11,7 @@ Desktop VPN client for Windows built with WPF and .NET 9.
 - Supports VLESS TCP Reality through `sing-box`.
 - Supports WireGuard through the official Windows `wireguard.exe` tunnel service.
 - Supports AmneziaWG through an external `awg-quick.exe`-compatible backend.
+- Includes an in-app diagnostics check for admin rights, Windows VPN cmdlets, `rasdial`, and external protocol engines.
 - Connects and disconnects through `rasdial.exe`.
 - Stores profile data in `%APPDATA%\VpnClientWindows\profiles.json`.
 - Encrypts saved passwords, L2TP PSK values, and pasted WG/AWG configs with Windows DPAPI for the current user.
@@ -38,6 +39,8 @@ AmneziaWG requires an `awg-quick.exe`-compatible command line tool. Put it in on
 ```
 
 VLESS/WG/AWG TUN or tunnel service operations may require administrator permissions.
+
+Relative engine paths are resolved from the app executable directory first, so portable layouts such as `.\engines\sing-box\sing-box.exe` work after publishing.
 
 ## Run
 

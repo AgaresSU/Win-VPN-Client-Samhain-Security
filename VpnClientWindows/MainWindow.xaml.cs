@@ -13,6 +13,7 @@ public partial class MainWindow : Window
     private readonly ProfileStore _profileStore = new();
     private readonly SecureDataProtector _protector = new();
     private readonly MultiProtocolVpnService _vpnService = new();
+    private readonly EnvironmentDiagnosticsService _diagnosticsService = new();
     private bool _isBusy;
     private bool _isLoadingProfile;
 
@@ -210,6 +211,20 @@ public partial class MainWindow : Window
         {
             EnginePathTextBox.Text = dialog.FileName;
         }
+    }
+
+    private async void DiagnosticsButton_Click(object sender, RoutedEventArgs e)
+    {
+        await RunUiActionAsync(async () =>
+        {
+            var protocol = ProtocolComboBox.SelectedValue is VpnProtocolType selectedProtocol
+                ? selectedProtocol
+                : VpnProtocolType.WindowsNative;
+            var report = await _diagnosticsService.BuildReportAsync(protocol, EnginePathTextBox.Text);
+
+            AppendLog(report);
+            StatusTextBlock.Text = "Диагностика завершена";
+        }, "Диагностика...");
     }
 
     private void ImportVlessButton_Click(object sender, RoutedEventArgs e)
@@ -522,6 +537,7 @@ public partial class MainWindow : Window
         DeleteProfileButton.IsEnabled = !isBusy;
         ConnectButton.IsEnabled = !isBusy;
         DisconnectButton.IsEnabled = !isBusy;
+        DiagnosticsButton.IsEnabled = !isBusy;
         RefreshStatusButton.IsEnabled = !isBusy;
 
         if (!string.IsNullOrWhiteSpace(statusText))

@@ -165,6 +165,10 @@
                 </StackPanel>
 
                 <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" HorizontalAlignment="Right">
+                    <Button x:Name="DiagnosticsButton"
+                            Content="Диагностика"
+                            Click="DiagnosticsButton_Click"
+                            Margin="0,0,8,0" />
                     <Button x:Name="RefreshStatusButton"
                             Content="Статус"
                             Click="RefreshStatusButton_Click"
