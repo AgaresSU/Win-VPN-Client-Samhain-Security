@@ -1,6 +1,6 @@
 # Samhain Security Roadmap
 
-Version baseline: `0.0.6`
+Version baseline: `0.0.7`
 
 ## Product Goal
 
@@ -111,9 +111,9 @@ The desktop UI should never directly own long-running tunnels in the final archi
 
 ### 0.0.7
 
-- Add background service prototype.
-- Add local named-pipe API between UI and service.
-- Move connect/disconnect into service for one protocol first.
+- Done: background service prototype.
+- Done: local named-pipe API between UI and service.
+- Done: Windows Native connect/disconnect/status use the service when available, with desktop fallback.
 
 ## Design Direction
 

@@ -5,6 +5,7 @@ namespace VpnClientWindows.Services;
 public sealed class EnvironmentDiagnosticsService
 {
     private readonly EngineVersionService _engineVersionService = new();
+    private readonly SamhainServiceClient _serviceClient = new();
 
     public async Task<string> BuildReportAsync(VpnProtocolType protocol, string enginePath, CancellationToken cancellationToken = default)
     {
@@ -15,6 +16,7 @@ public sealed class EnvironmentDiagnosticsService
             $"OS: {Environment.OSVersion}",
             $"Process: {(Environment.Is64BitProcess ? "x64" : "x86")}",
             $"Admin: {(AdminElevationService.IsAdministrator() ? "yes" : "no")}",
+            $"Service pipe: {(await _serviceClient.IsAvailableAsync(cancellationToken) ? "available" : "not running")}",
             $"App directory: {AppContext.BaseDirectory}",
             $"Current directory: {Environment.CurrentDirectory}"
         };

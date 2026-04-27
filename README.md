@@ -1,6 +1,6 @@
 # Samhain Security
 
-Version: `0.0.6`
+Version: `0.0.7`
 
 Desktop secure tunneling client for Windows built with WPF and .NET 9.
 
@@ -16,6 +16,7 @@ Desktop secure tunneling client for Windows built with WPF and .NET 9.
 - Shows protocol engine availability badges in the profile editor.
 - Detects external engine versions in diagnostics and prints repair suggestions when an engine is missing.
 - Persists connection state, writes structured JSONL logs, and exports diagnostics bundles.
+- Includes a local service prototype with named pipe API for Windows Native connect, disconnect, and status actions.
 - Connects and disconnects through `rasdial.exe`.
 - Stores profile data in `%APPDATA%\SamhainSecurity\profiles.json`.
 - Stores connection state in `%APPDATA%\SamhainSecurity\connection-state.json`.
@@ -66,6 +67,7 @@ dotnet build ".\SamhainSecurity.sln"
 
 ```powershell
 dotnet publish ".\SamhainSecurity\SamhainSecurity.csproj" -c Release -r win-x64 --self-contained false
+dotnet publish ".\SamhainSecurity.Service\SamhainSecurity.Service.csproj" -c Release -r win-x64 --self-contained false
 ```
 
 The published executable is `SamhainSecurity.exe` and will be under:
@@ -73,6 +75,14 @@ The published executable is `SamhainSecurity.exe` and will be under:
 ```text
 SamhainSecurity\bin\Release\net9.0-windows\win-x64\publish\
 ```
+
+The service prototype executable is published under:
+
+```text
+SamhainSecurity.Service\bin\Release\net9.0-windows\win-x64\publish\
+```
+
+Run `SamhainSecurity.Service.exe` elevated to let the desktop app route Windows Native actions through the local named pipe prototype. If it is not running, the desktop app falls back to direct local execution.
 
 ## Versioning
 

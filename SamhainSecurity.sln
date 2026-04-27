@@ -5,6 +5,8 @@ VisualStudioVersion = 17.0.31903.59
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SamhainSecurity", "SamhainSecurity\SamhainSecurity.csproj", "{F7F5636B-BD7A-43D0-BF62-52F34921C8D1}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SamhainSecurity.Service", "SamhainSecurity.Service\SamhainSecurity.Service.csproj", "{0BF12A8D-A487-491E-8977-55EF4314CA2C}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -27,6 +29,18 @@ Global
 		{F7F5636B-BD7A-43D0-BF62-52F34921C8D1}.Release|x64.Build.0 = Release|Any CPU
 		{F7F5636B-BD7A-43D0-BF62-52F34921C8D1}.Release|x86.ActiveCfg = Release|Any CPU
 		{F7F5636B-BD7A-43D0-BF62-52F34921C8D1}.Release|x86.Build.0 = Release|Any CPU
+		{0BF12A8D-A487-491E-8977-55EF4314CA2C}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{0BF12A8D-A487-491E-8977-55EF4314CA2C}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{0BF12A8D-A487-491E-8977-55EF4314CA2C}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{0BF12A8D-A487-491E-8977-55EF4314CA2C}.Debug|x64.Build.0 = Debug|Any CPU
+		{0BF12A8D-A487-491E-8977-55EF4314CA2C}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{0BF12A8D-A487-491E-8977-55EF4314CA2C}.Debug|x86.Build.0 = Debug|Any CPU
+		{0BF12A8D-A487-491E-8977-55EF4314CA2C}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{0BF12A8D-A487-491E-8977-55EF4314CA2C}.Release|Any CPU.Build.0 = Release|Any CPU
+		{0BF12A8D-A487-491E-8977-55EF4314CA2C}.Release|x64.ActiveCfg = Release|Any CPU
+		{0BF12A8D-A487-491E-8977-55EF4314CA2C}.Release|x64.Build.0 = Release|Any CPU
+		{0BF12A8D-A487-491E-8977-55EF4314CA2C}.Release|x86.ActiveCfg = Release|Any CPU
+		{0BF12A8D-A487-491E-8977-55EF4314CA2C}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

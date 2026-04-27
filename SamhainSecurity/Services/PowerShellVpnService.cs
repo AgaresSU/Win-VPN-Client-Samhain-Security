@@ -5,6 +5,8 @@ namespace VpnClientWindows.Services;
 
 public sealed class PowerShellVpnService
 {
+    private readonly SamhainServiceClient _serviceClient = new();
+
     public Task<CommandResult> SaveOrUpdateProfileAsync(
         VpnProfile profile,
         string l2tpPsk,
@@ -28,6 +30,17 @@ public sealed class PowerShellVpnService
 
     public Task<CommandResult> GetStatusAsync(string profileName, CancellationToken cancellationToken = default)
     {
+        return GetStatusInternalAsync(profileName, cancellationToken);
+    }
+
+    private async Task<CommandResult> GetStatusInternalAsync(string profileName, CancellationToken cancellationToken)
+    {
+        var serviceResult = await _serviceClient.GetWindowsNativeStatusAsync(profileName, cancellationToken);
+        if (serviceResult is not null)
+        {
+            return serviceResult;
+        }
+
         var script = $$"""
         $ErrorActionPreference = 'Stop'
         $name = {{ToPowerShellLiteral(profileName)}}
@@ -39,7 +52,7 @@ public sealed class PowerShellVpnService
         }
         """;
 
-        return RunPowerShellAsync(script, cancellationToken);
+        return await RunPowerShellAsync(script, cancellationToken);
     }
 
     public Task<CommandResult> ConnectAsync(
@@ -47,6 +60,20 @@ public sealed class PowerShellVpnService
         string password,
         CancellationToken cancellationToken = default)
     {
+        return ConnectInternalAsync(profile, password, cancellationToken);
+    }
+
+    private async Task<CommandResult> ConnectInternalAsync(
+        VpnProfile profile,
+        string password,
+        CancellationToken cancellationToken)
+    {
+        var serviceResult = await _serviceClient.ConnectWindowsNativeAsync(profile, password, cancellationToken);
+        if (serviceResult is not null)
+        {
+            return serviceResult;
+        }
+
         var arguments = new List<string> { profile.Name };
 
         if (!string.IsNullOrWhiteSpace(profile.UserName))
@@ -55,12 +82,23 @@ public sealed class PowerShellVpnService
             arguments.Add(password ?? string.Empty);
         }
 
-        return ProcessRunner.RunProcessAsync("rasdial.exe", arguments, cancellationToken);
+        return await ProcessRunner.RunProcessAsync("rasdial.exe", arguments, cancellationToken);
     }
 
     public Task<CommandResult> DisconnectAsync(string profileName, CancellationToken cancellationToken = default)
     {
-        return ProcessRunner.RunProcessAsync("rasdial.exe", [profileName, "/disconnect"], cancellationToken);
+        return DisconnectInternalAsync(profileName, cancellationToken);
+    }
+
+    private async Task<CommandResult> DisconnectInternalAsync(string profileName, CancellationToken cancellationToken)
+    {
+        var serviceResult = await _serviceClient.DisconnectWindowsNativeAsync(profileName, cancellationToken);
+        if (serviceResult is not null)
+        {
+            return serviceResult;
+        }
+
+        return await ProcessRunner.RunProcessAsync("rasdial.exe", [profileName, "/disconnect"], cancellationToken);
     }
 
     private static string BuildSaveOrUpdateScript(VpnProfile profile, string l2tpPsk)
