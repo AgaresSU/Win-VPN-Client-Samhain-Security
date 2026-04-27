@@ -1,6 +1,6 @@
 # Samhain Security
 
-Version: `0.2.4`
+Version: `0.2.5`
 
 Desktop secure tunneling client for Windows built with WPF and .NET 9.
 
@@ -29,6 +29,7 @@ Desktop secure tunneling client for Windows built with WPF and .NET 9.
 - Adds pre-connect validation for VLESS Reality and WireGuard-style configs with clear local errors.
 - Adds optional reconnect after resume or network changes for the last successful profile.
 - Adds tray-first server selection with connect selected, connect best, and current server submenu.
+- Adds a portable package script that publishes desktop and service binaries into a clean distributable folder and zip archive.
 - Supervises VLESS, WireGuard, and AmneziaWG lifecycle through Samhain Security Service when it is running, with desktop fallback when the service is unavailable.
 - Adds a simpler daily UI mode: startup/autoconnect toggles stay visible, while engine paths, raw configs, protocol internals, DNS, and protection controls live under `Расширенные настройки`.
 - Adds a daily status band with selected profile, route, protocol, service readiness, protection state, and the current connection result.
@@ -87,6 +88,12 @@ dotnet build ".\SamhainSecurity.sln"
 ```powershell
 dotnet publish ".\SamhainSecurity\SamhainSecurity.csproj" -c Release -r win-x64 --self-contained false
 dotnet publish ".\SamhainSecurity.Service\SamhainSecurity.Service.csproj" -c Release -r win-x64 --self-contained false
+```
+
+Portable package:
+
+```powershell
+.\scripts\package-portable.ps1
 ```
 
 The published executable is `SamhainSecurity.exe` and will be under:
@@ -157,6 +164,8 @@ Version `0.2.2` adds local protocol validation before connect. VLESS Reality pro
 Version `0.2.3` adds a simple recovery loop. When Windows resumes from sleep or the network changes, the app can reconnect the last successful profile with a short delay and a 30-second throttle. The behavior is controlled by `Восстанавливать подключение`.
 
 Version `0.2.4` expands tray-first daily use. The tray menu can connect the selected server, connect the best currently ranked server, or pick one of the current subscription servers from the `Серверы` submenu.
+
+Version `0.2.5` adds a portable packaging script. It publishes the desktop app and service into `dist\SamhainSecurity-0.2.5-win-x64\`, copies engine placeholders, writes a portable README, creates a release manifest, and produces a zip archive.
 
 ## Versioning
 

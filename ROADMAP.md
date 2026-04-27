@@ -1,6 +1,6 @@
 # Samhain Security Roadmap
 
-Version baseline: `0.2.4`
+Version baseline: `0.2.5`
 
 ## Product Goal
 
@@ -229,6 +229,13 @@ The default UI should stay close to the simplicity of Happ: a small set of obvio
 - Done: tray menu action to connect best ranked server.
 - Done: current subscription server submenu in tray.
 - Done: tray server menu refreshes when the server list changes.
+
+### 0.2.5
+
+- Done: portable packaging script for desktop and service outputs.
+- Done: clean `dist/` output ignored by git.
+- Done: package README and release manifest generation.
+- Done: zip archive generation for handoff builds.
 
 ## Design Direction
 
