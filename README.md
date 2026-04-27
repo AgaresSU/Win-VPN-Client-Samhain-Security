@@ -1,6 +1,6 @@
 # Samhain Security
 
-Version: `0.1.5`
+Version: `0.1.6`
 
 Desktop secure tunneling client for Windows built with WPF and .NET 9.
 
@@ -23,6 +23,7 @@ Desktop secure tunneling client for Windows built with WPF and .NET 9.
 - Adds service watchdog, post-apply health checks, automatic rollback, emergency reset, and JSONL protection audit logging.
 - Imports Samhain Security subscription links from the connection page or direct API URL, including raw/base64 VLESS lists and sing-box JSON profiles.
 - Imports Samhain Security AWG reserve links from the connection page or direct API URL, including ready AmneziaWG `.conf` items.
+- Adds a subscription source manager with masked tokens, update selected, update all, delete, clipboard import, and global paste recognition.
 - Stores service-owned protection state in `%ProgramData%\SamhainSecurity\Service\`.
 - Connects and disconnects through `rasdial.exe`.
 - Stores profile data in `%APPDATA%\SamhainSecurity\profiles.json`.
@@ -117,9 +118,11 @@ The service runs a protection watchdog every 30 seconds. If the rule group or ou
 
 ## Subscriptions
 
-Version `0.1.5` adds local subscription import. Paste the Samhain Security connection page URL, AWG reserve page URL, or a direct `/api/sub/...` URL into the `Подписка` block and press `Обновить`.
+Version `0.1.6` adds local subscription import. Paste the Samhain Security connection page URL, AWG reserve page URL, or a direct `/api/sub/...` URL into the `Подписка` block and press `Обновить`.
 
 The app normalizes connection page links to the matching API subscription, imports VLESS TCP Reality profiles and AmneziaWG reserve configs, merges repeated updates into existing profiles, and keeps local engine/protection preferences when an imported profile already exists. Subscription URLs are saved encrypted with DPAPI and raw node data is not written to the UI log.
+
+The subscription block can manage multiple sources. Tokens are masked in the source list, `Все` refreshes every saved source, and `Буфер` imports a recognized connection link from the clipboard. Standard text fields keep normal copy/paste behavior; when focus is outside text input, `Ctrl+V` can import a recognized subscription link directly.
 
 ## Versioning
 

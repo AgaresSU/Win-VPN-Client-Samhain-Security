@@ -1,6 +1,6 @@
 # Samhain Security Roadmap
 
-Version baseline: `0.1.5`
+Version baseline: `0.1.6`
 
 ## Product Goal
 
@@ -159,6 +159,14 @@ The desktop UI should never directly own long-running tunnels in the final archi
 - Done: AmneziaWG JSON catalog import from ready `config_text` items.
 - Done: endpoint extraction from LF/CRLF tunnel configs for WG/AWG allow-list planning.
 - Done: multiple subscription sources preserved in encrypted local storage.
+
+### 0.1.6
+
+- Done: subscription source list in the desktop app.
+- Done: update selected source, update all sources, and delete source actions.
+- Done: masked subscription tokens in the UI source list.
+- Done: clipboard detection for Samhain Security connection links.
+- Done: `Ctrl+V` import when focus is outside text fields, while standard text copy/paste remains intact.
 
 ## Design Direction
 

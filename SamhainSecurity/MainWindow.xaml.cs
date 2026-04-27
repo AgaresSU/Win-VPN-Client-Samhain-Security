@@ -2,7 +2,10 @@ using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Drawing;
 using System.Reflection;
+using System.Text.RegularExpressions;
 using System.Windows;
+using System.Windows.Controls;
+using System.Windows.Input;
 using Microsoft.Win32;
 using SamhainSecurity.Models;
 using SamhainSecurity.Services;
@@ -13,6 +16,7 @@ namespace SamhainSecurity;
 public partial class MainWindow : Window
 {
     private readonly ObservableCollection<VpnProfile> _profiles = [];
+    private readonly ObservableCollection<SubscriptionSourceListItem> _subscriptionSources = [];
     private readonly ProfileStore _profileStore = new();
     private readonly SecureDataProtector _protector = new();
     private readonly SubscriptionStore _subscriptionStore;
@@ -29,6 +33,8 @@ public partial class MainWindow : Window
     private bool _allowExit;
     private bool _isBusy;
     private bool _isLoadingProfile;
+    private bool _isLoadingSubscriptions;
+    private string _lastClipboardSubscriptionUrl = string.Empty;
 
     public MainWindow()
     {
@@ -40,6 +46,11 @@ public partial class MainWindow : Window
 
         VersionTextBlock.Text = "v" + GetAppVersion();
         ProfilesListBox.ItemsSource = _profiles;
+        SubscriptionSourcesListBox.ItemsSource = _subscriptionSources;
+        CommandBindings.Add(new CommandBinding(
+            ApplicationCommands.Paste,
+            PasteCommand_Executed,
+            PasteCommand_CanExecute));
 
         ProtocolComboBox.ItemsSource = Enum.GetValues<VpnProtocolType>()
             .Select(protocol => new ProtocolOption(protocol))
@@ -79,10 +90,16 @@ public partial class MainWindow : Window
             }
 
             LoadSubscriptionState(subscriptions);
+            TryPrimeSubscriptionFromClipboard(replaceCurrent: false);
 
             AppendLog($"Профили: {_profiles.Count}. Хранилище: {_profileStore.FilePath}");
             AppendLog($"Подписки: {subscriptions.Count}. Хранилище: {_subscriptionStore.FilePath}");
         }, "Загрузка профилей...");
+    }
+
+    private void Window_Activated(object sender, EventArgs e)
+    {
+        TryPrimeSubscriptionFromClipboard(replaceCurrent: false);
     }
 
     protected override void OnClosing(CancelEventArgs e)
@@ -109,6 +126,20 @@ public partial class MainWindow : Window
         if (ProfilesListBox.SelectedItem is VpnProfile profile)
         {
             LoadProfileIntoEditor(profile);
+        }
+    }
+
+    private void SubscriptionSourcesListBox_SelectionChanged(object sender, System.Windows.Controls.SelectionChangedEventArgs e)
+    {
+        if (_isLoadingSubscriptions)
+        {
+            return;
+        }
+
+        if (SubscriptionSourcesListBox.SelectedItem is SubscriptionSourceListItem item)
+        {
+            SubscriptionUrlTextBox.Text = item.Url;
+            SubscriptionStatusTextBlock.Text = item.DisplayStatus;
         }
     }
 
@@ -448,28 +479,96 @@ public partial class MainWindow : Window
                 return;
             }
 
-            var result = await _subscriptionImportService.ImportFromUrlAsync(url);
-            var mergeResult = MergeSubscriptionProfiles(result.Profiles);
-
-            if (mergeResult.Added > 0 || mergeResult.Updated > 0)
-            {
-                await _profileStore.SaveAsync(_profiles);
-            }
-
-            var status = BuildSubscriptionStatus(result, mergeResult);
-            await SaveSubscriptionStateAsync(url, result, status);
-
-            SubscriptionStatusTextBlock.Text = status;
-            StatusTextBlock.Text = mergeResult.Added + mergeResult.Updated > 0
+            var refreshResult = await RefreshSubscriptionUrlAsync(url, selectImportedProfile: true);
+            StatusTextBlock.Text = refreshResult.Added + refreshResult.Updated > 0
                 ? "Подписка обновлена"
                 : "Нет новых профилей";
-            AppendLog(status);
-
-            if (mergeResult.FirstProfile is not null)
-            {
-                ProfilesListBox.SelectedItem = mergeResult.FirstProfile;
-            }
         }, "Обновление подписки...");
+    }
+
+    private async void RefreshAllSubscriptionsButton_Click(object sender, RoutedEventArgs e)
+    {
+        await RunUiActionAsync(async () =>
+        {
+            var sources = await _subscriptionStore.LoadAsync();
+            if (sources.Count == 0)
+            {
+                StatusTextBlock.Text = "Нет сохраненных источников";
+                SubscriptionStatusTextBlock.Text = StatusTextBlock.Text;
+                return;
+            }
+
+            var added = 0;
+            var updated = 0;
+            foreach (var source in sources.OrderBy(item => item.Name))
+            {
+                var url = _subscriptionStore.UnprotectUrl(source);
+                if (string.IsNullOrWhiteSpace(url))
+                {
+                    continue;
+                }
+
+                var refreshResult = await RefreshSubscriptionUrlAsync(url, selectImportedProfile: false);
+                added += refreshResult.Added;
+                updated += refreshResult.Updated;
+            }
+
+            var status = $"Источников обновлено: {sources.Count}; профили: +{added}, обновлено {updated}";
+            StatusTextBlock.Text = "Все подписки обновлены";
+            SubscriptionStatusTextBlock.Text = status;
+            AppendLog(status);
+        }, "Обновление всех подписок...");
+    }
+
+    private async void PasteSubscriptionButton_Click(object sender, RoutedEventArgs e)
+    {
+        await RunUiActionAsync(async () =>
+        {
+            if (!TryGetSubscriptionUrlFromClipboard(out var url))
+            {
+                StatusTextBlock.Text = "В буфере нет ссылки подключения";
+                SubscriptionStatusTextBlock.Text = StatusTextBlock.Text;
+                return;
+            }
+
+            SubscriptionUrlTextBox.Text = url;
+            var refreshResult = await RefreshSubscriptionUrlAsync(url, selectImportedProfile: true);
+            StatusTextBlock.Text = refreshResult.Added + refreshResult.Updated > 0
+                ? "Подписка из буфера импортирована"
+                : "Подписка из буфера проверена";
+        }, "Импорт из буфера...");
+    }
+
+    private async void DeleteSubscriptionButton_Click(object sender, RoutedEventArgs e)
+    {
+        if (SubscriptionSourcesListBox.SelectedItem is not SubscriptionSourceListItem selected)
+        {
+            StatusTextBlock.Text = "Выберите источник";
+            return;
+        }
+
+        var confirmed = System.Windows.MessageBox.Show(
+            this,
+            $"Удалить источник \"{selected.DisplayName}\"?",
+            "Удаление источника",
+            MessageBoxButton.YesNo,
+            MessageBoxImage.Warning);
+
+        if (confirmed != MessageBoxResult.Yes)
+        {
+            return;
+        }
+
+        await RunUiActionAsync(async () =>
+        {
+            var sources = (await _subscriptionStore.LoadAsync()).ToList();
+            sources.RemoveAll(source => source.Id == selected.Source.Id);
+            await _subscriptionStore.SaveAsync(sources);
+            RenderSubscriptionSources(sources);
+            SubscriptionUrlTextBox.Clear();
+            StatusTextBlock.Text = "Источник удален";
+            SubscriptionStatusTextBlock.Text = "Источник удален. Импортированные профили не удалялись.";
+        }, "Удаление источника...");
     }
 
     private async Task<VpnProfile?> SaveCurrentProfileAsync()
@@ -871,6 +970,9 @@ public partial class MainWindow : Window
         ResetProtectionButton.IsEnabled = !isBusy;
         ProtectionStatusButton.IsEnabled = !isBusy;
         RefreshSubscriptionButton.IsEnabled = !isBusy;
+        RefreshAllSubscriptionsButton.IsEnabled = !isBusy;
+        PasteSubscriptionButton.IsEnabled = !isBusy;
+        DeleteSubscriptionButton.IsEnabled = !isBusy;
         DiagnosticsButton.IsEnabled = !isBusy;
         ExportDiagnosticsButton.IsEnabled = !isBusy;
         RunAsAdminButton.IsEnabled = !isBusy;
@@ -950,23 +1052,57 @@ public partial class MainWindow : Window
 
     private void LoadSubscriptionState(IReadOnlyList<SubscriptionSource> subscriptions)
     {
-        var source = subscriptions
-            .OrderByDescending(item => item.UpdatedAt)
-            .FirstOrDefault();
+        RenderSubscriptionSources(subscriptions);
+    }
 
-        if (source is null)
+    private void RenderSubscriptionSources(
+        IReadOnlyList<SubscriptionSource> subscriptions,
+        string? preferredNormalizedUrl = null)
+    {
+        _isLoadingSubscriptions = true;
+        try
         {
-            SubscriptionStatusTextBlock.Text = "Подписка не добавлена";
-            return;
-        }
+            _subscriptionSources.Clear();
 
-        SubscriptionUrlTextBox.Text = _subscriptionStore.UnprotectUrl(source);
-        var status = string.IsNullOrWhiteSpace(source.LastStatus)
-            ? "Подписка добавлена"
-            : source.LastStatus;
-        SubscriptionStatusTextBlock.Text = subscriptions.Count > 1
-            ? $"Источников: {subscriptions.Count}. {status}"
-            : status;
+            foreach (var source in subscriptions.OrderByDescending(item => item.UpdatedAt))
+            {
+                var url = _subscriptionStore.UnprotectUrl(source);
+                if (string.IsNullOrWhiteSpace(url))
+                {
+                    continue;
+                }
+
+                _subscriptionSources.Add(new SubscriptionSourceListItem(source, url));
+            }
+
+            SubscriptionSourceListItem? selected = null;
+            if (!string.IsNullOrWhiteSpace(preferredNormalizedUrl))
+            {
+                selected = _subscriptionSources.FirstOrDefault(item =>
+                    string.Equals(
+                        SubscriptionUrlNormalizer.Normalize(item.Url),
+                        preferredNormalizedUrl,
+                        StringComparison.OrdinalIgnoreCase));
+            }
+
+            selected ??= _subscriptionSources.FirstOrDefault();
+            SubscriptionSourcesListBox.SelectedItem = selected;
+
+            if (selected is null)
+            {
+                SubscriptionStatusTextBlock.Text = "Подписка не добавлена";
+                return;
+            }
+
+            SubscriptionUrlTextBox.Text = selected.Url;
+            SubscriptionStatusTextBlock.Text = _subscriptionSources.Count > 1
+                ? $"Источников: {_subscriptionSources.Count}. {selected.DisplayStatus}"
+                : selected.DisplayStatus;
+        }
+        finally
+        {
+            _isLoadingSubscriptions = false;
+        }
     }
 
     private async Task SaveSubscriptionStateAsync(
@@ -999,6 +1135,34 @@ public partial class MainWindow : Window
         source.UpdatedAt = DateTimeOffset.UtcNow;
 
         await _subscriptionStore.SaveAsync(sources, cancellationToken);
+        RenderSubscriptionSources(sources, normalizedUrl);
+    }
+
+    private async Task<SubscriptionRefreshResult> RefreshSubscriptionUrlAsync(
+        string url,
+        bool selectImportedProfile,
+        CancellationToken cancellationToken = default)
+    {
+        var result = await _subscriptionImportService.ImportFromUrlAsync(url, cancellationToken);
+        var mergeResult = MergeSubscriptionProfiles(result.Profiles);
+
+        if (mergeResult.Added > 0 || mergeResult.Updated > 0)
+        {
+            await _profileStore.SaveAsync(_profiles, cancellationToken);
+        }
+
+        var status = BuildSubscriptionStatus(result, mergeResult);
+        await SaveSubscriptionStateAsync(url, result, status, cancellationToken);
+
+        SubscriptionStatusTextBlock.Text = status;
+        AppendLog(status);
+
+        if (selectImportedProfile && mergeResult.FirstProfile is not null)
+        {
+            ProfilesListBox.SelectedItem = mergeResult.FirstProfile;
+        }
+
+        return new SubscriptionRefreshResult(mergeResult.Added, mergeResult.Updated);
     }
 
     private SubscriptionMergeResult MergeSubscriptionProfiles(IReadOnlyList<VpnProfile> importedProfiles)
@@ -1103,6 +1267,160 @@ public partial class MainWindow : Window
         return string.Join("; ", parts);
     }
 
+    private void PasteCommand_CanExecute(object sender, CanExecuteRoutedEventArgs e)
+    {
+        if (Keyboard.FocusedElement is System.Windows.Controls.Primitives.TextBoxBase
+            || Keyboard.FocusedElement is PasswordBox)
+        {
+            return;
+        }
+
+        e.CanExecute = TryGetSubscriptionUrlFromClipboard(out _);
+        e.Handled = e.CanExecute;
+    }
+
+    private async void PasteCommand_Executed(object sender, ExecutedRoutedEventArgs e)
+    {
+        if (!TryGetSubscriptionUrlFromClipboard(out var url))
+        {
+            return;
+        }
+
+        e.Handled = true;
+        SubscriptionUrlTextBox.Text = url;
+
+        await RunUiActionAsync(async () =>
+        {
+            var refreshResult = await RefreshSubscriptionUrlAsync(url, selectImportedProfile: true);
+            StatusTextBlock.Text = refreshResult.Added + refreshResult.Updated > 0
+                ? "Подписка из буфера импортирована"
+                : "Подписка из буфера проверена";
+        }, "Импорт из буфера...");
+    }
+
+    private void TryPrimeSubscriptionFromClipboard(bool replaceCurrent)
+    {
+        if (!TryGetSubscriptionUrlFromClipboard(out var url))
+        {
+            return;
+        }
+
+        var normalizedUrl = SubscriptionUrlNormalizer.Normalize(url);
+        var currentUrl = SubscriptionUrlTextBox.Text.Trim();
+        var hasCurrentSubscription = TryExtractSubscriptionUrl(currentUrl, out var currentSubscriptionUrl);
+        var currentNormalizedUrl = hasCurrentSubscription
+            ? SubscriptionUrlNormalizer.Normalize(currentSubscriptionUrl)
+            : string.Empty;
+
+        if (string.Equals(normalizedUrl, currentNormalizedUrl, StringComparison.OrdinalIgnoreCase))
+        {
+            return;
+        }
+
+        if (string.Equals(normalizedUrl, _lastClipboardSubscriptionUrl, StringComparison.OrdinalIgnoreCase)
+            && !replaceCurrent)
+        {
+            return;
+        }
+
+        _lastClipboardSubscriptionUrl = normalizedUrl;
+
+        if (replaceCurrent || string.IsNullOrWhiteSpace(currentUrl) || !hasCurrentSubscription)
+        {
+            SubscriptionUrlTextBox.Text = url;
+            SubscriptionStatusTextBlock.Text = "В буфере найдена ссылка подключения. Можно обновить источник.";
+            return;
+        }
+
+        SubscriptionStatusTextBlock.Text = "В буфере найдена новая ссылка подключения. Нажмите Буфер, чтобы импортировать.";
+    }
+
+    private static bool TryGetSubscriptionUrlFromClipboard(out string url)
+    {
+        url = string.Empty;
+
+        try
+        {
+            if (!System.Windows.Clipboard.ContainsText())
+            {
+                return false;
+            }
+
+            return TryExtractSubscriptionUrl(System.Windows.Clipboard.GetText(), out url);
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    private static bool TryExtractSubscriptionUrl(string value, out string url)
+    {
+        url = string.Empty;
+        var trimmed = value.Trim();
+
+        if (Uri.TryCreate(TrimCandidateUrl(trimmed), UriKind.Absolute, out var directUri)
+            && IsSupportedSubscriptionUri(directUri))
+        {
+            url = directUri.ToString();
+            return true;
+        }
+
+        foreach (Match match in SubscriptionUrlCandidateRegex().Matches(value))
+        {
+            var candidate = TrimCandidateUrl(match.Value);
+            if (!Uri.TryCreate(candidate, UriKind.Absolute, out var uri)
+                || !IsSupportedSubscriptionUri(uri))
+            {
+                continue;
+            }
+
+            url = uri.ToString();
+            return true;
+        }
+
+        return false;
+    }
+
+    private static string TrimCandidateUrl(string value)
+    {
+        return value.Trim().TrimEnd('.', ',', ';', ')', ']', '}', '"', '\'');
+    }
+
+    private static bool IsSupportedSubscriptionUri(Uri uri)
+    {
+        if (uri.Scheme is not ("http" or "https"))
+        {
+            return false;
+        }
+
+        return uri.AbsolutePath.EndsWith("/subscription.html", StringComparison.OrdinalIgnoreCase)
+            || uri.AbsolutePath.EndsWith("/subscription-awg.html", StringComparison.OrdinalIgnoreCase)
+            || uri.AbsolutePath.Contains("/api/sub/", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static string MaskSubscriptionUrl(string url)
+    {
+        var masked = SubscriptionTokenQueryRegex().Replace(url, match =>
+        {
+            var token = match.Groups["token"].Value;
+            return $"{match.Groups["prefix"].Value}{MaskToken(token)}";
+        });
+
+        return SubscriptionTokenPathRegex().Replace(masked, match =>
+        {
+            var token = match.Groups["token"].Value;
+            return $"{match.Groups["prefix"].Value}{MaskToken(token)}";
+        });
+    }
+
+    private static string MaskToken(string token)
+    {
+        return token.Length <= 4
+            ? "****"
+            : $"****{token[^4..]}";
+    }
+
     private static int ParsePortOrDefault(string value)
     {
         return int.TryParse(value.Trim(), out var port)
@@ -1191,4 +1509,43 @@ public partial class MainWindow : Window
     }
 
     private sealed record SubscriptionMergeResult(int Added, int Updated, VpnProfile? FirstProfile);
+
+    private sealed record SubscriptionRefreshResult(int Added, int Updated);
+
+    private sealed class SubscriptionSourceListItem(SubscriptionSource source, string url)
+    {
+        public SubscriptionSource Source { get; } = source;
+
+        public string Url { get; } = url;
+
+        public string DisplayName => string.IsNullOrWhiteSpace(Source.Name)
+            ? "Samhain Security"
+            : Source.Name;
+
+        public string MaskedUrl => MaskSubscriptionUrl(Url);
+
+        public string DisplayStatus
+        {
+            get
+            {
+                var imported = Source.LastImportedCount > 0
+                    ? $"профилей: {Source.LastImportedCount}"
+                    : "профилей: 0";
+                var updated = Source.LastUpdatedAt is null
+                    ? "не обновлялась"
+                    : Source.LastUpdatedAt.Value.ToLocalTime().ToString("dd.MM.yyyy HH:mm");
+
+                return $"{imported}; {updated}";
+            }
+        }
+    }
+
+    [GeneratedRegex(@"https?://[^\s""'<>]+", RegexOptions.Compiled)]
+    private static partial Regex SubscriptionUrlCandidateRegex();
+
+    [GeneratedRegex(@"(?i)(?<prefix>[?&]token=)(?<token>[^&#]+)", RegexOptions.Compiled)]
+    private static partial Regex SubscriptionTokenQueryRegex();
+
+    [GeneratedRegex(@"(?i)(?<prefix>/api/sub/)(?<token>[^/?#]+)", RegexOptions.Compiled)]
+    private static partial Regex SubscriptionTokenPathRegex();
 }
