@@ -58,19 +58,16 @@ public sealed class SamhainServiceClient
         VpnProfile profile,
         CancellationToken cancellationToken = default)
     {
-        return SendAsync(new ServicePipeRequest
-        {
-            Action = "protection-apply",
-            ProfileName = profile.Name,
-            ProtocolName = profile.Protocol.ToDisplayName(),
-            ServerAddress = profile.ServerAddress,
-            ServerPort = profile.ServerPort,
-            EnginePath = profile.EnginePath,
-            KillSwitchEnabled = profile.KillSwitchEnabled,
-            DnsLeakProtectionEnabled = profile.DnsLeakProtectionEnabled,
-            AllowLanTraffic = profile.AllowLanTraffic,
-            DnsServers = profile.DnsServers
-        }, CommandTimeout, cancellationToken);
+        var request = BuildProtectionRequest("protection-apply", profile);
+        return SendAsync(request, CommandTimeout, cancellationToken);
+    }
+
+    public Task<CommandResult?> PreviewProtectionAsync(
+        VpnProfile profile,
+        CancellationToken cancellationToken = default)
+    {
+        var request = BuildProtectionRequest("protection-preview", profile);
+        return SendAsync(request, CommandTimeout, cancellationToken);
     }
 
     public Task<CommandResult?> RemoveProtectionAsync(CancellationToken cancellationToken = default)
@@ -81,12 +78,38 @@ public sealed class SamhainServiceClient
         }, CommandTimeout, cancellationToken);
     }
 
+    public Task<CommandResult?> ResetProtectionAsync(CancellationToken cancellationToken = default)
+    {
+        return SendAsync(new ServicePipeRequest
+        {
+            Action = "protection-reset"
+        }, CommandTimeout, cancellationToken);
+    }
+
     public Task<CommandResult?> GetProtectionStatusAsync(CancellationToken cancellationToken = default)
     {
         return SendAsync(new ServicePipeRequest
         {
             Action = "protection-status"
         }, CommandTimeout, cancellationToken);
+    }
+
+    private static ServicePipeRequest BuildProtectionRequest(string action, VpnProfile profile)
+    {
+        return new ServicePipeRequest
+        {
+            Action = action,
+            ProfileName = profile.Name,
+            ProtocolName = profile.Protocol.ToDisplayName(),
+            ServerAddress = profile.ServerAddress,
+            ServerPort = profile.ServerPort,
+            EnginePath = profile.EnginePath,
+            TunnelInterfaceAlias = profile.Name,
+            KillSwitchEnabled = profile.KillSwitchEnabled,
+            DnsLeakProtectionEnabled = profile.DnsLeakProtectionEnabled,
+            AllowLanTraffic = profile.AllowLanTraffic,
+            DnsServers = profile.DnsServers
+        };
     }
 
     private static async Task<CommandResult?> SendAsync(
@@ -144,6 +167,8 @@ public sealed class ServicePipeRequest
     public int ServerPort { get; set; }
 
     public string EnginePath { get; set; } = string.Empty;
+
+    public string TunnelInterfaceAlias { get; set; } = string.Empty;
 
     public bool KillSwitchEnabled { get; set; }
 

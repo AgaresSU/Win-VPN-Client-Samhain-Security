@@ -57,6 +57,12 @@ static async Task<bool> TryHandleCommandAsync(string[] args)
         case "status":
             await RunScAsync(["query", ServiceName]);
             return true;
+        case "reset-protection":
+            await PrintResponseAsync(await new ProtectionPolicyService().ResetAsync(CancellationToken.None));
+            return true;
+        case "protection-status":
+            await PrintResponseAsync(await new ProtectionPolicyService().StatusAsync(CancellationToken.None));
+            return true;
         case "run":
         case "--run-service":
             return false;
@@ -133,8 +139,26 @@ static void PrintUsage()
       stop       Stop Windows Service
       restart    Restart Windows Service
       status     Query Windows Service status
+      protection-status  Query protection policy status
+      reset-protection   Remove protection rules and restore firewall defaults
       run        Run as console host
     """);
+}
+
+static Task PrintResponseAsync(PipeResponse response)
+{
+    if (!string.IsNullOrWhiteSpace(response.Output))
+    {
+        Console.WriteLine(response.Output.Trim());
+    }
+
+    if (!string.IsNullOrWhiteSpace(response.Error))
+    {
+        Console.Error.WriteLine(response.Error.Trim());
+    }
+
+    Environment.ExitCode = response.ExitCode;
+    return Task.CompletedTask;
 }
 
 public sealed class PipeServerWorker : BackgroundService
@@ -202,8 +226,10 @@ public sealed class PipeServerWorker : BackgroundService
             "connect-windows-native" => ConnectWindowsNativeAsync(request, cancellationToken),
             "disconnect-windows-native" => DisconnectWindowsNativeAsync(request, cancellationToken),
             "status-windows-native" => StatusWindowsNativeAsync(request, cancellationToken),
+            "protection-preview" => _protectionPolicyService.PreviewAsync(request, cancellationToken),
             "protection-apply" => _protectionPolicyService.ApplyAsync(request, cancellationToken),
             "protection-remove" => _protectionPolicyService.RemoveAsync(cancellationToken),
+            "protection-reset" => _protectionPolicyService.ResetAsync(cancellationToken),
             "protection-status" => _protectionPolicyService.StatusAsync(cancellationToken),
             _ => Task.FromResult(PipeResponse.Fail("Unknown action: " + request.Action))
         };
@@ -302,6 +328,8 @@ public sealed class PipeRequest
 
     public string EnginePath { get; set; } = string.Empty;
 
+    public string TunnelInterfaceAlias { get; set; } = string.Empty;
+
     public bool KillSwitchEnabled { get; set; }
 
     public bool DnsLeakProtectionEnabled { get; set; }
@@ -313,6 +341,8 @@ public sealed class PipeRequest
 
 public sealed record PipeResponse(int ExitCode, string Output, string Error)
 {
+    public bool IsSuccess => ExitCode == 0;
+
     public static PipeResponse Success(string output)
     {
         return new PipeResponse(0, output, string.Empty);

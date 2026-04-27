@@ -317,6 +317,28 @@ public partial class MainWindow : Window
         }, "Применение защиты...");
     }
 
+    private async void PreviewProtectionButton_Click(object sender, RoutedEventArgs e)
+    {
+        await RunUiActionAsync(async () =>
+        {
+            var profile = BuildProfileFromEditorWithoutValidation();
+            var validationError = ValidateProtectionProfile(profile);
+            if (!string.IsNullOrWhiteSpace(validationError))
+            {
+                StatusTextBlock.Text = validationError;
+                AppendLog(validationError);
+                return;
+            }
+
+            var result = await _serviceClient.PreviewProtectionAsync(profile)
+                ?? ServiceUnavailableResult();
+            AppendCommandResult("protection preview", result);
+            StatusTextBlock.Text = result.IsSuccess
+                ? "План защиты готов"
+                : "План защиты недоступен";
+        }, "Расчет защиты...");
+    }
+
     private async void RemoveProtectionButton_Click(object sender, RoutedEventArgs e)
     {
         await RunUiActionAsync(async () =>
@@ -468,14 +490,24 @@ public partial class MainWindow : Window
         var protocol = ProtocolComboBox.SelectedValue is VpnProtocolType selectedProtocol
             ? selectedProtocol
             : VpnProtocolType.WindowsNative;
+        var tunnelConfig = GetTunnelConfig();
+        var serverAddress = ServerTextBox.Text.Trim();
+        var serverPort = ParsePortOrDefault(ServerPortTextBox.Text);
+
+        if (protocol is VpnProtocolType.WireGuard or VpnProtocolType.AmneziaWireGuard
+            && TryParseEndpointFromConfig(tunnelConfig, out var endpointHost, out var endpointPort))
+        {
+            serverAddress = endpointHost;
+            serverPort = endpointPort;
+        }
 
         return new VpnProfile
         {
             Id = oldProfile?.Id ?? Guid.NewGuid().ToString("N"),
             Name = NameTextBox.Text.Trim(),
             Protocol = protocol,
-            ServerAddress = ServerTextBox.Text.Trim(),
-            ServerPort = ParsePortOrDefault(ServerPortTextBox.Text),
+            ServerAddress = serverAddress,
+            ServerPort = serverPort,
             TunnelType = TunnelTypeComboBox.SelectedValue is VpnTunnelType tunnelType
                 ? tunnelType
                 : VpnTunnelType.Ikev2,
@@ -494,7 +526,7 @@ public partial class MainWindow : Window
             RealityShortId = RealityShortIdTextBox.Text.Trim(),
             RealityFingerprint = RealityFingerprintTextBox.Text.Trim(),
             EnginePath = EnginePathTextBox.Text.Trim(),
-            EncryptedTunnelConfig = _protector.Protect(GetTunnelConfig()),
+            EncryptedTunnelConfig = _protector.Protect(tunnelConfig),
             UpdatedAt = DateTimeOffset.UtcNow
         };
     }
@@ -544,6 +576,35 @@ public partial class MainWindow : Window
         if (profile.DnsLeakProtectionEnabled && string.IsNullOrWhiteSpace(profile.DnsServers))
         {
             return "Введите DNS servers";
+        }
+
+        var protectionError = ValidateProtectionProfile(profile);
+        if (!string.IsNullOrWhiteSpace(protectionError))
+        {
+            return protectionError;
+        }
+
+        return string.Empty;
+    }
+
+    private static string ValidateProtectionProfile(VpnProfile profile)
+    {
+        if (!profile.KillSwitchEnabled && !profile.DnsLeakProtectionEnabled)
+        {
+            return string.Empty;
+        }
+
+        if (profile.DnsLeakProtectionEnabled && !profile.KillSwitchEnabled)
+        {
+            return "DNS leak protection требует Kill switch";
+        }
+
+        if (profile.KillSwitchEnabled
+            && string.IsNullOrWhiteSpace(profile.ServerAddress)
+            && string.IsNullOrWhiteSpace(profile.EnginePath)
+            && string.IsNullOrWhiteSpace(profile.Name))
+        {
+            return "Для Kill switch нужен сервер, движок или имя интерфейса";
         }
 
         return string.Empty;
@@ -747,6 +808,7 @@ public partial class MainWindow : Window
         ConnectButton.IsEnabled = !isBusy;
         DisconnectButton.IsEnabled = !isBusy;
         ServiceButton.IsEnabled = !isBusy;
+        PreviewProtectionButton.IsEnabled = !isBusy;
         ApplyProtectionButton.IsEnabled = !isBusy;
         RemoveProtectionButton.IsEnabled = !isBusy;
         ProtectionStatusButton.IsEnabled = !isBusy;
@@ -786,6 +848,37 @@ public partial class MainWindow : Window
     private static bool IsProtectionRequested(VpnProfile profile)
     {
         return profile.KillSwitchEnabled || profile.DnsLeakProtectionEnabled;
+    }
+
+    private static bool TryParseEndpointFromConfig(string config, out string host, out int port)
+    {
+        host = string.Empty;
+        port = 0;
+
+        var endpointLine = config
+            .Split(Environment.NewLine, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .FirstOrDefault(line => line.StartsWith("Endpoint", StringComparison.OrdinalIgnoreCase));
+
+        if (string.IsNullOrWhiteSpace(endpointLine))
+        {
+            return false;
+        }
+
+        var value = endpointLine.Split('=', 2, StringSplitOptions.TrimEntries).LastOrDefault();
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return false;
+        }
+
+        var separatorIndex = value.LastIndexOf(':');
+        if (separatorIndex <= 0 || separatorIndex >= value.Length - 1)
+        {
+            return false;
+        }
+
+        host = value[..separatorIndex].Trim('[', ']', ' ');
+        return int.TryParse(value[(separatorIndex + 1)..], out port)
+            && !string.IsNullOrWhiteSpace(host);
     }
 
     private static CommandResult ServiceUnavailableResult()

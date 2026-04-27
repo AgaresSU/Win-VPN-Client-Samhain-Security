@@ -1,6 +1,6 @@
 # Samhain Security Roadmap
 
-Version baseline: `0.1.1`
+Version baseline: `0.1.2`
 
 ## Product Goal
 
@@ -128,6 +128,14 @@ The desktop UI should never directly own long-running tunnels in the final archi
 - Done: service pipe actions for protection apply, remove, and status.
 - Done: service-owned protection state under `%ProgramData%\SamhainSecurity\Service`.
 - Done: diagnostics include protection policy status.
+
+### 0.1.2
+
+- Done: non-destructive firewall rule preview from the desktop app.
+- Done: service-side Windows Firewall rule group for protection enforcement.
+- Done: firewall profile outbound default snapshot and restore.
+- Done: emergency `reset-protection` service command.
+- Done: WireGuard/AmneziaWG endpoint extraction from pasted config for allow-list planning.
 
 ## Design Direction
 
