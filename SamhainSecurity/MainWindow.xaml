@@ -19,6 +19,12 @@
         <SolidColorBrush x:Key="MutedTextBrush" Color="#667085" />
         <SolidColorBrush x:Key="TextBrush" Color="#18212F" />
         <SolidColorBrush x:Key="SidebarBrush" Color="#171A21" />
+        <SolidColorBrush x:Key="SuccessBrush" Color="#DFF6EE" />
+        <SolidColorBrush x:Key="SuccessTextBrush" Color="#116956" />
+        <SolidColorBrush x:Key="WarningBrush" Color="#FFF0D9" />
+        <SolidColorBrush x:Key="WarningTextBrush" Color="#8A4B0F" />
+        <SolidColorBrush x:Key="ErrorBrush" Color="#FFE8E5" />
+        <SolidColorBrush x:Key="ErrorTextBrush" Color="#A53A2A" />
 
         <Style TargetType="TextBlock">
             <Setter Property="Foreground" Value="{StaticResource TextBrush}" />
@@ -165,6 +171,10 @@
                 </StackPanel>
 
                 <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" HorizontalAlignment="Right">
+                    <Button x:Name="RunAsAdminButton"
+                            Content="Админ"
+                            Click="RunAsAdminButton_Click"
+                            Margin="0,0,8,0" />
                     <Button x:Name="DiagnosticsButton"
                             Content="Диагностика"
                             Click="DiagnosticsButton_Click"
@@ -207,10 +217,27 @@
 
                             <StackPanel Grid.Column="2">
                                 <TextBlock Text="Протокол" Style="{StaticResource LabelTextStyle}" />
-                                <ComboBox x:Name="ProtocolComboBox"
-                                          DisplayMemberPath="DisplayName"
-                                          SelectedValuePath="Value"
-                                          SelectionChanged="ProtocolComboBox_SelectionChanged" />
+                                <DockPanel>
+                                    <ComboBox x:Name="ProtocolComboBox"
+                                              DockPanel.Dock="Left"
+                                              Width="134"
+                                              DisplayMemberPath="DisplayName"
+                                              SelectedValuePath="Value"
+                                              SelectionChanged="ProtocolComboBox_SelectionChanged" />
+                                    <Border x:Name="EngineStatusBadge"
+                                            Background="{StaticResource SuccessBrush}"
+                                            Padding="10,7"
+                                            Margin="8,0,0,0"
+                                            MinHeight="38">
+                                        <TextBlock x:Name="EngineStatusTextBlock"
+                                                   Text="Ready"
+                                                   Foreground="{StaticResource SuccessTextBrush}"
+                                                   FontSize="12"
+                                                   FontWeight="SemiBold"
+                                                   VerticalAlignment="Center"
+                                                   TextTrimming="CharacterEllipsis" />
+                                    </Border>
+                                </DockPanel>
                             </StackPanel>
 
                             <StackPanel Grid.Column="4">
@@ -235,7 +262,8 @@
                                 <TextBlock x:Name="EnginePathLabel"
                                            Text="Движок"
                                            Style="{StaticResource LabelTextStyle}" />
-                                <TextBox x:Name="EnginePathTextBox" />
+                                <TextBox x:Name="EnginePathTextBox"
+                                         TextChanged="EnginePathTextBox_TextChanged" />
                             </StackPanel>
 
                             <Button Grid.Column="2"

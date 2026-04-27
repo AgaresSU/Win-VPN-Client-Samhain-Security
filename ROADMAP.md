@@ -1,6 +1,6 @@
 # Samhain Security Roadmap
 
-Version baseline: `0.0.3`
+Version baseline: `0.0.4`
 
 ## Product Goal
 
@@ -93,9 +93,9 @@ The desktop UI should never directly own long-running tunnels in the final archi
 
 ### 0.0.4
 
-- Add tray icon.
-- Add "Run as administrator" relaunch action.
-- Add engine availability badges beside the protocol selector.
+- Done: tray icon.
+- Done: "Run as administrator" relaunch action.
+- Done: engine availability badges beside the protocol selector.
 
 ### 0.0.5
 

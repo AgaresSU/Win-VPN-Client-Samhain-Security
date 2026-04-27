@@ -1,6 +1,6 @@
 # Samhain Security
 
-Version: `0.0.3`
+Version: `0.0.4`
 
 Desktop secure tunneling client for Windows built with WPF and .NET 9.
 
@@ -12,6 +12,8 @@ Desktop secure tunneling client for Windows built with WPF and .NET 9.
 - Supports WireGuard through the official Windows `wireguard.exe` tunnel service.
 - Supports AmneziaWG through an external `awg-quick.exe`-compatible backend.
 - Includes an in-app diagnostics check for admin rights, Windows native cmdlets, `rasdial`, and external protocol engines.
+- Includes a tray icon with quick open, connect, disconnect, diagnostics, admin relaunch, and exit actions.
+- Shows protocol engine availability badges in the profile editor.
 - Connects and disconnects through `rasdial.exe`.
 - Stores profile data in `%APPDATA%\SamhainSecurity\profiles.json`.
 - Encrypts saved passwords, L2TP PSK values, and pasted WG/AWG configs with Windows DPAPI for the current user.

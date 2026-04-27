@@ -1,4 +1,3 @@
-using System.Security.Principal;
 using VpnClientWindows.Models;
 
 namespace VpnClientWindows.Services;
@@ -13,7 +12,7 @@ public sealed class EnvironmentDiagnosticsService
             $"Version: {GetType().Assembly.GetName().Version}",
             $"OS: {Environment.OSVersion}",
             $"Process: {(Environment.Is64BitProcess ? "x64" : "x86")}",
-            $"Admin: {(IsAdministrator() ? "yes" : "no")}",
+            $"Admin: {(AdminElevationService.IsAdministrator() ? "yes" : "no")}",
             $"App directory: {AppContext.BaseDirectory}",
             $"Current directory: {Environment.CurrentDirectory}"
         };
@@ -94,11 +93,4 @@ public sealed class EnvironmentDiagnosticsService
         return EnginePathResolver.IsPathAvailable(path) ? "found" : "missing";
     }
 
-    private static bool IsAdministrator()
-    {
-        using var identity = WindowsIdentity.GetCurrent();
-        var principal = new WindowsPrincipal(identity);
-
-        return principal.IsInRole(WindowsBuiltInRole.Administrator);
-    }
 }

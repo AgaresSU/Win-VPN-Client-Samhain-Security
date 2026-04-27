@@ -1,9 +1,12 @@
 using System.Collections.ObjectModel;
+using System.ComponentModel;
+using System.Drawing;
 using System.Reflection;
 using System.Windows;
 using Microsoft.Win32;
 using VpnClientWindows.Models;
 using VpnClientWindows.Services;
+using Forms = System.Windows.Forms;
 
 namespace VpnClientWindows;
 
@@ -14,6 +17,9 @@ public partial class MainWindow : Window
     private readonly SecureDataProtector _protector = new();
     private readonly MultiProtocolVpnService _vpnService = new();
     private readonly EnvironmentDiagnosticsService _diagnosticsService = new();
+    private readonly EngineAvailabilityService _engineAvailabilityService = new();
+    private Forms.NotifyIcon? _notifyIcon;
+    private bool _allowExit;
     private bool _isBusy;
     private bool _isLoadingProfile;
 
@@ -35,6 +41,8 @@ public partial class MainWindow : Window
         TunnelTypeComboBox.SelectedValue = VpnTunnelType.Ikev2;
 
         UpdateProtocolFields();
+        InitializeTrayIcon();
+        UpdateAdminButton();
     }
 
     private async void Window_Loaded(object sender, RoutedEventArgs e)
@@ -62,6 +70,20 @@ public partial class MainWindow : Window
         }, "Загрузка профилей...");
     }
 
+    protected override void OnClosing(CancelEventArgs e)
+    {
+        if (!_allowExit)
+        {
+            e.Cancel = true;
+            Hide();
+            AppendLog("Окно скрыто в трей");
+            return;
+        }
+
+        _notifyIcon?.Dispose();
+        base.OnClosing(e);
+    }
+
     private void ProfilesListBox_SelectionChanged(object sender, System.Windows.Controls.SelectionChangedEventArgs e)
     {
         if (_isLoadingProfile)
@@ -83,6 +105,16 @@ public partial class MainWindow : Window
         }
 
         UpdateProtocolFields();
+    }
+
+    private void EnginePathTextBox_TextChanged(object sender, System.Windows.Controls.TextChangedEventArgs e)
+    {
+        if (_isLoadingProfile)
+        {
+            return;
+        }
+
+        UpdateEngineStatusBadge();
     }
 
     private void NewProfileButton_Click(object sender, RoutedEventArgs e)
@@ -112,7 +144,7 @@ public partial class MainWindow : Window
             return;
         }
 
-        var confirmed = MessageBox.Show(
+        var confirmed = System.Windows.MessageBox.Show(
             this,
             $"Удалить профиль \"{profile.Name}\"?",
             "Удаление",
@@ -201,7 +233,7 @@ public partial class MainWindow : Window
 
     private void BrowseEngineButton_Click(object sender, RoutedEventArgs e)
     {
-        var dialog = new OpenFileDialog
+        var dialog = new Microsoft.Win32.OpenFileDialog
         {
             Filter = "Executable (*.exe)|*.exe|All files (*.*)|*.*",
             CheckFileExists = true
@@ -211,6 +243,11 @@ public partial class MainWindow : Window
         {
             EnginePathTextBox.Text = dialog.FileName;
         }
+    }
+
+    private void RunAsAdminButton_Click(object sender, RoutedEventArgs e)
+    {
+        RelaunchAsAdministrator();
     }
 
     private async void DiagnosticsButton_Click(object sender, RoutedEventArgs e)
@@ -501,6 +538,42 @@ public partial class MainWindow : Window
             VpnProtocolType.AmneziaWireGuard => "AmneziaWG .conf",
             _ => "WireGuard .conf"
         };
+
+        UpdateEngineStatusBadge();
+    }
+
+    private void UpdateEngineStatusBadge()
+    {
+        var protocol = ProtocolComboBox.SelectedValue is VpnProtocolType selectedProtocol
+            ? selectedProtocol
+            : VpnProtocolType.WindowsNative;
+
+        var availability = _engineAvailabilityService.GetAvailability(protocol, EnginePathTextBox.Text);
+        EngineStatusTextBlock.Text = availability.Label;
+
+        if (!availability.IsAvailable)
+        {
+            EngineStatusBadge.Background = (System.Windows.Media.Brush)FindResource("ErrorBrush");
+            EngineStatusTextBlock.Foreground = (System.Windows.Media.Brush)FindResource("ErrorTextBrush");
+            return;
+        }
+
+        if (availability.NeedsAdmin)
+        {
+            EngineStatusBadge.Background = (System.Windows.Media.Brush)FindResource("WarningBrush");
+            EngineStatusTextBlock.Foreground = (System.Windows.Media.Brush)FindResource("WarningTextBrush");
+            return;
+        }
+
+        EngineStatusBadge.Background = (System.Windows.Media.Brush)FindResource("SuccessBrush");
+        EngineStatusTextBlock.Foreground = (System.Windows.Media.Brush)FindResource("SuccessTextBrush");
+    }
+
+    private void UpdateAdminButton()
+    {
+        RunAsAdminButton.Visibility = AdminElevationService.IsAdministrator()
+            ? Visibility.Collapsed
+            : Visibility.Visible;
     }
 
     private async Task RunUiActionAsync(Func<Task> action, string busyText)
@@ -520,7 +593,7 @@ public partial class MainWindow : Window
         {
             StatusTextBlock.Text = "Ошибка";
             AppendLog(ex.Message);
-            MessageBox.Show(this, ex.Message, "Ошибка", MessageBoxButton.OK, MessageBoxImage.Error);
+            System.Windows.MessageBox.Show(this, ex.Message, "Ошибка", MessageBoxButton.OK, MessageBoxImage.Error);
         }
         finally
         {
@@ -538,6 +611,7 @@ public partial class MainWindow : Window
         ConnectButton.IsEnabled = !isBusy;
         DisconnectButton.IsEnabled = !isBusy;
         DiagnosticsButton.IsEnabled = !isBusy;
+        RunAsAdminButton.IsEnabled = !isBusy;
         RefreshStatusButton.IsEnabled = !isBusy;
 
         if (!string.IsNullOrWhiteSpace(statusText))
@@ -580,5 +654,65 @@ public partial class MainWindow : Window
         return version is null
             ? "0.0.1"
             : $"{version.Major}.{version.Minor}.{version.Build}";
+    }
+
+    private void InitializeTrayIcon()
+    {
+        _notifyIcon = new Forms.NotifyIcon
+        {
+            Icon = SystemIcons.Shield,
+            Text = "Samhain Security",
+            Visible = true,
+            ContextMenuStrip = BuildTrayMenu()
+        };
+
+        _notifyIcon.DoubleClick += (_, _) => ShowFromTray();
+    }
+
+    private Forms.ContextMenuStrip BuildTrayMenu()
+    {
+        var menu = new Forms.ContextMenuStrip();
+
+        menu.Items.Add("Открыть", null, (_, _) => Dispatcher.Invoke(ShowFromTray));
+        menu.Items.Add("Подключить", null, (_, _) => Dispatcher.Invoke(() => ConnectButton_Click(this, new RoutedEventArgs())));
+        menu.Items.Add("Отключить", null, (_, _) => Dispatcher.Invoke(() => DisconnectButton_Click(this, new RoutedEventArgs())));
+        menu.Items.Add("Диагностика", null, (_, _) => Dispatcher.Invoke(() => DiagnosticsButton_Click(this, new RoutedEventArgs())));
+        menu.Items.Add("Запуск от администратора", null, (_, _) => Dispatcher.Invoke(RelaunchAsAdministrator));
+        menu.Items.Add(new Forms.ToolStripSeparator());
+        menu.Items.Add("Выход", null, (_, _) => Dispatcher.Invoke(ExitApplication));
+
+        return menu;
+    }
+
+    private void ShowFromTray()
+    {
+        Show();
+        WindowState = WindowState.Normal;
+        Activate();
+    }
+
+    private void ExitApplication()
+    {
+        _allowExit = true;
+        _notifyIcon?.Dispose();
+        System.Windows.Application.Current.Shutdown();
+    }
+
+    private void RelaunchAsAdministrator()
+    {
+        if (AdminElevationService.IsAdministrator())
+        {
+            StatusTextBlock.Text = "Уже запущено от администратора";
+            return;
+        }
+
+        if (!AdminElevationService.TryRelaunchAsAdministrator(out var error))
+        {
+            StatusTextBlock.Text = "Не удалось запустить от администратора";
+            AppendLog(error);
+            return;
+        }
+
+        ExitApplication();
     }
 }
