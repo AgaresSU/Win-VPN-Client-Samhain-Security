@@ -19,6 +19,7 @@ public partial class MainWindow : Window
 {
     private const int MaxServerProbesPerRun = 60;
     private const int MaxConcurrentServerProbes = 6;
+    private const int MaxFailoverCandidates = 3;
 
     private readonly ObservableCollection<VpnProfile> _profiles = [];
     private readonly ObservableCollection<SubscriptionSourceListItem> _subscriptionSources = [];
@@ -344,6 +345,7 @@ public partial class MainWindow : Window
         _appSettings.LaunchAtStartup = LaunchAtStartupCheckBox.IsChecked == true;
         _appSettings.AutoConnectLastProfile = AutoConnectLastProfileCheckBox.IsChecked == true;
         _appSettings.AutoReconnectOnSystemChange = AutoReconnectCheckBox.IsChecked == true;
+        _appSettings.AutoFailoverOnConnectFailure = AutoFailoverCheckBox.IsChecked == true;
 
         try
         {
@@ -440,40 +442,177 @@ public partial class MainWindow : Window
                 return;
             }
 
-            var connectResult = await _vpnService.ConnectAsync(profile, PasswordBox.Password, GetTunnelConfig());
-            _structuredLogService.WriteCommand("connect", profile, connectResult);
-            AppendCommandResult($"{profile.Protocol.ToDisplayName()} connect", connectResult);
-
-            await _connectionStateStore.UpdateAsync(
-                profile,
-                "connect",
-                connectResult.IsSuccess ? "Connected" : "Failed",
-                connectResult);
+            var connection = await ConnectWithFailoverAsync(profile, PasswordBox.Password, GetTunnelConfig(), "connect");
+            var connectResult = connection.Result;
+            var connectedProfile = connection.Profile;
 
             if (connectResult.IsSuccess)
             {
-                profile.LastConnectedAt = DateTimeOffset.UtcNow;
-                _appSettings.LastProfileId = profile.Id;
+                _appSettings.LastProfileId = connectedProfile.Id;
                 await _profileStore.SaveAsync(_profiles);
                 await SaveAppSettingsQuietlyAsync();
+                RenderServerChoices(SubscriptionSelectorComboBox.SelectedItem as SubscriptionSourceListItem, connectedProfile.Id);
+            }
+            else
+            {
+                await _profileStore.SaveAsync(_profiles);
                 RenderServerChoices(SubscriptionSelectorComboBox.SelectedItem as SubscriptionSourceListItem, profile.Id);
             }
 
             StatusTextBlock.Text = connectResult.IsSuccess
-                ? "Подключено"
+                ? connection.UsedFailover
+                    ? $"Подключено через резерв: {connectedProfile.Name}"
+                    : "Подключено"
                 : "Подключение не удалось";
-            UpdateDailyStatusPanel(profile, connectResult.IsSuccess ? "Подключено" : "Ошибка подключения");
+            UpdateDailyStatusPanel(connectedProfile, connectResult.IsSuccess ? "Подключено" : "Ошибка подключения");
 
-            if (connectResult.IsSuccess && IsProtectionRequested(profile))
+            if (connectResult.IsSuccess && IsProtectionRequested(connectedProfile))
             {
-                var protectionResult = await _serviceClient.ApplyProtectionAsync(profile)
+                var protectionResult = await _serviceClient.ApplyProtectionAsync(connectedProfile)
                     ?? ServiceUnavailableResult();
                 AppendCommandResult("protection apply", protectionResult);
                 UpdateDailyStatusPanel(
-                    profile,
+                    connectedProfile,
                     protectionResult.IsSuccess ? "Подключено, защита включена" : "Защита требует внимания");
             }
         }, "Подключение...");
+    }
+
+    private async Task<ConnectionFlowResult> ConnectWithFailoverAsync(
+        VpnProfile initialProfile,
+        string initialPassword,
+        string initialTunnelConfig,
+        string actionName)
+    {
+        var initialResult = await ConnectSingleProfileAsync(
+            initialProfile,
+            initialPassword,
+            initialTunnelConfig,
+            actionName,
+            "connect");
+        if (initialResult.IsSuccess || !_appSettings.AutoFailoverOnConnectFailure)
+        {
+            return new ConnectionFlowResult(initialProfile, initialResult, false, 1);
+        }
+
+        var candidates = GetFailoverCandidates(initialProfile)
+            .Take(MaxFailoverCandidates)
+            .ToList();
+        var attempts = 1;
+        var lastResult = initialResult;
+
+        foreach (var candidate in candidates)
+        {
+            attempts++;
+            SelectProfileForConnection(candidate, $"Пробую другой сервер: {candidate.Name}");
+
+            var prepareResult = await _vpnService.PrepareProfileAsync(
+                candidate,
+                _protector.Unprotect(candidate.EncryptedL2tpPsk));
+            _structuredLogService.WriteCommand(actionName + ".failover.prepare", candidate, prepareResult);
+            if (!prepareResult.IsSuccess)
+            {
+                AppendCommandResult($"{candidate.Protocol.ToDisplayName()} reserve prepare", prepareResult);
+                MarkProfileConnectFailed(candidate);
+                continue;
+            }
+
+            lastResult = await ConnectSingleProfileAsync(
+                candidate,
+                _protector.Unprotect(candidate.EncryptedPassword),
+                _protector.Unprotect(candidate.EncryptedTunnelConfig),
+                actionName + ".failover",
+                "reserve connect");
+
+            if (lastResult.IsSuccess)
+            {
+                return new ConnectionFlowResult(candidate, lastResult, true, attempts);
+            }
+        }
+
+        SelectProfileForConnection(initialProfile, "Подключение не удалось");
+        return new ConnectionFlowResult(initialProfile, lastResult, false, attempts);
+    }
+
+    private async Task<CommandResult> ConnectSingleProfileAsync(
+        VpnProfile profile,
+        string password,
+        string tunnelConfig,
+        string actionName,
+        string logTitle)
+    {
+        var connectResult = await _vpnService.ConnectAsync(profile, password, tunnelConfig);
+        _structuredLogService.WriteCommand(actionName, profile, connectResult);
+        AppendCommandResult($"{profile.Protocol.ToDisplayName()} {logTitle}", connectResult);
+
+        await _connectionStateStore.UpdateAsync(
+            profile,
+            actionName,
+            connectResult.IsSuccess ? "Connected" : "Failed",
+            connectResult);
+
+        if (connectResult.IsSuccess)
+        {
+            MarkProfileConnected(profile);
+        }
+        else
+        {
+            MarkProfileConnectFailed(profile);
+        }
+
+        return connectResult;
+    }
+
+    private void SelectProfileForConnection(VpnProfile profile, string statusText)
+    {
+        ProfilesListBox.SelectedItem = profile;
+        var serverItem = _serverChoices.FirstOrDefault(item => item.Profile.Id == profile.Id);
+        if (serverItem is not null)
+        {
+            ServerSelectorComboBox.SelectedItem = serverItem;
+        }
+
+        LoadProfileIntoEditor(profile);
+        StatusTextBlock.Text = statusText;
+    }
+
+    private IEnumerable<VpnProfile> GetFailoverCandidates(VpnProfile failedProfile)
+    {
+        var source = SubscriptionSelectorComboBox.SelectedItem as SubscriptionSourceListItem;
+        var profiles = GetProfilesForSubscription(source);
+        if (source is null && !string.IsNullOrWhiteSpace(failedProfile.SubscriptionSourceId))
+        {
+            profiles = profiles.Where(profile => string.Equals(
+                profile.SubscriptionSourceId,
+                failedProfile.SubscriptionSourceId,
+                StringComparison.OrdinalIgnoreCase));
+        }
+
+        return profiles
+            .Where(profile => profile.Id != failedProfile.Id)
+            .OrderBy(profile => GetServerSortKey(profile).ProbeBucket)
+            .ThenByDescending(profile => profile.IsFavorite)
+            .ThenBy(profile => GetServerSortKey(profile).LatencyMs)
+            .ThenByDescending(profile => profile.LastConnectedAt ?? DateTimeOffset.MinValue)
+            .ThenBy(profile => profile.Name, StringComparer.CurrentCultureIgnoreCase)
+            .ThenBy(profile => profile.ServerAddress);
+    }
+
+    private static void MarkProfileConnected(VpnProfile profile)
+    {
+        profile.LastConnectedAt = DateTimeOffset.UtcNow;
+        profile.LastProbeStatus = ServerProbeStatus.Connected;
+        profile.LastLatencyMs ??= 0;
+        profile.LastProbedAt = DateTimeOffset.UtcNow;
+        profile.UpdatedAt = DateTimeOffset.UtcNow;
+    }
+
+    private static void MarkProfileConnectFailed(VpnProfile profile)
+    {
+        profile.LastLatencyMs = null;
+        profile.LastProbeStatus = ServerProbeStatus.Failed;
+        profile.LastProbedAt = DateTimeOffset.UtcNow;
+        profile.UpdatedAt = DateTimeOffset.UtcNow;
     }
 
     private async void DisconnectButton_Click(object sender, RoutedEventArgs e)
@@ -897,6 +1036,9 @@ public partial class MainWindow : Window
             SubscriptionName = oldProfile?.SubscriptionName ?? string.Empty,
             IsFavorite = oldProfile?.IsFavorite ?? false,
             LastConnectedAt = oldProfile?.LastConnectedAt,
+            LastLatencyMs = oldProfile?.LastLatencyMs,
+            LastProbeStatus = oldProfile?.LastProbeStatus ?? string.Empty,
+            LastProbedAt = oldProfile?.LastProbedAt,
             ServerAddress = serverAddress,
             ServerPort = serverPort,
             TunnelType = TunnelTypeComboBox.SelectedValue is VpnTunnelType tunnelType
@@ -1232,8 +1374,9 @@ public partial class MainWindow : Window
         var startup = _appSettings.LaunchAtStartup ? "автозапуск" : "ручной запуск";
         var reconnect = _appSettings.AutoConnectLastProfile ? "автоподключение" : "без автоподключения";
         var recovery = _appSettings.AutoReconnectOnSystemChange ? "восстановление" : "без восстановления";
+        var failover = _appSettings.AutoFailoverOnConnectFailure ? "резерв" : "без резерва";
 
-        return $"{startup}; {reconnect}; {recovery}";
+        return $"{startup}; {reconnect}; {recovery}; {failover}";
     }
 
     private static string BuildDailyConnectionStatus(CommandResult result)
@@ -1314,6 +1457,7 @@ public partial class MainWindow : Window
             LaunchAtStartupCheckBox.IsChecked = _appSettings.LaunchAtStartup;
             AutoConnectLastProfileCheckBox.IsChecked = _appSettings.AutoConnectLastProfile;
             AutoReconnectCheckBox.IsChecked = _appSettings.AutoReconnectOnSystemChange;
+            AutoFailoverCheckBox.IsChecked = _appSettings.AutoFailoverOnConnectFailure;
             AdvancedSettingsExpander.IsExpanded = _appSettings.AdvancedSettingsExpanded;
         }
         finally
@@ -1336,29 +1480,36 @@ public partial class MainWindow : Window
         }
 
         ProfilesListBox.SelectedItem = profile;
+        LoadProfileIntoEditor(profile);
         await RunUiActionAsync(async () =>
         {
-            var connectResult = await _vpnService.ConnectAsync(profile, PasswordBox.Password, GetTunnelConfig());
-            _structuredLogService.WriteCommand("autoconnect", profile, connectResult);
-            AppendCommandResult($"{profile.Protocol.ToDisplayName()} autoconnect", connectResult);
-
-            await _connectionStateStore.UpdateAsync(
+            var connection = await ConnectWithFailoverAsync(
                 profile,
-                "autoconnect",
-                connectResult.IsSuccess ? "Connected" : "Failed",
-                connectResult);
+                _protector.Unprotect(profile.EncryptedPassword),
+                _protector.Unprotect(profile.EncryptedTunnelConfig),
+                "autoconnect");
+            var connectResult = connection.Result;
+            var connectedProfile = connection.Profile;
 
             StatusTextBlock.Text = connectResult.IsSuccess
-                ? "Подключено"
+                ? connection.UsedFailover
+                    ? $"Подключено через резерв: {connectedProfile.Name}"
+                    : "Подключено"
                 : "Автоподключение не удалось";
             if (connectResult.IsSuccess)
             {
-                profile.LastConnectedAt = DateTimeOffset.UtcNow;
+                _appSettings.LastProfileId = connectedProfile.Id;
+                await _profileStore.SaveAsync(_profiles);
+                await SaveAppSettingsQuietlyAsync();
+                RenderServerChoices(SubscriptionSelectorComboBox.SelectedItem as SubscriptionSourceListItem, connectedProfile.Id);
+            }
+            else
+            {
                 await _profileStore.SaveAsync(_profiles);
                 RenderServerChoices(SubscriptionSelectorComboBox.SelectedItem as SubscriptionSourceListItem, profile.Id);
             }
 
-            UpdateDailyStatusPanel(profile, connectResult.IsSuccess ? "Подключено" : "Автоподключение не удалось");
+            UpdateDailyStatusPanel(connectedProfile, connectResult.IsSuccess ? "Подключено" : "Автоподключение не удалось");
         }, "Автоподключение...");
     }
 
@@ -1694,7 +1845,7 @@ public partial class MainWindow : Window
         var hasFreshProbe = profile.LastProbedAt is not null
             && DateTimeOffset.UtcNow - profile.LastProbedAt.Value < TimeSpan.FromHours(6);
         var isAvailable = hasFreshProbe
-            && profile.LastProbeStatus is ServerProbeStatus.TcpOk or ServerProbeStatus.EndpointResolved
+            && profile.LastProbeStatus is ServerProbeStatus.Connected or ServerProbeStatus.TcpOk or ServerProbeStatus.EndpointResolved
             && profile.LastLatencyMs is not null;
         var isFailed = hasFreshProbe
             && profile.LastProbeStatus is ServerProbeStatus.Failed or ServerProbeStatus.Skipped;
@@ -1864,6 +2015,9 @@ public partial class MainWindow : Window
         target.DnsServers = existing.DnsServers;
         target.IsFavorite = existing.IsFavorite;
         target.LastConnectedAt = existing.LastConnectedAt;
+        target.LastLatencyMs = existing.LastLatencyMs;
+        target.LastProbeStatus = existing.LastProbeStatus ?? string.Empty;
+        target.LastProbedAt = existing.LastProbedAt;
     }
 
     private static string BuildSubscriptionStatus(
@@ -2156,29 +2310,33 @@ public partial class MainWindow : Window
         LoadProfileIntoEditor(profile);
         await RunUiActionAsync(async () =>
         {
-            var password = _protector.Unprotect(profile.EncryptedPassword);
-            var tunnelConfig = _protector.Unprotect(profile.EncryptedTunnelConfig);
-            var connectResult = await _vpnService.ConnectAsync(profile, password, tunnelConfig);
-            _structuredLogService.WriteCommand("reconnect", profile, connectResult);
-            AppendCommandResult($"{profile.Protocol.ToDisplayName()} reconnect", connectResult);
-
-            await _connectionStateStore.UpdateAsync(
+            var connection = await ConnectWithFailoverAsync(
                 profile,
-                "reconnect",
-                connectResult.IsSuccess ? "Connected" : "Failed",
-                connectResult);
+                _protector.Unprotect(profile.EncryptedPassword),
+                _protector.Unprotect(profile.EncryptedTunnelConfig),
+                "reconnect");
+            var connectResult = connection.Result;
+            var connectedProfile = connection.Profile;
 
             if (connectResult.IsSuccess)
             {
-                profile.LastConnectedAt = DateTimeOffset.UtcNow;
+                _appSettings.LastProfileId = connectedProfile.Id;
+                await _profileStore.SaveAsync(_profiles);
+                await SaveAppSettingsQuietlyAsync();
+                RenderServerChoices(SubscriptionSelectorComboBox.SelectedItem as SubscriptionSourceListItem, connectedProfile.Id);
+            }
+            else
+            {
                 await _profileStore.SaveAsync(_profiles);
                 RenderServerChoices(SubscriptionSelectorComboBox.SelectedItem as SubscriptionSourceListItem, profile.Id);
             }
 
             StatusTextBlock.Text = connectResult.IsSuccess
-                ? $"Восстановлено: {reason}"
+                ? connection.UsedFailover
+                    ? $"Восстановлено через резерв: {reason}"
+                    : $"Восстановлено: {reason}"
                 : $"Восстановление не удалось: {reason}";
-            UpdateDailyStatusPanel(profile, connectResult.IsSuccess ? "Подключено" : "Восстановление не удалось");
+            UpdateDailyStatusPanel(connectedProfile, connectResult.IsSuccess ? "Подключено" : "Восстановление не удалось");
         }, $"Восстановление: {reason}...");
     }
 
@@ -2376,6 +2534,7 @@ public partial class MainWindow : Window
             var hasLatency = profile.LastLatencyMs is >= 0;
             return profile.LastProbeStatus switch
             {
+                ServerProbeStatus.Connected => "подключен",
                 ServerProbeStatus.TcpOk when hasLatency => $"{profile.LastLatencyMs} мс",
                 ServerProbeStatus.EndpointResolved when hasLatency => $"адрес {profile.LastLatencyMs} мс",
                 ServerProbeStatus.Failed => "нет ответа",
@@ -2396,6 +2555,12 @@ public partial class MainWindow : Window
                 : profile.ServerAddress;
         }
     }
+
+    private sealed record ConnectionFlowResult(
+        VpnProfile Profile,
+        CommandResult Result,
+        bool UsedFailover,
+        int AttemptCount);
 
     private readonly record struct ServerSortKey(int ProbeBucket, int LatencyMs);
 

@@ -8,6 +8,8 @@ public sealed class AppSettings
 
     public bool AutoReconnectOnSystemChange { get; set; } = true;
 
+    public bool AutoFailoverOnConnectFailure { get; set; } = true;
+
     public string LastProfileId { get; set; } = string.Empty;
 
     public string LastSubscriptionSourceId { get; set; } = string.Empty;

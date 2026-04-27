@@ -156,6 +156,7 @@ public sealed class ServerProbeService
 
 public static class ServerProbeStatus
 {
+    public const string Connected = "connected";
     public const string TcpOk = "tcp_ok";
     public const string EndpointResolved = "endpoint_resolved";
     public const string Failed = "failed";

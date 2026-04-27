@@ -1,6 +1,6 @@
 # Samhain Security Roadmap
 
-Version baseline: `0.2.6`
+Version baseline: `0.2.7`
 
 ## Product Goal
 
@@ -242,6 +242,12 @@ The default UI should stay close to the simplicity of Happ: a small set of obvio
 - Done: quick server checks from the current dropdown list.
 - Done: saved server status and delay for ranking.
 - Done: `Лучший` now prefers recently checked available servers.
+
+### 0.2.7
+
+- Done: automatic reserve-server retry after a failed connection attempt.
+- Done: failed servers are temporarily deprioritized in the server list.
+- Done: manual connect, autoconnect, and recovery flows can land on the working reserve server.
 
 ## Design Direction
 
