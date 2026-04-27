@@ -1,6 +1,6 @@
 # Samhain Security
 
-Version: `0.0.5`
+Version: `0.0.6`
 
 Desktop secure tunneling client for Windows built with WPF and .NET 9.
 
@@ -15,8 +15,11 @@ Desktop secure tunneling client for Windows built with WPF and .NET 9.
 - Includes a tray icon with quick open, connect, disconnect, diagnostics, admin relaunch, and exit actions.
 - Shows protocol engine availability badges in the profile editor.
 - Detects external engine versions in diagnostics and prints repair suggestions when an engine is missing.
+- Persists connection state, writes structured JSONL logs, and exports diagnostics bundles.
 - Connects and disconnects through `rasdial.exe`.
 - Stores profile data in `%APPDATA%\SamhainSecurity\profiles.json`.
+- Stores connection state in `%APPDATA%\SamhainSecurity\connection-state.json`.
+- Stores structured logs in `%APPDATA%\SamhainSecurity\logs\`.
 - Encrypts saved passwords, L2TP PSK values, and pasted WG/AWG configs with Windows DPAPI for the current user.
 
 ## External engines

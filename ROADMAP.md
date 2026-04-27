@@ -1,6 +1,6 @@
 # Samhain Security Roadmap
 
-Version baseline: `0.0.5`
+Version baseline: `0.0.6`
 
 ## Product Goal
 
@@ -105,9 +105,9 @@ The desktop UI should never directly own long-running tunnels in the final archi
 
 ### 0.0.6
 
-- Add persistent connection state model.
-- Add structured JSON logs.
-- Add export diagnostics bundle.
+- Done: persistent connection state model.
+- Done: structured JSON logs.
+- Done: export diagnostics bundle.
 
 ### 0.0.7
 

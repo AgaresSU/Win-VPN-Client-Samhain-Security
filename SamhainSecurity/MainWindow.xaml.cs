@@ -18,6 +18,9 @@ public partial class MainWindow : Window
     private readonly MultiProtocolVpnService _vpnService = new();
     private readonly EnvironmentDiagnosticsService _diagnosticsService = new();
     private readonly EngineAvailabilityService _engineAvailabilityService = new();
+    private readonly ConnectionStateStore _connectionStateStore = new();
+    private readonly StructuredLogService _structuredLogService = new();
+    private readonly DiagnosticsBundleService _diagnosticsBundleService;
     private Forms.NotifyIcon? _notifyIcon;
     private bool _allowExit;
     private bool _isBusy;
@@ -25,6 +28,8 @@ public partial class MainWindow : Window
 
     public MainWindow()
     {
+        _diagnosticsBundleService = new DiagnosticsBundleService(_profileStore, _connectionStateStore, _structuredLogService);
+
         InitializeComponent();
 
         VersionTextBlock.Text = "v" + GetAppVersion();
@@ -159,6 +164,7 @@ public partial class MainWindow : Window
         await RunUiActionAsync(async () =>
         {
             var removeResult = await _vpnService.RemoveProfileAsync(profile, GetTunnelConfig());
+            _structuredLogService.WriteCommand("profile.cleanup", profile, removeResult);
             if (!removeResult.IsSuccess)
             {
                 AppendCommandResult("profile cleanup", removeResult);
@@ -183,7 +189,14 @@ public partial class MainWindow : Window
             }
 
             var connectResult = await _vpnService.ConnectAsync(profile, PasswordBox.Password, GetTunnelConfig());
+            _structuredLogService.WriteCommand("connect", profile, connectResult);
             AppendCommandResult($"{profile.Protocol.ToDisplayName()} connect", connectResult);
+
+            await _connectionStateStore.UpdateAsync(
+                profile,
+                "connect",
+                connectResult.IsSuccess ? "Connected" : "Failed",
+                connectResult);
 
             StatusTextBlock.Text = connectResult.IsSuccess
                 ? "Подключено"
@@ -203,7 +216,14 @@ public partial class MainWindow : Window
         await RunUiActionAsync(async () =>
         {
             var disconnectResult = await _vpnService.DisconnectAsync(profile, GetTunnelConfig());
+            _structuredLogService.WriteCommand("disconnect", profile, disconnectResult);
             AppendCommandResult($"{profile.Protocol.ToDisplayName()} disconnect", disconnectResult);
+
+            await _connectionStateStore.UpdateAsync(
+                profile,
+                "disconnect",
+                disconnectResult.IsSuccess ? "Disconnected" : "DisconnectFailed",
+                disconnectResult);
 
             StatusTextBlock.Text = disconnectResult.IsSuccess
                 ? "Отключено"
@@ -223,7 +243,14 @@ public partial class MainWindow : Window
         await RunUiActionAsync(async () =>
         {
             var statusResult = await _vpnService.GetStatusAsync(profile);
+            _structuredLogService.WriteCommand("status", profile, statusResult);
             AppendCommandResult($"{profile.Protocol.ToDisplayName()} status", statusResult);
+
+            await _connectionStateStore.UpdateAsync(
+                profile,
+                "status",
+                statusResult.Output.Trim(),
+                statusResult);
 
             StatusTextBlock.Text = statusResult.IsSuccess
                 ? $"Статус: {statusResult.Output.Trim()}"
@@ -262,6 +289,28 @@ public partial class MainWindow : Window
             AppendLog(report);
             StatusTextBlock.Text = "Диагностика завершена";
         }, "Диагностика...");
+    }
+
+    private async void ExportDiagnosticsButton_Click(object sender, RoutedEventArgs e)
+    {
+        await RunUiActionAsync(() =>
+        {
+            var dialog = new Microsoft.Win32.SaveFileDialog
+            {
+                Filter = "Zip archive (*.zip)|*.zip",
+                FileName = $"samhain-diagnostics-{DateTime.Now:yyyyMMdd-HHmmss}.zip",
+                OverwritePrompt = true
+            };
+
+            if (dialog.ShowDialog(this) == true)
+            {
+                _diagnosticsBundleService.Export(dialog.FileName);
+                AppendLog($"Диагностика экспортирована: {dialog.FileName}");
+                StatusTextBlock.Text = "Диагностика экспортирована";
+            }
+
+            return Task.CompletedTask;
+        }, "Экспорт диагностики...");
     }
 
     private void ImportVlessButton_Click(object sender, RoutedEventArgs e)
@@ -319,6 +368,7 @@ public partial class MainWindow : Window
             && oldProfile?.Protocol == VpnProtocolType.WindowsNative)
         {
             var removeOldResult = await _vpnService.RemoveProfileAsync(oldProfile, GetTunnelConfig());
+            _structuredLogService.WriteCommand("profile.cleanup.old", oldProfile, removeOldResult);
             if (!removeOldResult.IsSuccess)
             {
                 AppendCommandResult("old Windows native profile remove", removeOldResult);
@@ -326,6 +376,7 @@ public partial class MainWindow : Window
         }
 
         var prepareResult = await _vpnService.PrepareProfileAsync(profile, L2tpPskPasswordBox.Password);
+        _structuredLogService.WriteCommand("profile.prepare", profile, prepareResult);
         AppendCommandResult($"{profile.Protocol.ToDisplayName()} prepare", prepareResult);
 
         if (!prepareResult.IsSuccess)
@@ -611,6 +662,7 @@ public partial class MainWindow : Window
         ConnectButton.IsEnabled = !isBusy;
         DisconnectButton.IsEnabled = !isBusy;
         DiagnosticsButton.IsEnabled = !isBusy;
+        ExportDiagnosticsButton.IsEnabled = !isBusy;
         RunAsAdminButton.IsEnabled = !isBusy;
         RefreshStatusButton.IsEnabled = !isBusy;
 
@@ -634,6 +686,7 @@ public partial class MainWindow : Window
     {
         LogTextBox.AppendText($"[{DateTime.Now:HH:mm:ss}] {message}{Environment.NewLine}");
         LogTextBox.ScrollToEnd();
+        TryWriteInfoLog("ui.log", message);
     }
 
     private string GetTunnelConfig()
@@ -654,6 +707,18 @@ public partial class MainWindow : Window
         return version is null
             ? "0.0.1"
             : $"{version.Major}.{version.Minor}.{version.Build}";
+    }
+
+    private void TryWriteInfoLog(string eventName, string message)
+    {
+        try
+        {
+            _structuredLogService.WriteInfo(eventName, message);
+        }
+        catch
+        {
+            // UI logging must not fail because structured logging is unavailable.
+        }
     }
 
     private void InitializeTrayIcon()
