@@ -38,6 +38,8 @@ public partial class MainWindow : Window
     private bool _isLoadingSubscriptions;
     private bool _isLoadingAppSettings;
     private string _lastClipboardSubscriptionUrl = string.Empty;
+    private string _dailyConnectionState = "Ожидание";
+    private string _dailyServiceState = "Служба: проверка";
     private AppSettings _appSettings = new();
 
     public MainWindow()
@@ -69,6 +71,7 @@ public partial class MainWindow : Window
         UpdateProtocolFields();
         InitializeTrayIcon();
         UpdateAdminButton();
+        UpdateDailyStatusPanel();
     }
 
     private async void Window_Loaded(object sender, RoutedEventArgs e)
@@ -103,6 +106,7 @@ public partial class MainWindow : Window
             AppendLog($"Подписки: {subscriptions.Count}. Хранилище: {_subscriptionStore.FilePath}");
         }, "Загрузка профилей...");
 
+        await RefreshDailyServiceStateAsync();
         await AutoConnectLastProfileIfRequestedAsync();
     }
 
@@ -187,6 +191,7 @@ public partial class MainWindow : Window
             _startupRegistrationService.SetEnabled(_appSettings.LaunchAtStartup);
             await _appSettingsStore.SaveAsync(_appSettings);
             StatusTextBlock.Text = "Настройки сохранены";
+            UpdateDailyStatusPanel();
         }
         catch (Exception ex)
         {
@@ -211,6 +216,7 @@ public partial class MainWindow : Window
         ProfilesListBox.SelectedItem = null;
         ClearEditor();
         StatusTextBlock.Text = "Новый профиль";
+        UpdateDailyStatusPanel(connectionState: "Новый профиль");
     }
 
     private async void SaveProfileButton_Click(object sender, RoutedEventArgs e)
@@ -221,6 +227,7 @@ public partial class MainWindow : Window
             if (profile is not null)
             {
                 StatusTextBlock.Text = "Профиль сохранен";
+                UpdateDailyStatusPanel(profile);
             }
         }, "Сохранение...");
     }
@@ -258,6 +265,7 @@ public partial class MainWindow : Window
             await _profileStore.SaveAsync(_profiles);
             ClearEditor();
             StatusTextBlock.Text = "Профиль удален";
+            UpdateDailyStatusPanel(connectionState: "Ожидание");
             AppendLog($"Удален: {profile.Name}");
         }, "Удаление...");
     }
@@ -291,12 +299,16 @@ public partial class MainWindow : Window
             StatusTextBlock.Text = connectResult.IsSuccess
                 ? "Подключено"
                 : "Подключение не удалось";
+            UpdateDailyStatusPanel(profile, connectResult.IsSuccess ? "Подключено" : "Ошибка подключения");
 
             if (connectResult.IsSuccess && IsProtectionRequested(profile))
             {
                 var protectionResult = await _serviceClient.ApplyProtectionAsync(profile)
                     ?? ServiceUnavailableResult();
                 AppendCommandResult("protection apply", protectionResult);
+                UpdateDailyStatusPanel(
+                    profile,
+                    protectionResult.IsSuccess ? "Подключено, защита включена" : "Защита требует внимания");
             }
         }, "Подключение...");
     }
@@ -325,6 +337,7 @@ public partial class MainWindow : Window
             StatusTextBlock.Text = disconnectResult.IsSuccess
                 ? "Отключено"
                 : "Отключение не удалось";
+            UpdateDailyStatusPanel(profile, disconnectResult.IsSuccess ? "Отключено" : "Ошибка отключения");
         }, "Отключение...");
     }
 
@@ -352,6 +365,7 @@ public partial class MainWindow : Window
             StatusTextBlock.Text = statusResult.IsSuccess
                 ? $"Статус: {statusResult.Output.Trim()}"
                 : "Статус недоступен";
+            UpdateDailyStatusPanel(profile, BuildDailyConnectionStatus(statusResult));
         }, "Проверка статуса...");
     }
 
@@ -383,6 +397,7 @@ public partial class MainWindow : Window
             StatusTextBlock.Text = result.IsSuccess
                 ? "Служба готова"
                 : "Служба недоступна";
+            SetDailyServiceState(result.IsSuccess ? "Служба: готова" : "Служба: недоступна");
         }, "Проверка службы...");
     }
 
@@ -402,6 +417,7 @@ public partial class MainWindow : Window
             StatusTextBlock.Text = result.IsSuccess
                 ? "Защита применена"
                 : "Защита недоступна";
+            UpdateDailyStatusPanel(profile, result.IsSuccess ? _dailyConnectionState : "Защита требует внимания");
         }, "Применение защиты...");
     }
 
@@ -514,6 +530,7 @@ public partial class MainWindow : Window
 
         LoadProfileIntoEditor(profile);
         StatusTextBlock.Text = "VLESS импортирован";
+        UpdateDailyStatusPanel(profile);
     }
 
     private async void RefreshSubscriptionButton_Click(object sender, RoutedEventArgs e)
@@ -867,6 +884,7 @@ public partial class MainWindow : Window
         }
 
         UpdateProtocolFields();
+        UpdateDailyStatusPanel(profile);
     }
 
     private void ClearEditor()
@@ -942,6 +960,7 @@ public partial class MainWindow : Window
         };
 
         UpdateEngineStatusBadge();
+        UpdateDailyStatusPanel();
     }
 
     private void UpdateEngineStatusBadge()
@@ -969,6 +988,178 @@ public partial class MainWindow : Window
 
         EngineStatusBadge.Background = (System.Windows.Media.Brush)FindResource("SuccessBrush");
         EngineStatusTextBlock.Foreground = (System.Windows.Media.Brush)FindResource("SuccessTextBrush");
+    }
+
+    private void UpdateDailyStatusPanel(VpnProfile? profile = null, string? connectionState = null)
+    {
+        if (!string.IsNullOrWhiteSpace(connectionState))
+        {
+            _dailyConnectionState = connectionState;
+        }
+
+        var snapshot = BuildDailyProfileSnapshot(profile);
+        var hasProfile = !string.IsNullOrWhiteSpace(snapshot.Name)
+            || !string.IsNullOrWhiteSpace(snapshot.ServerAddress);
+
+        DailyConnectionStateTextBlock.Text = _dailyConnectionState;
+        DailyProfileTextBlock.Text = hasProfile
+            ? string.IsNullOrWhiteSpace(snapshot.Name) ? "Без названия" : snapshot.Name
+            : "Профиль не выбран";
+        DailyRouteTextBlock.Text = BuildDailyRouteText(snapshot);
+        DailyProtocolTextBlock.Text = snapshot.Protocol.ToDisplayName();
+        DailyProtectionTextBlock.Text = BuildDailyProtectionText(snapshot);
+        DailyAutoModeTextBlock.Text = BuildDailyAutoModeText();
+        DailyServiceTextBlock.Text = _dailyServiceState;
+
+        ApplyDailyConnectionBrush(_dailyConnectionState);
+    }
+
+    private DailyProfileSnapshot BuildDailyProfileSnapshot(VpnProfile? profile)
+    {
+        if (profile is not null)
+        {
+            return new DailyProfileSnapshot(
+                profile.Name,
+                profile.Protocol,
+                profile.ServerAddress,
+                profile.ServerPort,
+                profile.KillSwitchEnabled,
+                profile.DnsLeakProtectionEnabled,
+                profile.AllowLanTraffic);
+        }
+
+        var protocol = ProtocolComboBox.SelectedValue is VpnProtocolType selectedProtocol
+            ? selectedProtocol
+            : VpnProtocolType.WindowsNative;
+        var serverAddress = ServerTextBox.Text.Trim();
+        var serverPort = ParsePortOrDefault(ServerPortTextBox.Text);
+
+        if (protocol is VpnProtocolType.WireGuard or VpnProtocolType.AmneziaWireGuard
+            && TryParseEndpointFromConfig(GetTunnelConfig(), out var endpointHost, out var endpointPort))
+        {
+            serverAddress = endpointHost;
+            serverPort = endpointPort;
+        }
+
+        return new DailyProfileSnapshot(
+            NameTextBox.Text.Trim(),
+            protocol,
+            serverAddress,
+            serverPort,
+            KillSwitchCheckBox.IsChecked == true,
+            DnsLeakProtectionCheckBox.IsChecked == true,
+            AllowLanTrafficCheckBox.IsChecked == true);
+    }
+
+    private static string BuildDailyRouteText(DailyProfileSnapshot snapshot)
+    {
+        if (string.IsNullOrWhiteSpace(snapshot.ServerAddress))
+        {
+            return snapshot.Protocol is VpnProtocolType.WireGuard or VpnProtocolType.AmneziaWireGuard
+                ? "Маршрут: из конфигурации"
+                : "Маршрут не выбран";
+        }
+
+        return snapshot.ServerPort > 0
+            ? $"{snapshot.ServerAddress}:{snapshot.ServerPort}"
+            : snapshot.ServerAddress;
+    }
+
+    private static string BuildDailyProtectionText(DailyProfileSnapshot snapshot)
+    {
+        var parts = new List<string>();
+
+        if (snapshot.KillSwitchEnabled)
+        {
+            parts.Add("Kill switch");
+        }
+
+        if (snapshot.DnsLeakProtectionEnabled)
+        {
+            parts.Add("DNS");
+        }
+
+        if (parts.Count == 0)
+        {
+            return "Выключена";
+        }
+
+        if (snapshot.AllowLanTraffic)
+        {
+            parts.Add("локальная сеть");
+        }
+
+        return string.Join(", ", parts);
+    }
+
+    private string BuildDailyAutoModeText()
+    {
+        var startup = _appSettings.LaunchAtStartup ? "автозапуск" : "ручной запуск";
+        var reconnect = _appSettings.AutoConnectLastProfile ? "автоподключение" : "без автоподключения";
+
+        return $"{startup}; {reconnect}";
+    }
+
+    private static string BuildDailyConnectionStatus(CommandResult result)
+    {
+        if (!result.IsSuccess)
+        {
+            return "Статус недоступен";
+        }
+
+        var output = result.CombinedOutput.ToLowerInvariant();
+        if (output.Contains("disconnected", StringComparison.Ordinal)
+            || output.Contains("not connected", StringComparison.Ordinal)
+            || output.Contains("no active", StringComparison.Ordinal))
+        {
+            return "Отключено";
+        }
+
+        if (output.Contains("connected", StringComparison.Ordinal)
+            || output.Contains("running", StringComparison.Ordinal)
+            || output.Contains("active", StringComparison.Ordinal))
+        {
+            return "Подключено";
+        }
+
+        return "Статус получен";
+    }
+
+    private async Task RefreshDailyServiceStateAsync()
+    {
+        SetDailyServiceState("Служба: проверка");
+        var isAvailable = await _serviceClient.IsAvailableAsync();
+        SetDailyServiceState(isAvailable ? "Служба: готова" : "Служба: не запущена");
+    }
+
+    private void SetDailyServiceState(string state)
+    {
+        _dailyServiceState = state;
+        UpdateDailyStatusPanel();
+    }
+
+    private void ApplyDailyConnectionBrush(string state)
+    {
+        var normalized = state.ToLowerInvariant();
+        if (normalized.Contains("ошибка", StringComparison.Ordinal)
+            || normalized.Contains("недоступ", StringComparison.Ordinal)
+            || normalized.Contains("не удалось", StringComparison.Ordinal)
+            || normalized.Contains("требует", StringComparison.Ordinal))
+        {
+            DailyConnectionBadge.Background = (System.Windows.Media.Brush)FindResource("ErrorBrush");
+            DailyConnectionStateTextBlock.Foreground = (System.Windows.Media.Brush)FindResource("ErrorTextBrush");
+            return;
+        }
+
+        if (normalized.Contains("подключено", StringComparison.Ordinal))
+        {
+            DailyConnectionBadge.Background = (System.Windows.Media.Brush)FindResource("SuccessBrush");
+            DailyConnectionStateTextBlock.Foreground = (System.Windows.Media.Brush)FindResource("SuccessTextBrush");
+            return;
+        }
+
+        DailyConnectionBadge.Background = (System.Windows.Media.Brush)FindResource("WarningBrush");
+        DailyConnectionStateTextBlock.Foreground = (System.Windows.Media.Brush)FindResource("WarningTextBrush");
     }
 
     private void UpdateAdminButton()
@@ -1023,6 +1214,7 @@ public partial class MainWindow : Window
             StatusTextBlock.Text = connectResult.IsSuccess
                 ? "Подключено"
                 : "Автоподключение не удалось";
+            UpdateDailyStatusPanel(profile, connectResult.IsSuccess ? "Подключено" : "Автоподключение не удалось");
         }, "Автоподключение...");
     }
 
@@ -1616,6 +1808,15 @@ public partial class MainWindow : Window
 
         ExitApplication();
     }
+
+    private sealed record DailyProfileSnapshot(
+        string Name,
+        VpnProtocolType Protocol,
+        string ServerAddress,
+        int ServerPort,
+        bool KillSwitchEnabled,
+        bool DnsLeakProtectionEnabled,
+        bool AllowLanTraffic);
 
     private sealed record SubscriptionMergeResult(int Added, int Updated, VpnProfile? FirstProfile);
 

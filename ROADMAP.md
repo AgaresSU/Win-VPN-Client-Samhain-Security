@@ -1,6 +1,6 @@
 # Samhain Security Roadmap
 
-Version baseline: `0.1.8`
+Version baseline: `0.1.9`
 
 ## Product Goal
 
@@ -186,6 +186,13 @@ The default UI should stay close to the simplicity of Happ: a small set of obvio
 - Done: last successful profile tracking.
 - Done: optional autoconnect of the last successful profile on launch.
 - Done: app behavior settings stored under `%APPDATA%\SamhainSecurity\settings.json`.
+
+### 0.1.9
+
+- Done: daily status band at the top of the desktop screen.
+- Done: selected profile, route, protocol, service readiness, protection state, startup mode, and latest connection outcome are visible without opening advanced settings.
+- Done: connect, disconnect, status refresh, service check, protection apply, profile import, save, delete, and autoconnect events update the daily status band.
+- Done: raw protocol configs and subscription secrets stay out of the daily status surface.
 
 ## Design Direction
 

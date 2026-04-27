@@ -1,6 +1,6 @@
 # Samhain Security
 
-Version: `0.1.8`
+Version: `0.1.9`
 
 Desktop secure tunneling client for Windows built with WPF and .NET 9.
 
@@ -26,6 +26,7 @@ Desktop secure tunneling client for Windows built with WPF and .NET 9.
 - Adds a subscription source manager with masked tokens, update selected, update all, delete, clipboard import, and global paste recognition.
 - Supervises VLESS, WireGuard, and AmneziaWG lifecycle through Samhain Security Service when it is running, with desktop fallback when the service is unavailable.
 - Adds a simpler daily UI mode: startup/autoconnect toggles stay visible, while engine paths, raw configs, protocol internals, DNS, and protection controls live under `Расширенные настройки`.
+- Adds a daily status band with selected profile, route, protocol, service readiness, protection state, and the current connection result.
 - Stores service-owned protection state in `%ProgramData%\SamhainSecurity\Service\`.
 - Stores service-owned runtime tunnel configs in `%ProgramData%\SamhainSecurity\Service\runtime\`.
 - Connects and disconnects through `rasdial.exe`.
@@ -118,9 +119,11 @@ If the service is unavailable, the desktop app keeps the previous local executio
 
 ## Daily Mode
 
-Version `0.1.8` starts simplifying the desktop screen. The default view keeps subscription import, profile choice, startup/autoconnect toggles, and connect/disconnect actions visible. Low-level protocol and protection fields are still available, but they are grouped under `Расширенные настройки`.
+Version `0.1.9` continues simplifying the desktop screen. The default view keeps subscription import, profile choice, startup/autoconnect toggles, the live daily status band, and connect/disconnect actions visible. Low-level protocol and protection fields are still available, but they are grouped under `Расширенные настройки`.
 
 `Запускать с Windows` writes a per-user startup entry under the current user's Run key. `Подключать последний профиль` remembers the last successful profile and reconnects it on launch.
+
+The daily status band summarizes the current profile, endpoint, protocol, service readiness, selected protection options, startup mode, and the latest connection outcome without exposing raw configs or tokens.
 
 ## Protection Policy
 
