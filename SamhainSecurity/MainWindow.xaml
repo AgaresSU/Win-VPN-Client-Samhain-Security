@@ -300,6 +300,7 @@
                                     <RowDefinition Height="Auto" />
                                     <RowDefinition Height="Auto" />
                                     <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="Auto" />
                                 </Grid.RowDefinitions>
 
                                 <TextBlock Text="Подписка"
@@ -352,8 +353,44 @@
                                             Click="DeleteSubscriptionButton_Click" />
                                 </Grid>
 
+                                <Grid Grid.Row="2" Margin="0,12,0,0">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="260" />
+                                        <ColumnDefinition Width="12" />
+                                        <ColumnDefinition Width="*" />
+                                    </Grid.ColumnDefinitions>
+
+                                    <StackPanel Grid.Column="0">
+                                        <TextBlock Text="Сохраненные подписки" Style="{StaticResource LabelTextStyle}" />
+                                        <ComboBox x:Name="SubscriptionSelectorComboBox"
+                                                  DisplayMemberPath="SelectorName"
+                                                  SelectionChanged="SubscriptionSelectorComboBox_SelectionChanged" />
+                                    </StackPanel>
+
+                                    <StackPanel Grid.Column="2">
+                                        <TextBlock Text="Сервер" Style="{StaticResource LabelTextStyle}" />
+                                        <ComboBox x:Name="ServerSelectorComboBox"
+                                                  SelectionChanged="ServerSelectorComboBox_SelectionChanged">
+                                            <ComboBox.ItemTemplate>
+                                                <DataTemplate>
+                                                    <StackPanel>
+                                                        <TextBlock Text="{Binding DisplayName}"
+                                                                   FontWeight="SemiBold"
+                                                                   TextTrimming="CharacterEllipsis" />
+                                                        <TextBlock Text="{Binding Details}"
+                                                                   Foreground="{StaticResource MutedTextBrush}"
+                                                                   FontSize="12"
+                                                                   Margin="0,2,0,0"
+                                                                   TextTrimming="CharacterEllipsis" />
+                                                    </StackPanel>
+                                                </DataTemplate>
+                                            </ComboBox.ItemTemplate>
+                                        </ComboBox>
+                                    </StackPanel>
+                                </Grid>
+
                                 <ListBox x:Name="SubscriptionSourcesListBox"
-                                         Grid.Row="2"
+                                         Grid.Row="3"
                                          Height="112"
                                          Margin="0,12,0,0"
                                          BorderBrush="{StaticResource LineBrush}"
@@ -389,7 +426,7 @@
                                 </ListBox>
 
                                 <TextBlock x:Name="SubscriptionStatusTextBlock"
-                                           Grid.Row="3"
+                                           Grid.Row="4"
                                            Text="Подписка не добавлена"
                                            Foreground="{StaticResource MutedTextBrush}"
                                            FontSize="12"

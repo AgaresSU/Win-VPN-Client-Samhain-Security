@@ -17,6 +17,7 @@ public partial class MainWindow : Window
 {
     private readonly ObservableCollection<VpnProfile> _profiles = [];
     private readonly ObservableCollection<SubscriptionSourceListItem> _subscriptionSources = [];
+    private readonly ObservableCollection<ServerListItem> _serverChoices = [];
     private readonly ProfileStore _profileStore = new();
     private readonly AppSettingsStore _appSettingsStore = new();
     private readonly StartupRegistrationService _startupRegistrationService = new();
@@ -36,6 +37,7 @@ public partial class MainWindow : Window
     private bool _isBusy;
     private bool _isLoadingProfile;
     private bool _isLoadingSubscriptions;
+    private bool _isLoadingServerChoices;
     private bool _isLoadingAppSettings;
     private string _lastClipboardSubscriptionUrl = string.Empty;
     private string _dailyConnectionState = "Ожидание";
@@ -53,6 +55,8 @@ public partial class MainWindow : Window
         VersionTextBlock.Text = "v" + GetAppVersion();
         ProfilesListBox.ItemsSource = _profiles;
         SubscriptionSourcesListBox.ItemsSource = _subscriptionSources;
+        SubscriptionSelectorComboBox.ItemsSource = _subscriptionSources;
+        ServerSelectorComboBox.ItemsSource = _serverChoices;
         CommandBindings.Add(new CommandBinding(
             ApplicationCommands.Paste,
             PasteCommand_Executed,
@@ -153,7 +157,58 @@ public partial class MainWindow : Window
         {
             SubscriptionUrlTextBox.Text = item.Url;
             SubscriptionStatusTextBlock.Text = item.DisplayStatus;
+            SubscriptionSelectorComboBox.SelectedItem = item;
+            _ = RememberSubscriptionSelectionAsync(item.Source.Id);
+            RenderServerChoices(item);
+            ApplySelectedServerChoice($"Подписка: {item.DisplayName}");
         }
+    }
+
+    private void SubscriptionSelectorComboBox_SelectionChanged(object sender, System.Windows.Controls.SelectionChangedEventArgs e)
+    {
+        if (_isLoadingSubscriptions)
+        {
+            return;
+        }
+
+        if (SubscriptionSelectorComboBox.SelectedItem is not SubscriptionSourceListItem item)
+        {
+            RenderServerChoices(null);
+            return;
+        }
+
+        SubscriptionSourcesListBox.SelectedItem = item;
+        SubscriptionUrlTextBox.Text = item.Url;
+        SubscriptionStatusTextBlock.Text = item.DisplayStatus;
+        _ = RememberSubscriptionSelectionAsync(item.Source.Id);
+        RenderServerChoices(item);
+        ApplySelectedServerChoice($"Подписка: {item.DisplayName}");
+    }
+
+    private void ServerSelectorComboBox_SelectionChanged(object sender, System.Windows.Controls.SelectionChangedEventArgs e)
+    {
+        if (_isLoadingServerChoices || ServerSelectorComboBox.SelectedItem is not ServerListItem item)
+        {
+            return;
+        }
+
+        ApplyServerChoice(item, $"Сервер: {item.DisplayName}");
+    }
+
+    private void ApplySelectedServerChoice(string statusText)
+    {
+        if (ServerSelectorComboBox.SelectedItem is ServerListItem item)
+        {
+            ApplyServerChoice(item, statusText);
+        }
+    }
+
+    private void ApplyServerChoice(ServerListItem item, string statusText)
+    {
+        ProfilesListBox.SelectedItem = item.Profile;
+        LoadProfileIntoEditor(item.Profile);
+        StatusTextBlock.Text = statusText;
+        UpdateDailyStatusPanel(item.Profile);
     }
 
     private void ProtocolComboBox_SelectionChanged(object sender, System.Windows.Controls.SelectionChangedEventArgs e)
@@ -264,6 +319,7 @@ public partial class MainWindow : Window
             _profiles.Remove(profile);
             await _profileStore.SaveAsync(_profiles);
             ClearEditor();
+            RenderServerChoices(SubscriptionSelectorComboBox.SelectedItem as SubscriptionSourceListItem);
             StatusTextBlock.Text = "Профиль удален";
             UpdateDailyStatusPanel(connectionState: "Ожидание");
             AppendLog($"Удален: {profile.Name}");
@@ -672,6 +728,7 @@ public partial class MainWindow : Window
 
         ProfilesListBox.SelectedItem = profile;
         await _profileStore.SaveAsync(_profiles);
+        RenderServerChoices(SubscriptionSelectorComboBox.SelectedItem as SubscriptionSourceListItem, profile.Id);
 
         if (!string.IsNullOrWhiteSpace(oldName)
             && !string.Equals(oldName, profile.Name, StringComparison.OrdinalIgnoreCase)
@@ -728,6 +785,8 @@ public partial class MainWindow : Window
             Id = oldProfile?.Id ?? Guid.NewGuid().ToString("N"),
             Name = NameTextBox.Text.Trim(),
             Protocol = protocol,
+            SubscriptionSourceId = oldProfile?.SubscriptionSourceId ?? string.Empty,
+            SubscriptionName = oldProfile?.SubscriptionName ?? string.Empty,
             ServerAddress = serverAddress,
             ServerPort = serverPort,
             TunnelType = TunnelTypeComboBox.SelectedValue is VpnTunnelType tunnelType
@@ -1230,6 +1289,17 @@ public partial class MainWindow : Window
         }
     }
 
+    private async Task RememberSubscriptionSelectionAsync(string sourceId)
+    {
+        if (string.Equals(_appSettings.LastSubscriptionSourceId, sourceId, StringComparison.OrdinalIgnoreCase))
+        {
+            return;
+        }
+
+        _appSettings.LastSubscriptionSourceId = sourceId;
+        await SaveAppSettingsQuietlyAsync();
+    }
+
     private async Task RunUiActionAsync(Func<Task> action, string busyText)
     {
         if (_isBusy)
@@ -1274,6 +1344,8 @@ public partial class MainWindow : Window
         RefreshAllSubscriptionsButton.IsEnabled = !isBusy;
         PasteSubscriptionButton.IsEnabled = !isBusy;
         DeleteSubscriptionButton.IsEnabled = !isBusy;
+        SubscriptionSelectorComboBox.IsEnabled = !isBusy;
+        ServerSelectorComboBox.IsEnabled = !isBusy;
         DiagnosticsButton.IsEnabled = !isBusy;
         ExportDiagnosticsButton.IsEnabled = !isBusy;
         RunAsAdminButton.IsEnabled = !isBusy;
@@ -1386,12 +1458,19 @@ public partial class MainWindow : Window
                         StringComparison.OrdinalIgnoreCase));
             }
 
+            selected ??= _subscriptionSources.FirstOrDefault(item =>
+                string.Equals(
+                    item.Source.Id,
+                    _appSettings.LastSubscriptionSourceId,
+                    StringComparison.OrdinalIgnoreCase));
             selected ??= _subscriptionSources.FirstOrDefault();
             SubscriptionSourcesListBox.SelectedItem = selected;
+            SubscriptionSelectorComboBox.SelectedItem = selected;
 
             if (selected is null)
             {
                 SubscriptionStatusTextBlock.Text = "Подписка не добавлена";
+                RenderServerChoices(null);
                 return;
             }
 
@@ -1399,6 +1478,7 @@ public partial class MainWindow : Window
             SubscriptionStatusTextBlock.Text = _subscriptionSources.Count > 1
                 ? $"Источников: {_subscriptionSources.Count}. {selected.DisplayStatus}"
                 : selected.DisplayStatus;
+            RenderServerChoices(selected);
         }
         finally
         {
@@ -1406,37 +1486,87 @@ public partial class MainWindow : Window
         }
     }
 
-    private async Task SaveSubscriptionStateAsync(
-        string url,
-        SubscriptionImportResult result,
-        string status,
-        CancellationToken cancellationToken = default)
+    private void RenderServerChoices(SubscriptionSourceListItem? source, string? preferredProfileId = null)
     {
-        var sources = (await _subscriptionStore.LoadAsync(cancellationToken)).ToList();
-        var normalizedUrl = SubscriptionUrlNormalizer.Normalize(url);
-        var source = sources.FirstOrDefault(item =>
-            string.Equals(
-                SubscriptionUrlNormalizer.Normalize(_subscriptionStore.UnprotectUrl(item)),
-                normalizedUrl,
-                StringComparison.OrdinalIgnoreCase));
+        _isLoadingServerChoices = true;
+        try
+        {
+            _serverChoices.Clear();
 
+            var profiles = GetProfilesForSubscription(source)
+                .OrderBy(profile => profile.Name)
+                .ThenBy(profile => profile.ServerAddress)
+                .ToList();
+
+            foreach (var profile in profiles)
+            {
+                _serverChoices.Add(new ServerListItem(profile));
+            }
+
+            ServerListItem? selected = null;
+            if (!string.IsNullOrWhiteSpace(preferredProfileId))
+            {
+                selected = _serverChoices.FirstOrDefault(item => item.Profile.Id == preferredProfileId);
+            }
+
+            selected ??= ProfilesListBox.SelectedItem is VpnProfile activeProfile
+                ? _serverChoices.FirstOrDefault(item => item.Profile.Id == activeProfile.Id)
+                : null;
+            selected ??= _serverChoices.FirstOrDefault();
+            ServerSelectorComboBox.SelectedItem = selected;
+
+            if (source is null)
+            {
+                SubscriptionStatusTextBlock.Text = _serverChoices.Count == 0
+                    ? "Подписка не добавлена"
+                    : $"Серверов: {_serverChoices.Count}";
+                return;
+            }
+
+            SubscriptionStatusTextBlock.Text = $"{source.DisplayStatus}; серверов: {_serverChoices.Count}";
+        }
+        finally
+        {
+            _isLoadingServerChoices = false;
+        }
+    }
+
+    private IEnumerable<VpnProfile> GetProfilesForSubscription(SubscriptionSourceListItem? source)
+    {
         if (source is null)
         {
-            source = new SubscriptionSource();
-            sources.Add(source);
+            return _profiles;
         }
 
-        source.Name = result.SourceFormat.Contains("AWG", StringComparison.OrdinalIgnoreCase)
-            ? "Samhain Security AWG"
-            : "Samhain Security";
-        source.EncryptedUrl = _subscriptionStore.ProtectUrl(url);
-        source.LastUpdatedAt = DateTimeOffset.UtcNow;
-        source.LastImportedCount = result.Profiles.Count;
-        source.LastStatus = status;
-        source.UpdatedAt = DateTimeOffset.UtcNow;
+        var linkedProfiles = _profiles
+            .Where(profile => string.Equals(
+                profile.SubscriptionSourceId,
+                source.Source.Id,
+                StringComparison.OrdinalIgnoreCase))
+            .ToList();
 
-        await _subscriptionStore.SaveAsync(sources, cancellationToken);
-        RenderSubscriptionSources(sources, normalizedUrl);
+        if (linkedProfiles.Count > 0)
+        {
+            return linkedProfiles;
+        }
+
+        return _profiles.Where(profile => IsLegacyProfileLikelyFromSource(profile, source));
+    }
+
+    private static bool IsLegacyProfileLikelyFromSource(VpnProfile profile, SubscriptionSourceListItem source)
+    {
+        if (!string.IsNullOrWhiteSpace(profile.SubscriptionSourceId))
+        {
+            return false;
+        }
+
+        var sourceIsAwg = source.DisplayName.Contains("AWG", StringComparison.OrdinalIgnoreCase)
+            || source.Url.Contains("/awg", StringComparison.OrdinalIgnoreCase)
+            || source.Url.Contains("subscription-awg", StringComparison.OrdinalIgnoreCase);
+
+        return sourceIsAwg
+            ? profile.Protocol == VpnProtocolType.AmneziaWireGuard
+            : profile.Protocol == VpnProtocolType.VlessReality;
     }
 
     private async Task<SubscriptionRefreshResult> RefreshSubscriptionUrlAsync(
@@ -1445,6 +1575,17 @@ public partial class MainWindow : Window
         CancellationToken cancellationToken = default)
     {
         var result = await _subscriptionImportService.ImportFromUrlAsync(url, cancellationToken);
+        var sources = (await _subscriptionStore.LoadAsync(cancellationToken)).ToList();
+        var normalizedUrl = SubscriptionUrlNormalizer.Normalize(url);
+        var source = GetOrCreateSubscriptionSource(sources, url);
+        var sourceName = BuildSubscriptionSourceName(result);
+
+        foreach (var profile in result.Profiles)
+        {
+            profile.SubscriptionSourceId = source.Id;
+            profile.SubscriptionName = sourceName;
+        }
+
         var mergeResult = MergeSubscriptionProfiles(result.Profiles);
 
         if (mergeResult.Added > 0 || mergeResult.Updated > 0)
@@ -1453,7 +1594,15 @@ public partial class MainWindow : Window
         }
 
         var status = BuildSubscriptionStatus(result, mergeResult);
-        await SaveSubscriptionStateAsync(url, result, status, cancellationToken);
+        source.Name = sourceName;
+        source.EncryptedUrl = _subscriptionStore.ProtectUrl(url);
+        source.LastUpdatedAt = DateTimeOffset.UtcNow;
+        source.LastImportedCount = result.Profiles.Count;
+        source.LastStatus = status;
+        source.UpdatedAt = DateTimeOffset.UtcNow;
+
+        await _subscriptionStore.SaveAsync(sources, cancellationToken);
+        RenderSubscriptionSources(sources, normalizedUrl);
 
         SubscriptionStatusTextBlock.Text = status;
         AppendLog(status);
@@ -1461,9 +1610,37 @@ public partial class MainWindow : Window
         if (selectImportedProfile && mergeResult.FirstProfile is not null)
         {
             ProfilesListBox.SelectedItem = mergeResult.FirstProfile;
+            RenderServerChoices(SubscriptionSelectorComboBox.SelectedItem as SubscriptionSourceListItem, mergeResult.FirstProfile.Id);
         }
 
         return new SubscriptionRefreshResult(mergeResult.Added, mergeResult.Updated);
+    }
+
+    private SubscriptionSource GetOrCreateSubscriptionSource(List<SubscriptionSource> sources, string url)
+    {
+        var normalizedUrl = SubscriptionUrlNormalizer.Normalize(url);
+        var source = sources.FirstOrDefault(item =>
+            string.Equals(
+                SubscriptionUrlNormalizer.Normalize(_subscriptionStore.UnprotectUrl(item)),
+                normalizedUrl,
+                StringComparison.OrdinalIgnoreCase));
+
+        if (source is not null)
+        {
+            return source;
+        }
+
+        source = new SubscriptionSource();
+        sources.Add(source);
+
+        return source;
+    }
+
+    private static string BuildSubscriptionSourceName(SubscriptionImportResult result)
+    {
+        return result.SourceFormat.Contains("AWG", StringComparison.OrdinalIgnoreCase)
+            ? "Samhain Security AWG"
+            : "Samhain Security";
     }
 
     private SubscriptionMergeResult MergeSubscriptionProfiles(IReadOnlyList<VpnProfile> importedProfiles)
@@ -1496,6 +1673,13 @@ public partial class MainWindow : Window
 
     private static bool IsSameImportedProfile(VpnProfile existing, VpnProfile imported)
     {
+        if (!string.IsNullOrWhiteSpace(existing.SubscriptionSourceId)
+            && !string.IsNullOrWhiteSpace(imported.SubscriptionSourceId)
+            && !string.Equals(existing.SubscriptionSourceId, imported.SubscriptionSourceId, StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
         if (existing.Protocol == VpnProtocolType.VlessReality
             && imported.Protocol == VpnProtocolType.VlessReality
             && string.Equals(existing.ServerAddress, imported.ServerAddress, StringComparison.OrdinalIgnoreCase)
@@ -1832,6 +2016,8 @@ public partial class MainWindow : Window
             ? "Samhain Security"
             : Source.Name;
 
+        public string SelectorName => $"{DisplayName} · {Source.LastImportedCount} серверов";
+
         public string MaskedUrl => MaskSubscriptionUrl(Url);
 
         public string DisplayStatus
@@ -1847,6 +2033,29 @@ public partial class MainWindow : Window
 
                 return $"{imported}; {updated}";
             }
+        }
+    }
+
+    private sealed class ServerListItem(VpnProfile profile)
+    {
+        public VpnProfile Profile { get; } = profile;
+
+        public string DisplayName => string.IsNullOrWhiteSpace(Profile.Name)
+            ? BuildServerEndpoint(Profile)
+            : Profile.Name;
+
+        public string Details => $"{Profile.Protocol.ToDisplayName()} · {BuildServerEndpoint(Profile)}";
+
+        private static string BuildServerEndpoint(VpnProfile profile)
+        {
+            if (string.IsNullOrWhiteSpace(profile.ServerAddress))
+            {
+                return "маршрут из конфигурации";
+            }
+
+            return profile.ServerPort > 0
+                ? $"{profile.ServerAddress}:{profile.ServerPort}"
+                : profile.ServerAddress;
         }
     }
 

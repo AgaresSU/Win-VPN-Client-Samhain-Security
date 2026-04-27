@@ -1,6 +1,6 @@
 # Samhain Security Roadmap
 
-Version baseline: `0.1.9`
+Version baseline: `0.2.0`
 
 ## Product Goal
 
@@ -193,6 +193,14 @@ The default UI should stay close to the simplicity of Happ: a small set of obvio
 - Done: selected profile, route, protocol, service readiness, protection state, startup mode, and latest connection outcome are visible without opening advanced settings.
 - Done: connect, disconnect, status refresh, service check, protection apply, profile import, save, delete, and autoconnect events update the daily status band.
 - Done: raw protocol configs and subscription secrets stay out of the daily status surface.
+
+### 0.2.0
+
+- Done: saved subscription selector in the desktop subscription block.
+- Done: imported profiles remember their source subscription for clean switching.
+- Done: server dropdown filters by the selected saved subscription and loads the chosen server profile.
+- Done: last selected subscription is remembered in app behavior settings.
+- Done: legacy VLESS/AWG imports are still shown with protocol-based fallback until the source is refreshed.
 
 ## Design Direction
 

@@ -8,5 +8,7 @@ public sealed class AppSettings
 
     public string LastProfileId { get; set; } = string.Empty;
 
+    public string LastSubscriptionSourceId { get; set; } = string.Empty;
+
     public bool AdvancedSettingsExpanded { get; set; }
 }

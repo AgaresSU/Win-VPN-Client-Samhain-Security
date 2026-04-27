@@ -8,6 +8,10 @@ public sealed class VpnProfile
 
     public VpnProtocolType Protocol { get; set; } = VpnProtocolType.WindowsNative;
 
+    public string SubscriptionSourceId { get; set; } = string.Empty;
+
+    public string SubscriptionName { get; set; } = string.Empty;
+
     public string ServerAddress { get; set; } = string.Empty;
 
     public int ServerPort { get; set; } = 443;

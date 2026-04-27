@@ -1,6 +1,6 @@
 # Samhain Security
 
-Version: `0.1.9`
+Version: `0.2.0`
 
 Desktop secure tunneling client for Windows built with WPF and .NET 9.
 
@@ -24,6 +24,7 @@ Desktop secure tunneling client for Windows built with WPF and .NET 9.
 - Imports Samhain Security subscription links from the connection page or direct API URL, including raw/base64 VLESS lists and sing-box JSON profiles.
 - Imports Samhain Security AWG reserve links from the connection page or direct API URL, including ready AmneziaWG `.conf` items.
 - Adds a subscription source manager with masked tokens, update selected, update all, delete, clipboard import, and global paste recognition.
+- Adds saved subscription switching and a server dropdown that loads the selected server profile.
 - Supervises VLESS, WireGuard, and AmneziaWG lifecycle through Samhain Security Service when it is running, with desktop fallback when the service is unavailable.
 - Adds a simpler daily UI mode: startup/autoconnect toggles stay visible, while engine paths, raw configs, protocol internals, DNS, and protection controls live under `Расширенные настройки`.
 - Adds a daily status band with selected profile, route, protocol, service readiness, protection state, and the current connection result.
@@ -142,6 +143,8 @@ Version `0.1.6` adds local subscription import. Paste the Samhain Security conne
 The app normalizes connection page links to the matching API subscription, imports VLESS TCP Reality profiles and AmneziaWG reserve configs, merges repeated updates into existing profiles, and keeps local engine/protection preferences when an imported profile already exists. Subscription URLs are saved encrypted with DPAPI and raw node data is not written to the UI log.
 
 The subscription block can manage multiple sources. Tokens are masked in the source list, `Все` refreshes every saved source, and `Буфер` imports a recognized connection link from the clipboard. Standard text fields keep normal copy/paste behavior; when focus is outside text input, `Ctrl+V` can import a recognized subscription link directly.
+
+Version `0.2.0` adds a saved subscription selector and a server dropdown. Imported profiles remember their source, the app remembers the last selected subscription, and loading a server from the dropdown fills the active profile without exposing raw config text.
 
 ## Versioning
 
