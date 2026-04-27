@@ -1,6 +1,6 @@
 # Samhain Security Roadmap
 
-Version baseline: `0.2.1`
+Version baseline: `0.2.2`
 
 ## Product Goal
 
@@ -208,6 +208,13 @@ The default UI should stay close to the simplicity of Happ: a small set of obvio
 - Done: last successful connection timestamp on profiles.
 - Done: server dropdown sorting by favorites, last used, then name.
 - Done: quick best-server selection from the current subscription.
+
+### 0.2.2
+
+- Done: shared protocol profile validator.
+- Done: VLESS Reality shape validation before save/connect.
+- Done: WireGuard and AmneziaWG config validation before save/connect.
+- Done: connection path stops locally with clear errors before invoking engines or service.
 
 ## Design Direction
 

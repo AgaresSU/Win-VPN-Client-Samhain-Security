@@ -1,6 +1,6 @@
 # Samhain Security
 
-Version: `0.2.1`
+Version: `0.2.2`
 
 Desktop secure tunneling client for Windows built with WPF and .NET 9.
 
@@ -26,6 +26,7 @@ Desktop secure tunneling client for Windows built with WPF and .NET 9.
 - Adds a subscription source manager with masked tokens, update selected, update all, delete, clipboard import, and global paste recognition.
 - Adds saved subscription switching and a server dropdown that loads the selected server profile.
 - Adds server favorites, last-used tracking, and a quick best-server selector.
+- Adds pre-connect validation for VLESS Reality and WireGuard-style configs with clear local errors.
 - Supervises VLESS, WireGuard, and AmneziaWG lifecycle through Samhain Security Service when it is running, with desktop fallback when the service is unavailable.
 - Adds a simpler daily UI mode: startup/autoconnect toggles stay visible, while engine paths, raw configs, protocol internals, DNS, and protection controls live under `Расширенные настройки`.
 - Adds a daily status band with selected profile, route, protocol, service readiness, protection state, and the current connection result.
@@ -148,6 +149,8 @@ The subscription block can manage multiple sources. Tokens are masked in the sou
 Version `0.2.0` adds a saved subscription selector and a server dropdown. Imported profiles remember their source, the app remembers the last selected subscription, and loading a server from the dropdown fills the active profile without exposing raw config text.
 
 Version `0.2.1` adds lightweight server ranking. Favorite servers float to the top, recently connected servers follow, and the `Лучший` action selects the best current candidate from the filtered list.
+
+Version `0.2.2` adds local protocol validation before connect. VLESS Reality profiles are checked for UUID, port, SNI, public key, and Short ID shape; WireGuard and AmneziaWG configs are checked for required sections, keys, Endpoint, size, and invalid characters before the engine or service is called.
 
 ## Versioning
 

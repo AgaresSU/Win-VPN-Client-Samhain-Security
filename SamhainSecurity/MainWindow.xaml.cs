@@ -798,7 +798,7 @@ public partial class MainWindow : Window
     private bool TryBuildProfileFromEditor(out VpnProfile profile, out string validationError)
     {
         profile = BuildProfileFromEditorWithoutValidation();
-        validationError = ValidateProfile(profile);
+        validationError = ValidateProfile(profile, GetTunnelConfig());
 
         return string.IsNullOrWhiteSpace(validationError);
     }
@@ -854,46 +854,12 @@ public partial class MainWindow : Window
         };
     }
 
-    private static string ValidateProfile(VpnProfile profile)
+    private static string ValidateProfile(VpnProfile profile, string tunnelConfig)
     {
-        if (string.IsNullOrWhiteSpace(profile.Name))
+        var protocolError = ProtocolProfileValidator.Validate(profile, tunnelConfig);
+        if (!string.IsNullOrWhiteSpace(protocolError))
         {
-            return "Введите название профиля";
-        }
-
-        if (profile.Protocol is VpnProtocolType.WindowsNative or VpnProtocolType.VlessReality
-            && string.IsNullOrWhiteSpace(profile.ServerAddress))
-        {
-            return "Введите адрес сервера";
-        }
-
-        if (profile.Protocol == VpnProtocolType.VlessReality)
-        {
-            if (profile.ServerPort <= 0 || profile.ServerPort > 65535)
-            {
-                return "Введите корректный порт VLESS";
-            }
-
-            if (string.IsNullOrWhiteSpace(profile.VlessUuid))
-            {
-                return "Введите UUID VLESS";
-            }
-
-            if (string.IsNullOrWhiteSpace(profile.RealityServerName))
-            {
-                return "Введите Reality SNI";
-            }
-
-            if (string.IsNullOrWhiteSpace(profile.RealityPublicKey))
-            {
-                return "Введите Reality public key";
-            }
-        }
-
-        if (profile.Protocol is VpnProtocolType.WireGuard or VpnProtocolType.AmneziaWireGuard
-            && string.IsNullOrWhiteSpace(profile.EncryptedTunnelConfig))
-        {
-            return "Вставьте .conf";
+            return protocolError;
         }
 
         if (profile.DnsLeakProtectionEnabled && string.IsNullOrWhiteSpace(profile.DnsServers))

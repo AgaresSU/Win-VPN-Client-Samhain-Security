@@ -33,6 +33,12 @@ public sealed class MultiProtocolVpnService
         string tunnelConfig,
         CancellationToken cancellationToken = default)
     {
+        var validationError = ProtocolProfileValidator.Validate(profile, tunnelConfig);
+        if (!string.IsNullOrWhiteSpace(validationError))
+        {
+            return new CommandResult(1, string.Empty, validationError);
+        }
+
         if (profile.Protocol != VpnProtocolType.WindowsNative)
         {
             var serviceResult = await _serviceClient.ConnectTunnelAsync(profile, tunnelConfig, cancellationToken);
