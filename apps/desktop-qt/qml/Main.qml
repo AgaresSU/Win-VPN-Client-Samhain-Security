@@ -659,10 +659,7 @@ ApplicationWindow {
                         contentItem: Text { text: parent.text; color: root.text; horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter }
                     }
                 }
-                ExpanderLike {
-                    title: "Расширенные настройки"
-                    body: "Движки, порты, DNS, firewall, kill switch, WFP, raw config и диагностика будут здесь. Главный экран остаётся простым."
-                }
+                AdvancedSettingsBox {}
             }
         }
     }
@@ -723,7 +720,7 @@ ApplicationWindow {
             spacing: 18
             PageTitle { text: "О программе" }
             MetricRow { title: "Программа"; value: "Samhain Security Native" }
-            MetricRow { title: "Версия"; value: "0.7.5" }
+            MetricRow { title: "Версия"; value: "0.7.6" }
             MetricRow { title: "Интерфейс"; value: "Qt 6 / QML" }
             MetricRow { title: "Ядро"; value: "Rust workspace" }
             MetricRow { title: "Статус"; value: appController.statusText }
@@ -831,6 +828,120 @@ ApplicationWindow {
             anchors.rightMargin: 20
             spacing: 16
             Text { text: title; color: root.text; font.pixelSize: 18; Layout.fillWidth: true }
+        }
+    }
+
+    component AdvancedSettingsBox: Rectangle {
+        property bool expanded: false
+        Layout.fillWidth: true
+        Layout.preferredHeight: expanded ? 520 : 72
+        color: "#333333"
+        radius: 6
+        clip: true
+
+        ColumnLayout {
+            anchors.fill: parent
+            spacing: 14
+
+            Rectangle {
+                Layout.fillWidth: true
+                Layout.preferredHeight: 72
+                color: "transparent"
+                RowLayout {
+                    anchors.fill: parent
+                    anchors.leftMargin: 20
+                    anchors.rightMargin: 20
+                    Text { text: "Расширенные настройки"; color: root.text; font.pixelSize: 18; Layout.fillWidth: true }
+                    Text { text: expanded ? "⌃" : "⌄"; color: root.muted; font.pixelSize: 22 }
+                }
+                MouseArea {
+                    anchors.fill: parent
+                    onClicked: expanded = !expanded
+                }
+            }
+
+            ColumnLayout {
+                visible: expanded
+                Layout.fillWidth: true
+                Layout.fillHeight: true
+                Layout.leftMargin: 20
+                Layout.rightMargin: 20
+                Layout.bottomMargin: 18
+                spacing: 12
+
+                Text {
+                    text: "Статус: " + appController.engineStatus
+                    color: root.text
+                    font.pixelSize: 17
+                    font.bold: true
+                    Layout.fillWidth: true
+                    elide: Text.ElideRight
+                }
+                Text {
+                    text: appController.engineDetail
+                    color: root.muted
+                    font.pixelSize: 14
+                    wrapMode: Text.WordWrap
+                    Layout.fillWidth: true
+                    maximumLineCount: 3
+                    elide: Text.ElideRight
+                }
+                RowLayout {
+                    Layout.fillWidth: true
+                    spacing: 10
+                    Button {
+                        text: "Обновить"
+                        Layout.preferredWidth: 118
+                        onClicked: appController.refreshEngineStatus()
+                        background: Rectangle { color: "#242424"; radius: 8 }
+                        contentItem: Text { text: parent.text; color: root.text; horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter }
+                    }
+                    Button {
+                        text: "Preview"
+                        Layout.preferredWidth: 118
+                        onClicked: appController.previewSelectedEngineConfig()
+                        background: Rectangle { color: "#242424"; radius: 8 }
+                        contentItem: Text { text: parent.text; color: root.text; horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter }
+                    }
+                    Button {
+                        text: "Restart"
+                        Layout.preferredWidth: 118
+                        onClicked: appController.restartEngine()
+                        background: Rectangle { color: "#242424"; radius: 8 }
+                        contentItem: Text { text: parent.text; color: root.text; horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter }
+                    }
+                    Button {
+                        text: "Stop"
+                        Layout.preferredWidth: 90
+                        onClicked: appController.stopEngine()
+                        background: Rectangle { color: "#3B2020"; radius: 8 }
+                        contentItem: Text { text: parent.text; color: root.text; horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter }
+                    }
+                    Item { Layout.fillWidth: true }
+                }
+                Text {
+                    text: "Каталог:\n" + (appController.engineCatalog.length > 0 ? appController.engineCatalog.join("\n") : "нет данных")
+                    color: root.muted
+                    font.pixelSize: 13
+                    wrapMode: Text.WordWrap
+                    Layout.fillWidth: true
+                    maximumLineCount: 5
+                    elide: Text.ElideRight
+                }
+                ScrollView {
+                    Layout.fillWidth: true
+                    Layout.fillHeight: true
+                    clip: true
+                    Text {
+                        width: parent.width
+                        text: appController.engineConfigPreview
+                        color: root.text
+                        font.family: "Consolas"
+                        font.pixelSize: 12
+                        wrapMode: Text.WrapAnywhere
+                    }
+                }
+            }
         }
     }
 

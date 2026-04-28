@@ -1,6 +1,6 @@
 # Roadmap
 
-Current version: `0.7.5`
+Current version: `0.7.6`
 
 This roadmap is the working contract for Samhain Security. Future implementation should follow this order unless a blocker is found and documented in the same commit.
 
@@ -126,6 +126,8 @@ Status: shipped in `v0.7.5` with single and batch probe IPC, TCP-connect checks 
 
 Done when the service can run an engine with a generated config and return lifecycle state to the desktop.
 
+Status: shipped in `v0.7.6` with bundled-engine discovery, lifecycle IPC commands, redacted preview generation, service-owned process start/stop/restart, stdout/stderr log capture, crash detection, and a one-step retry policy. Adapter launches are intentionally reserved for `0.7.9`.
+
 ### 0.7.7 - Proxy Path
 
 - Implement local proxy inbound management.
@@ -246,13 +248,13 @@ Done when Samhain Security is ready for normal users.
 
 ## Immediate Next Build Order
 
-1. `0.7.6`: engine manager.
-2. `0.7.7`: first real proxy connection path.
-3. `0.7.8`: whole-computer TUN path.
-4. `0.7.9`: WireGuard and AmneziaWG path.
-5. `0.8.0`: selected/excluded app routing.
-6. `0.8.1`: protection layer.
-7. `0.8.2`: tray, autostart, and link handling.
-8. `0.8.3`: statistics, logs, and support export.
-9. `0.8.4`: UX polish.
-10. `0.8.5`: installer and local operations.
+1. `0.7.7`: first real proxy connection path.
+2. `0.7.8`: whole-computer TUN path.
+3. `0.7.9`: WireGuard and AmneziaWG path.
+4. `0.8.0`: selected/excluded app routing.
+5. `0.8.1`: protection layer.
+6. `0.8.2`: tray, autostart, and link handling.
+7. `0.8.3`: statistics, logs, and support export.
+8. `0.8.4`: UX polish.
+9. `0.8.5`: installer and local operations.
+10. `0.9.0`: beta hardening.

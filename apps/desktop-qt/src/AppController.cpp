@@ -23,6 +23,7 @@
 namespace {
 constexpr int IpcProtocolVersion = 1;
 constexpr int IpcRequestTimeoutMs = 350;
+constexpr int IpcEngineTimeoutMs = 1500;
 constexpr auto IpcPipeName = L"\\\\.\\pipe\\SamhainSecurity.Native.Ipc";
 }
 
@@ -506,6 +507,26 @@ QString AppController::sessionTime() const
     return m_sessionTime;
 }
 
+QString AppController::engineStatus() const
+{
+    return m_engineStatus;
+}
+
+QString AppController::engineDetail() const
+{
+    return m_engineDetail;
+}
+
+QString AppController::engineConfigPreview() const
+{
+    return m_engineConfigPreview;
+}
+
+QStringList AppController::engineCatalog() const
+{
+    return m_engineCatalog;
+}
+
 QStringList AppController::logs() const
 {
     return m_logs;
@@ -566,9 +587,31 @@ void AppController::toggleConnection()
         command["route_mode"] = routeModeWireValue();
     }
 
-    const auto response = requestService(command, IpcRequestTimeoutMs);
+    const auto response = requestService(command, IpcEngineTimeoutMs);
     if (!response.isEmpty()) {
-        appendLog("Сервис: команда подключения принята");
+        const auto document = QJsonDocument::fromJson(response.toUtf8());
+        const auto root = document.object();
+        const auto event = root.value("event").toObject();
+        if (!root.value("ok").toBool(false) || event.value("type").toString() == "error") {
+            const auto message = event.value("message").toString("Команда не выполнена");
+            m_statusText = message;
+            appendLog("Сервис: " + message);
+            emit statusChanged();
+            return;
+        }
+
+        if (applyEngineStatusEvent(event)) {
+            const auto engineReady = m_engineStatus == "Запущен";
+            if (!m_connected && !engineReady) {
+                m_statusText = m_engineDetail;
+                emit statusChanged();
+                emit engineChanged();
+                return;
+            }
+            appendLog("Сервис: состояние движка обновлено");
+        }
+    } else {
+        appendLog("Сервис: недоступен, локальный режим интерфейса");
     }
 
     m_connected = !m_connected;
@@ -900,6 +943,123 @@ void AppController::openAdvancedSettings()
     appendLog("Открыты расширенные настройки");
 }
 
+void AppController::refreshEngineStatus()
+{
+    QJsonObject command;
+    command["type"] = "get-engine-status";
+    const auto response = requestService(command, IpcEngineTimeoutMs);
+    if (response.isEmpty()) {
+        m_engineStatus = "Сервис недоступен";
+        m_engineDetail = "Запустите службу, чтобы увидеть состояние движка.";
+        appendLog("Движок: служба недоступна");
+        emit engineChanged();
+        return;
+    }
+
+    const auto document = QJsonDocument::fromJson(response.toUtf8());
+    const auto root = document.object();
+    const auto event = root.value("event").toObject();
+    if (!root.value("ok").toBool(false) || !applyEngineStatusEvent(event)) {
+        m_engineStatus = "Неизвестно";
+        m_engineDetail = event.value("message").toString("Состояние движка не получено");
+    }
+    emit engineChanged();
+}
+
+void AppController::previewSelectedEngineConfig()
+{
+    const auto *server = m_serverModel.selectedServer();
+    if (!server) {
+        m_engineConfigPreview = "Выберите сервер.";
+        emit engineChanged();
+        return;
+    }
+
+    QJsonObject command;
+    command["type"] = "preview-engine-config";
+    command["server_id"] = server->id;
+    const auto response = requestService(command, IpcEngineTimeoutMs);
+    if (response.isEmpty()) {
+        m_engineConfigPreview = "Служба недоступна для подготовки конфигурации.";
+        appendLog("Движок: preview недоступен");
+        emit engineChanged();
+        return;
+    }
+
+    const auto document = QJsonDocument::fromJson(response.toUtf8());
+    const auto root = document.object();
+    const auto event = root.value("event").toObject();
+    if (!root.value("ok").toBool(false) || event.value("type").toString() != "engine-config-preview") {
+        m_engineConfigPreview = event.value("message").toString("Конфигурация не подготовлена");
+        emit engineChanged();
+        return;
+    }
+
+    const auto preview = event.value("preview").toObject();
+    m_engineConfigPreview = preview.value("redacted_config").toString();
+    const auto warnings = preview.value("warnings").toArray();
+    if (!warnings.isEmpty()) {
+        QStringList warningLines;
+        for (const auto warning : warnings) {
+            warningLines.push_back(warning.toString());
+        }
+        m_engineConfigPreview += "\n\n# " + warningLines.join("\n# ");
+    }
+    appendLog("Движок: конфигурация подготовлена без секретов");
+    emit engineChanged();
+}
+
+void AppController::restartEngine()
+{
+    const auto *server = m_serverModel.selectedServer();
+    if (!server) {
+        m_statusText = "Выберите сервер";
+        emit statusChanged();
+        return;
+    }
+
+    QJsonObject command;
+    command["type"] = "restart-engine";
+    command["server_id"] = server->id;
+    command["route_mode"] = routeModeWireValue();
+    const auto response = requestService(command, IpcEngineTimeoutMs);
+    if (response.isEmpty()) {
+        m_statusText = "Сервис недоступен";
+        emit statusChanged();
+        return;
+    }
+
+    const auto document = QJsonDocument::fromJson(response.toUtf8());
+    const auto event = document.object().value("event").toObject();
+    applyEngineStatusEvent(event);
+    m_statusText = m_engineDetail;
+    appendLog("Движок: перезапуск");
+    emit statusChanged();
+    emit engineChanged();
+}
+
+void AppController::stopEngine()
+{
+    QJsonObject command;
+    command["type"] = "stop-engine";
+    const auto response = requestService(command, IpcEngineTimeoutMs);
+    if (response.isEmpty()) {
+        m_statusText = "Сервис недоступен";
+        emit statusChanged();
+        return;
+    }
+
+    const auto document = QJsonDocument::fromJson(response.toUtf8());
+    const auto event = document.object().value("event").toObject();
+    applyEngineStatusEvent(event);
+    m_connected = false;
+    m_statsTimer.stop();
+    m_statusText = m_engineDetail;
+    emit connectionChanged();
+    emit statusChanged();
+    emit engineChanged();
+}
+
 void AppController::setRouteModeIndex(int routeModeIndex)
 {
     if (m_routeModeIndex == routeModeIndex) {
@@ -1055,6 +1215,10 @@ bool AppController::applyServiceState(const QJsonObject &state)
     }
 
     m_routeModeIndex = routeModeIndexFromWire(state.value("route_mode").toString("whole-computer"));
+    applyEngineStateObject(state.value("engine_state").toObject());
+    applyEngineCatalogArray(state.value("engine_catalog").toArray());
+    m_connected = !state.value("connected_server_id").toString().isEmpty()
+        && m_engineStatus == "Запущен";
     m_serverModel.setSubscriptions(items, state.value("selected_server_id").toString());
     if (const auto *subscription = m_serverModel.selectedSubscription()) {
         m_subscriptionName = subscription->name;
@@ -1063,6 +1227,8 @@ bool AppController::applyServiceState(const QJsonObject &state)
     m_statusText = "Готово";
     emit subscriptionChanged();
     emit routeModeChanged();
+    emit connectionChanged();
+    emit engineChanged();
     emit statusChanged();
     return true;
 }
@@ -1262,6 +1428,83 @@ int AppController::routeModeIndexFromWire(const QString &routeMode) const
         return 2;
     }
     return 0;
+}
+
+bool AppController::applyEngineStatusEvent(const QJsonObject &event)
+{
+    const auto type = event.value("type").toString();
+    if (type == "engine-status") {
+        applyEngineStateObject(event.value("state").toObject());
+        return true;
+    }
+    return false;
+}
+
+void AppController::applyEngineStateObject(const QJsonObject &state)
+{
+    const auto status = state.value("status").toString("stopped");
+    const auto engine = state.value("engine").toString("unknown");
+    const auto message = state.value("message").toString();
+    const auto pid = state.value("pid");
+    const auto serverId = state.value("server_id").toString();
+
+    m_engineStatus = engineStatusLabel(status);
+    QStringList detail;
+    detail.push_back(engine == "unknown" ? "Движок: не выбран" : "Движок: " + engine);
+    if (!serverId.isEmpty()) {
+        detail.push_back("Сервер: " + serverId);
+    }
+    if (!pid.isNull() && !pid.isUndefined()) {
+        detail.push_back("PID: " + QString::number(pid.toInt()));
+    }
+    if (!message.isEmpty()) {
+        detail.push_back(message);
+    }
+    m_engineDetail = detail.join(" · ");
+
+    const auto logs = state.value("log_tail").toArray();
+    for (const auto value : logs) {
+        const auto entry = value.toObject();
+        const auto stream = entry.value("stream").toString("engine");
+        const auto line = entry.value("message").toString();
+        if (!line.isEmpty()) {
+            appendLog("Движок/" + stream + ": " + line);
+        }
+    }
+}
+
+void AppController::applyEngineCatalogArray(const QJsonArray &catalog)
+{
+    QStringList lines;
+    for (const auto value : catalog) {
+        const auto item = value.toObject();
+        const auto name = item.value("name").toString("unknown");
+        const auto available = item.value("available").toBool(false);
+        const auto path = item.value("executable_path").toString();
+        lines.push_back(name + ": " + (available ? "найден" : "не найден")
+            + (path.isEmpty() ? QString() : " · " + path));
+    }
+    m_engineCatalog = lines;
+}
+
+QString AppController::engineStatusLabel(const QString &status) const
+{
+    if (status == "running") {
+        return "Запущен";
+    }
+    if (status == "starting") {
+        return "Запускается";
+    }
+    if (status == "missing") {
+        return "Не найден";
+    }
+    if (status == "crashed") {
+        return "Сбой";
+    }
+    if (status == "adapter-pending") {
+        return "Ожидает адаптер";
+    }
+    return "Остановлен";
 }
 
 bool AppController::applyPingEvent(const QJsonObject &event)

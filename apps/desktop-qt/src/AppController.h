@@ -100,6 +100,10 @@ class AppController final : public QObject {
     Q_PROPERTY(QString uploadSpeed READ uploadSpeed NOTIFY statsChanged)
     Q_PROPERTY(QString sessionTraffic READ sessionTraffic NOTIFY statsChanged)
     Q_PROPERTY(QString sessionTime READ sessionTime NOTIFY statsChanged)
+    Q_PROPERTY(QString engineStatus READ engineStatus NOTIFY engineChanged)
+    Q_PROPERTY(QString engineDetail READ engineDetail NOTIFY engineChanged)
+    Q_PROPERTY(QString engineConfigPreview READ engineConfigPreview NOTIFY engineChanged)
+    Q_PROPERTY(QStringList engineCatalog READ engineCatalog NOTIFY engineChanged)
     Q_PROPERTY(QStringList logs READ logs NOTIFY logsChanged)
 
 public:
@@ -120,6 +124,10 @@ public:
     QString uploadSpeed() const;
     QString sessionTraffic() const;
     QString sessionTime() const;
+    QString engineStatus() const;
+    QString engineDetail() const;
+    QString engineConfigPreview() const;
+    QStringList engineCatalog() const;
     QStringList logs() const;
 
     Q_INVOKABLE void navigate(const QString &page);
@@ -136,6 +144,10 @@ public:
     Q_INVOKABLE void copySubscriptionDiagnostics(int row);
     Q_INVOKABLE void clearLogs();
     Q_INVOKABLE void openAdvancedSettings();
+    Q_INVOKABLE void refreshEngineStatus();
+    Q_INVOKABLE void previewSelectedEngineConfig();
+    Q_INVOKABLE void restartEngine();
+    Q_INVOKABLE void stopEngine();
 
 public slots:
     void setRouteModeIndex(int routeModeIndex);
@@ -148,6 +160,7 @@ signals:
     void connectionChanged();
     void routeModeChanged();
     void statsChanged();
+    void engineChanged();
     void logsChanged();
 
 private:
@@ -168,6 +181,10 @@ private:
     QString routeModeWireValue() const;
     int routeModeIndexFromWire(const QString &routeMode) const;
     bool applyPingEvent(const QJsonObject &event);
+    bool applyEngineStatusEvent(const QJsonObject &event);
+    void applyEngineStateObject(const QJsonObject &state);
+    void applyEngineCatalogArray(const QJsonArray &catalog);
+    QString engineStatusLabel(const QString &status) const;
     QString pingLabelFromProbe(const QJsonObject &probe) const;
     QString fallbackPingLabel(const QString &serverId) const;
     void appendLog(const QString &message);
@@ -189,6 +206,10 @@ private:
     QString m_uploadSpeed = "0.0 KB/s";
     QString m_sessionTraffic = "↓ 0 B / ↑ 0 B";
     QString m_sessionTime = "00:00:00";
+    QString m_engineStatus = "Остановлен";
+    QString m_engineDetail = "Движок ещё не запускался";
+    QString m_engineConfigPreview = "Выберите сервер и нажмите подготовку конфигурации.";
+    QStringList m_engineCatalog;
     QStringList m_logs;
     QTimer m_statsTimer;
     QTimer m_probeTimer;

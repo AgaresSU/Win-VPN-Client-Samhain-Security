@@ -58,6 +58,8 @@ impl ResponseEnvelope {
 pub enum ClientCommand {
     Ping,
     GetState,
+    GetEngineCatalog,
+    GetEngineStatus,
     AddSubscription { name: String, url: String },
     RefreshSubscription { subscription_id: String },
     RenameSubscription { subscription_id: String, name: String },
@@ -65,6 +67,10 @@ pub enum ClientCommand {
     SelectServer { server_id: String },
     Connect { server_id: String, route_mode: RouteMode },
     Disconnect,
+    PreviewEngineConfig { server_id: String },
+    StartEngine { server_id: String, route_mode: RouteMode },
+    StopEngine,
+    RestartEngine { server_id: String, route_mode: RouteMode },
     TestPing { server_id: String },
     TestPings { server_ids: Vec<String> },
     CancelPingProbes,
@@ -83,10 +89,88 @@ pub enum ServiceEvent {
     Connecting { server_id: String },
     Connected { server_id: String },
     Disconnected,
+    EngineCatalog { engines: Vec<EngineCatalogEntry> },
+    EngineStatus { state: EngineLifecycleState },
+    EngineConfigPreview { preview: EngineConfigPreview },
     PingResult(PingProbeResult),
     PingBatchResult { results: Vec<PingProbeResult> },
     PingProbesCanceled { canceled: usize },
     Error { message: String },
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum EngineKind {
+    SingBox,
+    Xray,
+    WireGuard,
+    AmneziaWg,
+    Unknown,
+}
+
+impl Default for EngineKind {
+    fn default() -> Self {
+        Self::Unknown
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct EngineCatalogEntry {
+    pub kind: EngineKind,
+    pub name: String,
+    pub executable_path: Option<String>,
+    pub search_paths: Vec<String>,
+    pub available: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct EngineConfigPreview {
+    pub server_id: String,
+    pub engine: EngineKind,
+    pub config_path: Option<String>,
+    pub redacted_config: String,
+    pub warnings: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct EngineLogEntry {
+    pub level: String,
+    pub stream: String,
+    pub message: String,
+    pub captured_at: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct EngineLifecycleState {
+    pub status: String,
+    pub engine: EngineKind,
+    pub server_id: Option<String>,
+    pub pid: Option<u32>,
+    pub started_at: Option<String>,
+    pub stopped_at: Option<String>,
+    pub last_exit_code: Option<i32>,
+    pub restart_attempts: u8,
+    pub config_path: Option<String>,
+    pub message: String,
+    pub log_tail: Vec<EngineLogEntry>,
+}
+
+impl Default for EngineLifecycleState {
+    fn default() -> Self {
+        Self {
+            status: "stopped".to_string(),
+            engine: EngineKind::Unknown,
+            server_id: None,
+            pid: None,
+            started_at: None,
+            stopped_at: None,
+            last_exit_code: None,
+            restart_attempts: 0,
+            config_path: None,
+            message: "Engine is stopped.".to_string(),
+            log_tail: Vec::new(),
+        }
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -106,6 +190,8 @@ pub struct ServiceState {
     pub selected_server_id: Option<String>,
     pub connected_server_id: Option<String>,
     pub route_mode: RouteMode,
+    pub engine_state: EngineLifecycleState,
+    pub engine_catalog: Vec<EngineCatalogEntry>,
     pub probe_queue_active: bool,
     pub probe_results: Vec<PingProbeResult>,
     pub subscriptions: Vec<Subscription>,
@@ -119,6 +205,8 @@ impl Default for ServiceState {
             selected_server_id: None,
             connected_server_id: None,
             route_mode: RouteMode::WholeComputer,
+            engine_state: EngineLifecycleState::default(),
+            engine_catalog: Vec::new(),
             probe_queue_active: false,
             probe_results: Vec::new(),
             subscriptions: Vec::new(),

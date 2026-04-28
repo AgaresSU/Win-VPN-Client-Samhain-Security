@@ -1,6 +1,6 @@
 # Architecture
 
-Version: `0.7.5`
+Version: `0.7.6`
 
 ## Components
 
@@ -43,4 +43,4 @@ Ctrl+V / Add subscription
   -> show speed, traffic, session time
 ```
 
-The `0.7.5` build implements the shell, state model, mock connection, versioned IPC envelopes, a Windows named-pipe service endpoint, real subscription ingestion, DPAPI-protected service storage, compact service-backed subscription groups, and service-owned latency probes. Real engine operations begin after the engine manager is introduced.
+The `0.7.6` build implements the shell, state model, versioned IPC envelopes, a Windows named-pipe service endpoint, real subscription ingestion, DPAPI-protected service storage, compact service-backed subscription groups, service-owned latency probes, and Engine Manager V1. Engine Manager V1 discovers bundled runtime binaries, generates redacted config previews, starts/stops/restarts process-based engines when binaries are present, captures log tails, reports lifecycle state to the desktop, and keeps adapter-based launches reserved for the dedicated WireGuard/AmneziaWG milestone.
