@@ -1,252 +1,55 @@
-# Samhain Security
+# Samhain Security Native
 
-Version: `0.6.5`
+Version: `0.7.0`
 
-Desktop secure tunneling client for Windows built with WPF and .NET 9.
+Native Windows secure tunneling client prototype built from a clean base.
 
-## What it does
+## Stack
 
-- Creates and updates per-user Windows native tunnel profiles.
-- Supports Windows native tunnel types: IKEv2, SSTP, L2TP, PPTP, and Automatic.
-- Supports VLESS TCP Reality through `sing-box`.
-- Supports WireGuard through the official Windows `wireguard.exe` tunnel service.
-- Supports AmneziaWG through an external `awg-quick.exe`-compatible backend.
-- Includes an in-app diagnostics check for admin rights, Windows native cmdlets, `rasdial`, and external protocol engines.
-- Includes a tray icon with quick open, connect, disconnect, diagnostics, admin relaunch, and exit actions.
-- Shows protocol engine availability badges in the profile editor.
-- Detects external engine versions in diagnostics and prints repair suggestions when an engine is missing.
-- Persists connection state, writes structured JSONL logs, and exports diagnostics bundles.
-- Includes a local Windows service host with named pipe API for Windows Native connect, disconnect, and status actions.
-- Adds in-app service control for install/start checks when running elevated.
-- Adds a protection policy panel for kill switch, DNS leak protection, firewall preview, and service-side enforcement.
-- Applies protection with a dedicated Windows Firewall rule group and restores previous firewall defaults on removal.
-- Adds service watchdog, post-apply health checks, automatic rollback, emergency reset, and JSONL protection audit logging.
-- Imports Samhain Security subscription links from the connection page or direct API URL, including raw/base64 VLESS lists and sing-box JSON profiles.
-- Imports Samhain Security AWG reserve links from the connection page or direct API URL, including ready AmneziaWG `.conf` items.
-- Adds a subscription source manager with masked tokens, update selected, update all, delete, clipboard import, and global paste recognition.
-- Adds saved subscription switching and a server dropdown that loads the selected server profile.
-- Adds server favorites, last-used tracking, and a quick best-server selector.
-- Adds quick server checks with saved status and delay for smarter best-server selection.
-- Adds automatic reserve-server retry when the first connection attempt fails.
-- Adds clearer connection progress, richer server status, background checks, automatic best-server mode, source management, quiet subscription refresh, richer tray actions, friendly errors, a first-run card, and installer preparation scripts.
-- Adds connection watchdog checks after successful connect and automatic recovery if the active route clearly drops.
-- Adds a connection health summary and a server status reset action for the current list.
-- Adds release-readiness checks, a quick repair action, a server catalog table, local connection history, safer support export, and updated local install helpers.
-- Adds a proper local install/upgrade path with install root copy, service replacement, shortcuts, startup entry, and install manifest.
-- Adds an engine manager for sing-box, WireGuard, and AmneziaWG with portable folder creation, version checks, and one-click path selection.
-- Adds runtime config cleanup for temporary VLESS/WireGuard/AmneziaWG files after stop/disconnect and stale startup sweeps.
-- Adds server catalog search, favorites-only filtering, visible counts, and quick sort modes for daily server switching.
-- Adds quick server recommendations for the currently visible list: recommended, favorite, and recent.
-- Adds plain-language reasons for server recommendations with status, delay, last check, favorite, and recent markers.
-- Adds visible server filter state and a one-click reset for search, favorites-only, and sorting.
-- Remembers server catalog sort and favorites-only preference while keeping search text temporary.
-- Adds daily server shortcuts: Enter in search selects the first visible server, Escape clears search, and double-clicking a server connects it.
-- Adds right-click server row actions for connect, favorite toggle, and address copy.
-- Adds a premium daily shell with server categories, a larger central catalog, and a dedicated connection panel.
-- Highlights the active server category and keeps the catalog title synchronized with category and filter state.
-- Distinguishes three application routing modes: whole computer, selected applications only, and whole computer except selected applications.
-- Applies VLESS application routing through generated `sing-box` process rules and reports the policy through the service protection status.
-- Replaces bright default Windows control chrome with a dark red graphite cyberpunk theme and muted text contrast.
-- Adds a Happ-inspired daily shell pass with a compact icon rail, card-style server rows, and a larger connection stage.
-- Uses the Samhain Security shield asset for the application and tray icons.
-- Adds pre-connect validation for VLESS Reality and WireGuard-style configs with clear local errors.
-- Adds optional reconnect after resume or network changes for the last successful profile.
-- Adds tray-first server selection with connect selected, connect best, and current server submenu.
-- Adds a portable package script that publishes desktop and service binaries into a clean distributable folder and zip archive.
-- Supervises VLESS, WireGuard, and AmneziaWG lifecycle through Samhain Security Service when it is running, with desktop fallback when the service is unavailable.
-- Adds a simpler daily UI mode: startup/autoconnect toggles stay visible, while engine paths, raw configs, protocol internals, DNS, and protection controls live under `Расширенные настройки`.
-- Adds a daily status band with selected profile, route, protocol, service readiness, protection state, and the current connection result.
-- Stores service-owned protection state in `%ProgramData%\SamhainSecurity\Service\`.
-- Stores service-owned runtime tunnel configs in `%ProgramData%\SamhainSecurity\Service\runtime\`.
-- Connects and disconnects through `rasdial.exe`.
-- Stores profile data in `%APPDATA%\SamhainSecurity\profiles.json`.
-- Stores app behavior settings in `%APPDATA%\SamhainSecurity\settings.json`.
-- Stores subscription sources in `%APPDATA%\SamhainSecurity\subscriptions.json` with URLs encrypted by Windows DPAPI for the current user.
-- Stores connection state in `%APPDATA%\SamhainSecurity\connection-state.json`.
-- Stores connection history in `%APPDATA%\SamhainSecurity\connection-history.json`.
-- Stores structured logs in `%APPDATA%\SamhainSecurity\logs\`.
-- Encrypts saved passwords, L2TP PSK values, and pasted WG/AWG configs with Windows DPAPI for the current user.
+- Desktop UI: C++ / Qt 6 / QML.
+- Core models and parsing: Rust.
+- Service skeleton: Rust Windows service entry point placeholder.
+- Protocol engines planned: sing-box, Xray-core, WireGuard, AmneziaWG.
+- Build: CMake, Ninja, Cargo.
 
-## External engines
+## First Run Scope
 
-VLESS Reality requires `sing-box.exe`. Put it in one of these places or select it in the app:
+This release is the native foundation. It focuses on the product shell, simple daily UX, local models, persistence, and build/package flow.
 
-```text
-.\engines\sing-box\sing-box.exe
-..\engines\sing-box\sing-box.exe
-%ProgramFiles%\sing-box\sing-box.exe
-```
+Implemented in `0.7.0`:
 
-WireGuard requires the official WireGuard for Windows app:
+- Happ-inspired Qt/QML shell with servers, add, settings, statistics, logs, and about sections.
+- Compact subscription group and server rows without technical clutter.
+- Global `Ctrl+V` import flow that recognizes subscription-like URLs from the clipboard.
+- Add-subscription dialog with name and URL fields.
+- Route mode selector: whole computer, selected apps only, or whole computer except selected apps.
+- Mock ping, connection state, speed, traffic, and session timer.
+- Rust core data models for subscriptions, servers, protocols, route modes, and basic URL parsing.
+- Rust IPC and service skeleton crates for the future privileged core.
+- Package script for a local Windows distributable.
 
-```text
-.\engines\wireguard\wireguard.exe
-..\engines\wireguard\wireguard.exe
-%ProgramFiles%\WireGuard\wireguard.exe
-```
+Not implemented yet:
 
-AmneziaWG requires an `awg-quick.exe`-compatible command line tool. Put it in one of these places or select it in the app:
-
-```text
-.\engines\amneziawg\awg-quick.exe
-..\engines\amneziawg\awg-quick.exe
-%ProgramFiles%\AmneziaWG\awg-quick.exe
-```
-
-VLESS/WG/AWG TUN or tunnel service operations may require administrator permissions.
-
-Relative engine paths are resolved from the app executable directory and the package root, so portable layouts such as `.\engines\sing-box\sing-box.exe` and `..\engines\sing-box\sing-box.exe` work after publishing.
-
-The repository includes placeholder engine folders under `engines\`. They are copied to the desktop and service publish outputs so a portable package can place binaries next to the owning executable.
-
-## Run
-
-```powershell
-dotnet run --project ".\SamhainSecurity\SamhainSecurity.csproj"
-```
+- Real tunnel connection.
+- Real service installation.
+- Real TUN/firewall/WFP operations.
+- Real engine lifecycle.
+- Code signing and online updater.
 
 ## Build
 
 ```powershell
-dotnet build ".\SamhainSecurity.sln"
+.\scripts\build.ps1
 ```
 
-## Publish
+## Package
 
 ```powershell
-dotnet publish ".\SamhainSecurity\SamhainSecurity.csproj" -c Release -r win-x64 --self-contained false
-dotnet publish ".\SamhainSecurity.Service\SamhainSecurity.Service.csproj" -c Release -r win-x64 --self-contained false
+.\scripts\package.ps1
 ```
 
-Portable package:
-
-```powershell
-.\scripts\package-portable.ps1
-```
-
-Local package helper:
-
-```powershell
-.\scripts\install-local.ps1 -PackagePath ".\dist\SamhainSecurity-0.6.5-win-x64" -StartService -CreateStartMenuShortcut
-```
-
-Default install root is `%ProgramFiles%\Samhain Security`. The helper stops and replaces the previous service registration, copies the package to the install root, writes `install-manifest.json`, and preserves `%APPDATA%\SamhainSecurity`.
-
-The published executable is `SamhainSecurity.exe` and will be under:
+The package is written to:
 
 ```text
-SamhainSecurity\bin\Release\net9.0-windows\win-x64\publish\
+dist\SamhainSecurityNative-0.7.0-win-x64
 ```
-
-The service executable is published under:
-
-```text
-SamhainSecurity.Service\bin\Release\net9.0-windows\win-x64\publish\
-```
-
-Run these commands from an elevated terminal when managing the service manually:
-
-```powershell
-.\SamhainSecurity.Service.exe install
-.\SamhainSecurity.Service.exe start
-.\SamhainSecurity.Service.exe status
-.\SamhainSecurity.Service.exe protection-status
-.\SamhainSecurity.Service.exe reset-protection
-.\SamhainSecurity.Service.exe watchdog-check
-.\SamhainSecurity.Service.exe stop
-.\SamhainSecurity.Service.exe uninstall
-```
-
-The desktop app can also install/start the service through the `Служба` button when launched as administrator. If the service is not running, Windows Native actions fall back to direct local execution.
-
-## Service-Supervised Protocols
-
-Version `0.1.7` moves VLESS TCP Reality, WireGuard, and AmneziaWG connect/disconnect/status actions behind the local Samhain Security Service when it is available. The desktop app sends the selected profile over the local named pipe, and the service owns privileged engine execution and long-running `sing-box` processes.
-
-If the service is unavailable, the desktop app keeps the previous local execution path as a fallback. This keeps portable/dev builds usable while moving the production architecture toward a simple UI that delegates privileged work to the daemon.
-
-## Daily Mode
-
-Version `0.1.9` continues simplifying the desktop screen. The default view keeps subscription import, profile choice, startup/autoconnect toggles, the live daily status band, and connect/disconnect actions visible. Low-level protocol and protection fields are still available, but they are grouped under `Расширенные настройки`.
-
-`Запускать с Windows` writes a per-user startup entry under the current user's Run key. `Подключать последний профиль` remembers the last successful profile and reconnects it on launch.
-
-The daily status band summarizes the current profile, endpoint, protocol, service readiness, selected protection options, startup mode, and the latest connection outcome without exposing raw configs or tokens.
-
-## Protection Policy
-
-Version `0.1.3` hardens service-owned firewall enforcement. The desktop app can preview the rule plan, apply protection, query the current policy, remove it, or run an emergency reset.
-
-When Kill switch is enabled, the service creates rules in the `Samhain Security Protection` group, stores the previous Windows Firewall outbound defaults, then switches Domain/Private/Public outbound policy to block. Removing or resetting protection deletes the group and restores the saved defaults.
-
-DNS leak protection is enforced together with Kill switch in this build, so approved DNS resolvers are allow-listed before outbound blocking is enabled.
-
-The service runs a protection watchdog every 30 seconds. If the rule group or outbound firewall defaults drift into an unsafe partial state, the service removes protection rules and restores the saved firewall defaults. Protection actions are written to `%ProgramData%\SamhainSecurity\Service\protection-audit.jsonl`.
-
-## Subscriptions
-
-Version `0.1.6` adds local subscription import. Paste the Samhain Security connection page URL, AWG reserve page URL, or a direct `/api/sub/...` URL into the `Подписка` block and press `Обновить`.
-
-The app normalizes connection page links to the matching API subscription, imports VLESS TCP Reality profiles and AmneziaWG reserve configs, merges repeated updates into existing profiles, and keeps local engine/protection preferences when an imported profile already exists. Subscription URLs are saved encrypted with DPAPI and raw node data is not written to the UI log.
-
-The subscription block can manage multiple sources. Tokens are masked in the source list, `Все` refreshes every saved source, and `Буфер` imports a recognized connection link from the clipboard. Standard text fields keep normal copy/paste behavior; when focus is outside text input, `Ctrl+V` can import a recognized subscription link directly.
-
-Version `0.2.0` adds a saved subscription selector and a server dropdown. Imported profiles remember their source, the app remembers the last selected subscription, and loading a server from the dropdown fills the active profile without exposing raw config text.
-
-Version `0.2.1` adds lightweight server ranking. Favorite servers float to the top, recently connected servers follow, and the `Лучший` action selects the best current candidate from the filtered list.
-
-Version `0.2.2` adds local protocol validation before connect. VLESS Reality profiles are checked for UUID, port, SNI, public key, and Short ID shape; WireGuard and AmneziaWG configs are checked for required sections, keys, Endpoint, size, and invalid characters before the engine or service is called.
-
-Version `0.2.3` adds a simple recovery loop. When Windows resumes from sleep or the network changes, the app can reconnect the last successful profile with a short delay and a 30-second throttle. The behavior is controlled by `Восстанавливать подключение`.
-
-Version `0.2.4` expands tray-first daily use. The tray menu can connect the selected server, connect the best currently ranked server, or pick one of the current subscription servers from the `Серверы` submenu.
-
-Version `0.2.5` adds a portable packaging script. It publishes the desktop app and service into `dist\SamhainSecurity-0.2.5-win-x64\`, copies engine placeholders, writes a portable README, creates a release manifest, and produces a zip archive.
-
-Version `0.2.6` adds quick server checks. The server dropdown can check the current subscription list, remember the latest status and delay, and use that signal when selecting `Лучший`.
-
-Version `0.2.7` adds automatic reserve-server retry. When a connection attempt fails, the app can mark that server as temporarily failed and try the next best servers from the current subscription list.
-
-Versions `0.2.8` through `0.3.7` complete the next daily-use pass: visible connection progress, richer server status, background checks, automatic best-server mode, source rename/enable controls, quiet subscription refresh, tray favorites and update actions, friendlier errors, first-run guidance, and installer preparation scripts.
-
-Version `0.3.8` adds connection watchdog mode. After a successful connect, the app periodically checks the active profile status and triggers recovery with reserve-server selection if the route clearly drops.
-
-Version `0.3.9` adds a health summary for the selected profile, tracks watchdog checks/failures, and adds `Сброс` for clearing server health and ranking state in the current list.
-
-Version `0.4.9` is a release-candidate polish pass. It adds in-app environment readiness checks, a safe quick repair path for local folders and the service, a compact server table for switching between subscription servers, local connection history, redacted support bundles, and install helpers for service/start-menu setup.
-
-Version `0.5.0` starts the beta packaging track. The local installer now performs an install-root copy, handles upgrade service replacement, can create Start Menu/Desktop shortcuts, can enable startup, writes an install manifest, and uninstalls without deleting user data unless install-file removal is explicitly requested.
-
-Version `0.5.1` adds the first engine manager pass. The advanced panel now shows sing-box, WireGuard, and AmneziaWG status/version/path, creates portable engine folders, opens the folder for manual drop-in, and can apply a detected engine path to the selected profile.
-
-Version `0.5.2` tightens runtime config handling. Temporary plaintext engine configs are removed after WireGuard/AmneziaWG commands, after sing-box stops, and stale runtime profile folders are swept on app/service startup.
-
-Version `0.5.3` improves daily server selection. The server catalog now supports search, favorites-only filtering, visible/total counts, and sort modes for smart, fast, favorite, recent, and name-based browsing.
-
-Version `0.5.4` adds quick server recommendations above the catalog. The app now surfaces the recommended, favorite, and recent choices from the currently visible server list so daily switching needs fewer clicks.
-
-Version `0.5.5` makes those recommendations explain themselves. Each quick server choice now shows why it was picked, including availability, delay, last check time, favorite state, and last-use time when those signals exist.
-
-Version `0.5.6` makes catalog filtering safer for daily use. The server counter now shows active search, favorites-only, and sort state, and the catalog has a one-click reset back to the default smart view.
-
-Version `0.5.7` remembers daily catalog preferences. Sort mode and the favorites-only switch are saved in app behavior settings, while the search box is intentionally cleared between sessions.
-
-Version `0.5.8` improves daily keyboard flow. Enter in server search selects the first visible result, Escape clears search, Enter in the server table connects the selected row, and double-clicking a row also connects it.
-
-Version `0.5.9` adds right-click server row actions. A row context menu can connect the selected server, add or remove it from favorites, or copy the visible address.
-
-Version `0.6.0` starts the premium daily shell. The main window now has server categories on the left, a larger central server catalog, and a right-side connection panel with a large connect action and live route status.
-
-Version `0.6.1` polishes category navigation. The active server category is highlighted, the catalog title follows the selected category, and manual search or sorting switches the title to the filtered view.
-
-Version `0.6.2` adds stored application routing modes. Profiles can now remember whole-computer routing, selected-applications-only routing, or whole-computer-except-selected-applications routing, and the selected mode is shown in the daily status panel.
-
-Version `0.6.3` starts real application-aware routing. VLESS TCP Reality now generates `sing-box` process rules for selected app paths or process names, the service pipe carries the policy, and protection status/preview shows the active application routing plan.
-
-Version `0.6.4` retunes the desktop visual system. The main shell now uses a dark red graphite cyberpunk palette, dark templates for default controls, subdued disabled states, dark list/table headers, dark scrollbars, and a dark native window caption where Windows supports it.
-
-Version `0.6.5` starts the Happ-inspired daily layout pass. The shell now uses a narrow icon rail, card-style server rows, a larger connection stage with Proxy/TUN chips, and the supplied Samhain Security shield for app and tray icons.
-
-## Versioning
-
-Version is bumped on each follow-up update. Minor versions mark roadmap phases, and patch versions mark fixes and small additions, for example `0.1.0`, `0.1.1`, `0.1.2`.
