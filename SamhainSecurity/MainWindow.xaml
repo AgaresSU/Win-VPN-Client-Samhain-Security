@@ -395,6 +395,7 @@
                                     <RowDefinition Height="Auto" />
                                     <RowDefinition Height="Auto" />
                                     <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="Auto" />
                                 </Grid.RowDefinitions>
 
                                 <TextBlock Text="Подписка"
@@ -536,6 +537,85 @@
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="*" />
                                         <ColumnDefinition Width="12" />
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="12" />
+                                        <ColumnDefinition Width="*" />
+                                    </Grid.ColumnDefinitions>
+
+                                    <Button x:Name="RecommendedServerButton"
+                                            Grid.Column="0"
+                                            HorizontalContentAlignment="Stretch"
+                                            Padding="12,10"
+                                            Click="RecommendedServerButton_Click">
+                                        <StackPanel>
+                                            <TextBlock Text="Рекомендуем"
+                                                       Foreground="{StaticResource MutedTextBrush}"
+                                                       FontSize="12" />
+                                            <TextBlock x:Name="RecommendedServerNameTextBlock"
+                                                       Text="Нет серверов"
+                                                       FontWeight="SemiBold"
+                                                       TextTrimming="CharacterEllipsis"
+                                                       Margin="0,3,0,0" />
+                                            <TextBlock x:Name="RecommendedServerDetailTextBlock"
+                                                       Text="Обновите подписку"
+                                                       Foreground="{StaticResource MutedTextBrush}"
+                                                       FontSize="12"
+                                                       TextTrimming="CharacterEllipsis"
+                                                       Margin="0,3,0,0" />
+                                        </StackPanel>
+                                    </Button>
+
+                                    <Button x:Name="FavoriteRecommendationButton"
+                                            Grid.Column="2"
+                                            HorizontalContentAlignment="Stretch"
+                                            Padding="12,10"
+                                            Click="FavoriteRecommendationButton_Click">
+                                        <StackPanel>
+                                            <TextBlock Text="Избранный"
+                                                       Foreground="{StaticResource MutedTextBrush}"
+                                                       FontSize="12" />
+                                            <TextBlock x:Name="FavoriteRecommendationNameTextBlock"
+                                                       Text="Не выбран"
+                                                       FontWeight="SemiBold"
+                                                       TextTrimming="CharacterEllipsis"
+                                                       Margin="0,3,0,0" />
+                                            <TextBlock x:Name="FavoriteRecommendationDetailTextBlock"
+                                                       Text="Отметьте сервер"
+                                                       Foreground="{StaticResource MutedTextBrush}"
+                                                       FontSize="12"
+                                                       TextTrimming="CharacterEllipsis"
+                                                       Margin="0,3,0,0" />
+                                        </StackPanel>
+                                    </Button>
+
+                                    <Button x:Name="RecentServerButton"
+                                            Grid.Column="4"
+                                            HorizontalContentAlignment="Stretch"
+                                            Padding="12,10"
+                                            Click="RecentServerButton_Click">
+                                        <StackPanel>
+                                            <TextBlock Text="Последний"
+                                                       Foreground="{StaticResource MutedTextBrush}"
+                                                       FontSize="12" />
+                                            <TextBlock x:Name="RecentServerNameTextBlock"
+                                                       Text="Пока пусто"
+                                                       FontWeight="SemiBold"
+                                                       TextTrimming="CharacterEllipsis"
+                                                       Margin="0,3,0,0" />
+                                            <TextBlock x:Name="RecentServerDetailTextBlock"
+                                                       Text="После успешного подключения"
+                                                       Foreground="{StaticResource MutedTextBrush}"
+                                                       FontSize="12"
+                                                       TextTrimming="CharacterEllipsis"
+                                                       Margin="0,3,0,0" />
+                                        </StackPanel>
+                                    </Button>
+                                </Grid>
+
+                                <Grid Grid.Row="4" Margin="0,12,0,0">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="12" />
                                         <ColumnDefinition Width="150" />
                                         <ColumnDefinition Width="12" />
                                         <ColumnDefinition Width="190" />
@@ -570,7 +650,7 @@
                                 </Grid>
 
                                 <ListView x:Name="ServersListView"
-                                          Grid.Row="4"
+                                          Grid.Row="5"
                                           Height="150"
                                           Margin="0,12,0,0"
                                           BorderBrush="{StaticResource LineBrush}"
@@ -595,13 +675,13 @@
                                 </ListView>
 
                                 <TextBlock x:Name="ServerCatalogSummaryTextBlock"
-                                           Grid.Row="5"
+                                           Grid.Row="6"
                                            Text="Серверов: 0"
                                            Foreground="{StaticResource MutedTextBrush}"
                                            FontSize="12"
                                            Margin="0,8,0,0" />
 
-                                <Grid Grid.Row="6" Margin="0,12,0,0">
+                                <Grid Grid.Row="7" Margin="0,12,0,0">
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="*" />
                                         <ColumnDefinition Width="8" />
@@ -629,7 +709,7 @@
                                 </Grid>
 
                                 <ListBox x:Name="SubscriptionSourcesListBox"
-                                         Grid.Row="7"
+                                         Grid.Row="8"
                                          Height="112"
                                          Margin="0,12,0,0"
                                          BorderBrush="{StaticResource LineBrush}"
@@ -665,7 +745,7 @@
                                 </ListBox>
 
                                 <TextBlock x:Name="SubscriptionStatusTextBlock"
-                                           Grid.Row="8"
+                                           Grid.Row="9"
                                            Text="Подписка не добавлена"
                                            Foreground="{StaticResource MutedTextBrush}"
                                            FontSize="12"

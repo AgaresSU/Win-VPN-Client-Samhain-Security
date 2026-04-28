@@ -1,6 +1,6 @@
 {
   "product": "Samhain Security",
-  "version": "0.5.3",
+  "version": "0.5.4",
   "installRoot": "%ProgramFiles%/Samhain Security",
   "windowsRuntime": "win-x64",
   "appEntry": "app/SamhainSecurity.exe",
@@ -19,6 +19,7 @@
     "include engine manager and portable engine folder detection",
     "clean temporary runtime configs after disconnect and startup sweeps",
     "filter and sort the server catalog for faster daily server selection",
+    "show quick recommended, favorite, and recent server choices",
     "install local service when elevated",
     "create optional Start Menu shortcut",
     "create optional Desktop shortcut",

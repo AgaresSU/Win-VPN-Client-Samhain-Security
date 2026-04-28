@@ -93,6 +93,7 @@ public partial class MainWindow : Window
         _serverChoicesView.Filter = FilterServerChoice;
         ServerSortComboBox.SelectedIndex = 0;
         UpdateServerCatalogSummary();
+        UpdateServerRecommendations();
         CommandBindings.Add(new CommandBinding(
             ApplicationCommands.Paste,
             PasteCommand_Executed,
@@ -254,6 +255,21 @@ public partial class MainWindow : Window
         ApplyServerChoice(item, $"Сервер: {item.DisplayName}");
     }
 
+    private void RecommendedServerButton_Click(object sender, RoutedEventArgs e)
+    {
+        SelectRecommendedServer(GetBestServerChoice(visibleOnly: true), "Рекомендуем");
+    }
+
+    private void FavoriteRecommendationButton_Click(object sender, RoutedEventArgs e)
+    {
+        SelectRecommendedServer(GetFavoriteServerChoice(visibleOnly: true), "Избранный");
+    }
+
+    private void RecentServerButton_Click(object sender, RoutedEventArgs e)
+    {
+        SelectRecommendedServer(GetRecentServerChoice(visibleOnly: true), "Последний");
+    }
+
     private void ServerCatalogFilter_Changed(object sender, RoutedEventArgs e)
     {
         RefreshServerCatalogView();
@@ -277,6 +293,20 @@ public partial class MainWindow : Window
         {
             ApplyServerChoice(item, statusText);
         }
+    }
+
+    private void SelectRecommendedServer(ServerListItem? item, string label)
+    {
+        if (item is null)
+        {
+            StatusTextBlock.Text = "Подходящий сервер не найден";
+            return;
+        }
+
+        ServerSelectorComboBox.SelectedItem = item;
+        ServersListView.SelectedItem = item;
+        ServersListView.ScrollIntoView(item);
+        ApplyServerChoice(item, $"{label}: {item.DisplayName}");
     }
 
     private void ApplyServerChoice(ServerListItem item, string statusText)
@@ -312,7 +342,7 @@ public partial class MainWindow : Window
 
     private void BestServerButton_Click(object sender, RoutedEventArgs e)
     {
-        var best = GetBestServerChoice();
+        var best = GetBestServerChoice(visibleOnly: true);
 
         if (best is null)
         {
@@ -2027,6 +2057,7 @@ public partial class MainWindow : Window
         ServerSearchTextBox.IsEnabled = !isBusy;
         FavoriteServersOnlyCheckBox.IsEnabled = !isBusy;
         ServerSortComboBox.IsEnabled = !isBusy;
+        UpdateServerRecommendations();
         ServersListView.IsEnabled = !isBusy;
         FavoriteServerButton.IsEnabled = !isBusy;
         BestServerButton.IsEnabled = !isBusy;
@@ -2348,6 +2379,7 @@ public partial class MainWindow : Window
     {
         _serverChoicesView?.Refresh();
         UpdateServerCatalogSummary();
+        UpdateServerRecommendations();
         UpdateFavoriteServerButton();
     }
 
@@ -2372,6 +2404,59 @@ public partial class MainWindow : Window
         return _serverChoicesView is null
             ? _serverChoices
             : _serverChoicesView.Cast<ServerListItem>();
+    }
+
+    private IEnumerable<ServerListItem> GetServerRecommendationCandidates(bool visibleOnly)
+    {
+        return visibleOnly ? GetVisibleServerChoices() : _serverChoices;
+    }
+
+    private void UpdateServerRecommendations()
+    {
+        var best = GetBestServerChoice(visibleOnly: true);
+        var favorite = GetFavoriteServerChoice(visibleOnly: true);
+        var recent = GetRecentServerChoice(visibleOnly: true);
+
+        SetRecommendation(
+            RecommendedServerButton,
+            RecommendedServerNameTextBlock,
+            RecommendedServerDetailTextBlock,
+            best,
+            _serverChoices.Count == 0 ? "Обновите подписку" : "Нет совпадений");
+        SetRecommendation(
+            FavoriteRecommendationButton,
+            FavoriteRecommendationNameTextBlock,
+            FavoriteRecommendationDetailTextBlock,
+            favorite,
+            _serverChoices.Any(item => item.Profile.IsFavorite) ? "Скрыт фильтром" : "Отметьте сервер");
+        SetRecommendation(
+            RecentServerButton,
+            RecentServerNameTextBlock,
+            RecentServerDetailTextBlock,
+            recent,
+            _serverChoices.Any(item => item.Profile.LastConnectedAt is not null) ? "Скрыт фильтром" : "После успешного подключения");
+    }
+
+    private void SetRecommendation(
+        System.Windows.Controls.Button button,
+        TextBlock nameTextBlock,
+        TextBlock detailTextBlock,
+        ServerListItem? item,
+        string emptyDetail)
+    {
+        button.IsEnabled = !_isBusy && item is not null;
+
+        if (item is null)
+        {
+            nameTextBlock.Text = "Нет сервера";
+            detailTextBlock.Text = emptyDetail;
+            return;
+        }
+
+        nameTextBlock.Text = item.DisplayName;
+        detailTextBlock.Text = string.IsNullOrWhiteSpace(item.StatusLabel)
+            ? item.Details
+            : $"{item.StatusLabel} · {item.Details}";
     }
 
     private string GetServerSortMode()
@@ -2477,14 +2562,41 @@ public partial class MainWindow : Window
         RefreshTrayMenu();
     }
 
-    private ServerListItem? GetBestServerChoice()
+    private ServerListItem? GetBestServerChoice(bool visibleOnly = false)
     {
-        var bestProfile = OrderServerProfiles(_serverChoices.Select(item => item.Profile), "smart")
+        var candidates = GetServerRecommendationCandidates(visibleOnly).ToList();
+        var bestProfile = OrderServerProfiles(candidates.Select(item => item.Profile), "smart")
             .FirstOrDefault();
 
         return bestProfile is null
             ? null
-            : _serverChoices.FirstOrDefault(item => item.Profile.Id == bestProfile.Id);
+            : candidates.FirstOrDefault(item => item.Profile.Id == bestProfile.Id);
+    }
+
+    private ServerListItem? GetFavoriteServerChoice(bool visibleOnly = false)
+    {
+        var candidates = GetServerRecommendationCandidates(visibleOnly).ToList();
+        var favoriteProfile = OrderServerProfiles(
+                candidates
+                    .Where(item => item.Profile.IsFavorite)
+                    .Select(item => item.Profile),
+                "smart")
+            .FirstOrDefault();
+
+        return favoriteProfile is null
+            ? null
+            : candidates.FirstOrDefault(item => item.Profile.Id == favoriteProfile.Id);
+    }
+
+    private ServerListItem? GetRecentServerChoice(bool visibleOnly = false)
+    {
+        return GetServerRecommendationCandidates(visibleOnly)
+            .Where(item => item.Profile.LastConnectedAt is not null)
+            .OrderByDescending(item => item.Profile.LastConnectedAt ?? DateTimeOffset.MinValue)
+            .ThenBy(item => GetServerSortKey(item.Profile).ProbeBucket)
+            .ThenBy(item => GetServerSortKey(item.Profile).LatencyMs)
+            .ThenBy(item => item.DisplayName, StringComparer.CurrentCultureIgnoreCase)
+            .FirstOrDefault();
     }
 
     private static ServerSortKey GetServerSortKey(VpnProfile profile)

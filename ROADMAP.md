@@ -1,6 +1,6 @@
 # Samhain Security Roadmap
 
-Version baseline: `0.5.3`
+Version baseline: `0.5.4`
 
 ## Product Goal
 
@@ -381,6 +381,13 @@ The default UI should stay close to the simplicity of Happ: a small set of obvio
 - Done: favorites-only filter and visible/total server count.
 - Done: quick sort modes for smart, fast, favorite, recent, and name-based browsing.
 - Done: manual server checks respect the currently visible catalog filter.
+
+### 0.5.4
+
+- Done: quick recommended server choice above the catalog.
+- Done: quick favorite server choice from the current visible list.
+- Done: quick recent server choice from the current visible list.
+- Done: recommendation buttons keep search and favorites-only filters predictable.
 
 ## Design Direction
 
