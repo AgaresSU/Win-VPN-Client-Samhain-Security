@@ -1,6 +1,6 @@
 # Roadmap
 
-Current version: `0.7.1`
+Current version: `0.7.2`
 
 This roadmap is the working contract for Samhain Security. Future implementation should follow this order unless a blocker is found and documented in the same commit.
 
@@ -63,15 +63,19 @@ The app-routing mode is a dedicated milestone because true per-process transpare
 
 Done when the plan is committed, tagged, and pushed.
 
+Status: shipped in `v0.7.1`.
+
 ### 0.7.2 - Service IPC Foundation
 
 - Implement a Windows named-pipe service channel.
 - Add handshake, version negotiation, request IDs, command timeout, and event stream.
 - Move app state reads through the service API.
-- Keep desktop fallback only for development builds.
+- Keep desktop fallback while service install/start remains a later milestone.
 - Add tests for command/event compatibility.
 
 Done when the desktop can request state and receive service events without reading service-owned files directly.
+
+Status: shipped in `v0.7.2` with the first named-pipe endpoint and desktop fallback.
 
 ### 0.7.3 - Real Subscription Ingestion
 
@@ -236,13 +240,13 @@ Done when Samhain Security is ready for normal users.
 
 ## Immediate Next Build Order
 
-1. `0.7.2`: service IPC foundation.
-2. `0.7.3`: real subscription ingestion.
-3. `0.7.4`: compact subscription UI.
-4. `0.7.5`: real ping and health probes.
-5. `0.7.6`: engine manager.
-6. `0.7.7`: first real proxy connection path.
-7. `0.7.8`: whole-computer TUN path.
-8. `0.7.9`: WireGuard and AmneziaWG path.
-9. `0.8.0`: selected/excluded app routing.
-10. `0.8.1`: protection layer.
+1. `0.7.3`: real subscription ingestion.
+2. `0.7.4`: compact subscription UI.
+3. `0.7.5`: real ping and health probes.
+4. `0.7.6`: engine manager.
+5. `0.7.7`: first real proxy connection path.
+6. `0.7.8`: whole-computer TUN path.
+7. `0.7.9`: WireGuard and AmneziaWG path.
+8. `0.8.0`: selected/excluded app routing.
+9. `0.8.1`: protection layer.
+10. `0.8.2`: tray, autostart, and link handling.

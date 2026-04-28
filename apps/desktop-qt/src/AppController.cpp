@@ -1,5 +1,7 @@
 #include "AppController.h"
 
+#include <algorithm>
+
 #include <QClipboard>
 #include <QDir>
 #include <QFile>
@@ -9,6 +11,19 @@
 #include <QRandomGenerator>
 #include <QStandardPaths>
 #include <QTime>
+
+#ifdef Q_OS_WIN
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
+#include <windows.h>
+#endif
+
+namespace {
+constexpr int IpcProtocolVersion = 1;
+constexpr int IpcRequestTimeoutMs = 350;
+constexpr auto IpcPipeName = L"\\\\.\\pipe\\SamhainSecurity.Native.Ipc";
+}
 
 ServerListModel::ServerListModel(QObject *parent)
     : QAbstractListModel(parent)
@@ -147,7 +162,12 @@ AppController::AppController(QObject *parent)
     });
     m_statsTimer.setInterval(1000);
 
-    loadState();
+    if (!loadStateFromService()) {
+        loadState();
+        appendLog("Сервис: локальный режим интерфейса");
+    } else {
+        appendLog("Сервис: состояние получено через IPC");
+    }
     updateSelectedServerProperties();
 }
 
@@ -250,6 +270,20 @@ void AppController::selectServer(int row)
 
 void AppController::toggleConnection()
 {
+    QJsonObject command;
+    if (m_connected) {
+        command["type"] = "disconnect";
+    } else {
+        command["type"] = "connect";
+        command["server_id"] = m_selectedServerName;
+        command["route_mode"] = routeModeWireValue();
+    }
+
+    const auto response = requestService(command, IpcRequestTimeoutMs);
+    if (!response.isEmpty()) {
+        appendLog("Сервис: команда подключения принята");
+    }
+
     m_connected = !m_connected;
     if (m_connected) {
         m_connectedAt = QDateTime::currentDateTime();
@@ -278,8 +312,21 @@ void AppController::testPing()
         return;
     }
 
+    QJsonObject command;
+    command["type"] = "test-ping";
+    command["server_id"] = m_selectedServerName;
+    const auto response = requestService(command, IpcRequestTimeoutMs);
+
     m_serverModel.setPing(row, "...");
-    const auto ping = QRandomGenerator::global()->bounded(42, 420);
+    auto ping = QRandomGenerator::global()->bounded(42, 420);
+    if (!response.isEmpty()) {
+        const auto document = QJsonDocument::fromJson(response.toUtf8());
+        const auto event = document.object().value("event").toObject();
+        if (event.value("type").toString() == "ping-result" && event.contains("ping_ms")) {
+            ping = event.value("ping_ms").toInt(ping);
+        }
+    }
+
     QTimer::singleShot(650, this, [this, row, ping]() {
         m_serverModel.setPing(row, QString::number(ping) + "ms");
         updateSelectedServerProperties();
@@ -321,11 +368,34 @@ void AppController::pasteFromClipboard()
 
 void AppController::addSubscription(const QString &name, const QString &url)
 {
+    QJsonObject command;
+    command["type"] = "add-subscription";
+    command["name"] = name.trimmed();
+    command["url"] = url.trimmed();
+    const auto response = requestService(command, IpcRequestTimeoutMs);
+
     m_subscriptionName = name.trimmed().isEmpty() ? "Samhain Security" : name.trimmed();
     m_subscriptionUrl = url.trimmed();
     m_subscriptionMeta = QDateTime::currentDateTime().toString("dd.MM.yyyy HH:mm")
         + " | Автообновление - 24ч.";
-    m_serverModel.setServers(buildServersForUrl(m_subscriptionUrl));
+
+    bool appliedServiceSubscription = false;
+    if (!response.isEmpty()) {
+        const auto document = QJsonDocument::fromJson(response.toUtf8());
+        const auto event = document.object().value("event").toObject();
+        const auto subscription = event.value("subscription").toObject();
+        if (event.value("type").toString() == "subscription-added" && !subscription.isEmpty()) {
+            QJsonObject state;
+            state["route_mode"] = routeModeWireValue();
+            state["subscriptions"] = QJsonArray{subscription};
+            appliedServiceSubscription = applyServiceState(state);
+        }
+    }
+
+    if (!appliedServiceSubscription) {
+        m_serverModel.setServers(buildServersForUrl(m_subscriptionUrl));
+    }
+
     updateSelectedServerProperties();
     saveState();
     appendLog("Добавлена подписка: " + m_subscriptionName);
@@ -391,6 +461,80 @@ void AppController::loadState()
     }
 }
 
+bool AppController::loadStateFromService()
+{
+    QJsonObject command;
+    command["type"] = "get-state";
+    const auto response = requestService(command, IpcRequestTimeoutMs);
+    if (response.isEmpty()) {
+        return false;
+    }
+
+    const auto document = QJsonDocument::fromJson(response.toUtf8());
+    const auto root = document.object();
+    if (!root.value("ok").toBool(false)) {
+        const auto error = root.value("event").toObject().value("message").toString();
+        if (!error.isEmpty()) {
+            appendLog("Сервис: " + error);
+        }
+        return false;
+    }
+
+    const auto event = root.value("event").toObject();
+    if (event.value("type").toString() != "state") {
+        return false;
+    }
+
+    return applyServiceState(event);
+}
+
+bool AppController::applyServiceState(const QJsonObject &state)
+{
+    const auto subscriptions = state.value("subscriptions").toArray();
+    if (subscriptions.isEmpty()) {
+        return false;
+    }
+
+    const auto subscription = subscriptions.first().toObject();
+    const auto serverValues = subscription.value("servers").toArray();
+    if (serverValues.isEmpty()) {
+        return false;
+    }
+
+    QVector<ServerItem> servers;
+    servers.reserve(serverValues.size());
+    for (const auto value : serverValues) {
+        const auto server = value.toObject();
+        const auto host = server.value("host").toString();
+        const auto portValue = server.value("port");
+        auto endpoint = host;
+        if (!portValue.isNull() && !portValue.isUndefined()) {
+            endpoint += ":" + QString::number(portValue.toInt());
+        }
+
+        const auto pingValue = server.value("ping_ms");
+        servers.push_back({
+            server.value("name").toString("Samhain Security"),
+            flagForCountry(server.value("country_code").toString()),
+            protocolLabel(server.value("protocol").toString()),
+            endpoint,
+            pingValue.isNull() || pingValue.isUndefined() ? "n/a" : QString::number(pingValue.toInt()) + "ms",
+            false,
+        });
+    }
+
+    m_subscriptionName = subscription.value("name").toString("Samhain Security");
+    m_subscriptionUrl = subscription.value("url").toString();
+    m_subscriptionMeta = subscription.value("updated_at").toString("Сервис готов");
+    m_routeModeIndex = routeModeIndexFromWire(state.value("route_mode").toString("whole-computer"));
+    m_serverModel.setServers(servers);
+    m_statusText = "Готово";
+    emit subscriptionChanged();
+    emit routeModeChanged();
+    emit statusChanged();
+    return true;
+}
+
 void AppController::saveState() const
 {
     QJsonArray servers;
@@ -432,6 +576,142 @@ void AppController::loadSampleSubscription()
         {"Samhain DE Frankfurt #6", "🇩🇪", "AmneziaWG", "de-frankfurt-6.samhain", "n/a", false},
         {"Samhain DE Frankfurt #7", "🇩🇪", "Hysteria2", "de-frankfurt-7.samhain", "n/a", false},
     });
+}
+
+QString AppController::requestService(const QJsonObject &command, int timeoutMs) const
+{
+#ifdef Q_OS_WIN
+    if (!WaitNamedPipeW(IpcPipeName, static_cast<DWORD>(timeoutMs))) {
+        return {};
+    }
+
+    const auto pipe = CreateFileW(
+        IpcPipeName,
+        GENERIC_READ | GENERIC_WRITE,
+        0,
+        nullptr,
+        OPEN_EXISTING,
+        0,
+        nullptr);
+
+    if (pipe == INVALID_HANDLE_VALUE) {
+        return {};
+    }
+
+    DWORD mode = PIPE_READMODE_MESSAGE;
+    SetNamedPipeHandleState(pipe, &mode, nullptr, nullptr);
+
+    QJsonObject envelope;
+    envelope["protocol_version"] = IpcProtocolVersion;
+    envelope["request_id"] = QString("desktop-%1").arg(QDateTime::currentMSecsSinceEpoch());
+    envelope["command"] = command;
+
+    const auto payload = QJsonDocument(envelope).toJson(QJsonDocument::Compact);
+    DWORD written = 0;
+    const auto writeOk = WriteFile(
+        pipe,
+        payload.constData(),
+        static_cast<DWORD>(payload.size()),
+        &written,
+        nullptr);
+
+    if (!writeOk) {
+        CloseHandle(pipe);
+        return {};
+    }
+
+    QByteArray buffer(64 * 1024, Qt::Uninitialized);
+    DWORD read = 0;
+    const auto readOk = ReadFile(
+        pipe,
+        buffer.data(),
+        static_cast<DWORD>(buffer.size()),
+        &read,
+        nullptr);
+
+    CloseHandle(pipe);
+
+    if (!readOk || read == 0) {
+        return {};
+    }
+
+    buffer.truncate(static_cast<qsizetype>(read));
+    return QString::fromUtf8(buffer);
+#else
+    Q_UNUSED(command)
+    Q_UNUSED(timeoutMs)
+    return {};
+#endif
+}
+
+QString AppController::protocolLabel(const QString &wireProtocol) const
+{
+    if (wireProtocol == "vless-reality") {
+        return "VLESS / TCP / REALITY";
+    }
+    if (wireProtocol == "amnezia-wg") {
+        return "AmneziaWG";
+    }
+    if (wireProtocol == "wire-guard") {
+        return "WireGuard";
+    }
+    if (wireProtocol == "shadowsocks") {
+        return "Shadowsocks";
+    }
+    if (wireProtocol == "hysteria2") {
+        return "Hysteria2";
+    }
+    if (wireProtocol == "tuic") {
+        return "TUIC";
+    }
+    if (wireProtocol == "trojan") {
+        return "Trojan";
+    }
+    return "Unknown";
+}
+
+QString AppController::flagForCountry(const QString &countryCode) const
+{
+    const auto code = countryCode.toUpper();
+    if (code == "GB") {
+        return "🇬🇧";
+    }
+    if (code == "NL") {
+        return "🇳🇱";
+    }
+    if (code == "DE") {
+        return "🇩🇪";
+    }
+    if (code == "SE") {
+        return "🇸🇪";
+    }
+    if (code == "US") {
+        return "🇺🇸";
+    }
+    return "◉";
+}
+
+QString AppController::routeModeWireValue() const
+{
+    switch (m_routeModeIndex) {
+    case 1:
+        return "selected-apps-only";
+    case 2:
+        return "exclude-selected-apps";
+    default:
+        return "whole-computer";
+    }
+}
+
+int AppController::routeModeIndexFromWire(const QString &routeMode) const
+{
+    if (routeMode == "selected-apps-only") {
+        return 1;
+    }
+    if (routeMode == "exclude-selected-apps") {
+        return 2;
+    }
+    return 0;
 }
 
 QVector<ServerItem> AppController::buildServersForUrl(const QString &url) const

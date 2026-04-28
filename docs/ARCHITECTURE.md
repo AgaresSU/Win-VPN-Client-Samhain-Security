@@ -1,6 +1,6 @@
 # Architecture
 
-Version: `0.7.1`
+Version: `0.7.2`
 
 ## Components
 
@@ -12,10 +12,10 @@ crates/core
   Rust models, parser, local subscription structures
 
 crates/ipc
-  Rust command and event schema for desktop-to-service communication
+  Versioned Rust command, event, request, and response schema
 
 crates/service
-  Rust service skeleton, future privileged operations owner
+  Rust service skeleton, named-pipe IPC endpoint, future privileged operations owner
 ```
 
 ## Direction
@@ -43,4 +43,4 @@ Ctrl+V / Add subscription
   -> show speed, traffic, session time
 ```
 
-The `0.7.0` build implements the shell, state model, mock connection, and future contracts. Real engine operations begin after the service IPC is hardened.
+The `0.7.2` build implements the shell, state model, mock connection, versioned IPC envelopes, and a Windows named-pipe service endpoint. Real engine operations begin after service-owned state and subscription ingestion are hardened.

@@ -109,9 +109,16 @@ signals:
 
 private:
     void loadState();
+    bool loadStateFromService();
+    bool applyServiceState(const QJsonObject &state);
     void saveState() const;
     void loadSampleSubscription();
     QVector<ServerItem> buildServersForUrl(const QString &url) const;
+    QString requestService(const QJsonObject &command, int timeoutMs) const;
+    QString protocolLabel(const QString &wireProtocol) const;
+    QString flagForCountry(const QString &countryCode) const;
+    QString routeModeWireValue() const;
+    int routeModeIndexFromWire(const QString &routeMode) const;
     void appendLog(const QString &message);
     void updateSelectedServerProperties();
     QString stateFilePath() const;

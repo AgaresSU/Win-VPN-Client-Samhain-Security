@@ -1,6 +1,6 @@
 # Samhain Security Native
 
-Version: `0.7.1`
+Version: `0.7.2`
 
 Native Windows secure tunneling client prototype built from a clean base.
 
@@ -26,6 +26,7 @@ Implemented in `0.7.0`:
 - Mock ping, connection state, speed, traffic, and session timer.
 - Rust core data models for subscriptions, servers, protocols, route modes, and basic URL parsing.
 - Rust IPC and service skeleton crates for the future privileged core.
+- Versioned named-pipe IPC foundation between the desktop shell and Rust service.
 - Package script for a local Windows distributable.
 
 Not implemented yet:
@@ -51,5 +52,5 @@ Not implemented yet:
 The package is written to:
 
 ```text
-dist\SamhainSecurityNative-0.7.1-win-x64
+dist\SamhainSecurityNative-0.7.2-win-x64
 ```
