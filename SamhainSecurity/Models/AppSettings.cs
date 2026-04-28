@@ -14,6 +14,8 @@ public sealed class AppSettings
 
     public bool AutoRefreshSubscriptions { get; set; } = true;
 
+    public int SubscriptionRefreshIntervalHours { get; set; } = 12;
+
     public bool EnableConnectionWatchdog { get; set; } = true;
 
     public bool FirstRunDismissed { get; set; }

@@ -58,7 +58,7 @@ public sealed class ConnectionStateStore
         existing.Status = status;
         existing.LastCommand = command;
         existing.LastExitCode = result.ExitCode;
-        existing.LastMessage = result.CombinedOutput;
+        existing.LastMessage = SecretRedactor.Redact(result.CombinedOutput);
         existing.UpdatedAt = DateTimeOffset.UtcNow;
 
         await using var stream = File.Create(_filePath);

@@ -28,7 +28,7 @@ public sealed class StructuredLogService
         {
             Level = "info",
             Event = eventName,
-            Message = message
+            Message = SecretRedactor.Redact(message)
         });
     }
 
@@ -38,7 +38,7 @@ public sealed class StructuredLogService
         {
             Level = result.IsSuccess ? "info" : "error",
             Event = eventName,
-            Message = result.CombinedOutput,
+            Message = SecretRedactor.Redact(result.CombinedOutput),
             ProfileId = profile.Id,
             ProfileName = profile.Name,
             Protocol = profile.Protocol.ToDisplayName(),

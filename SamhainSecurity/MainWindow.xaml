@@ -346,6 +346,36 @@
                                            FontSize="12"
                                            Margin="0,4,0,0"
                                            TextWrapping="Wrap" />
+                                <TextBlock x:Name="HistorySummaryTextBlock"
+                                           Text="История: пока пусто"
+                                           Foreground="{StaticResource MutedTextBrush}"
+                                           FontSize="12"
+                                           Margin="0,4,0,0"
+                                           TextWrapping="Wrap" />
+                                <Grid Margin="0,10,0,0">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="10" />
+                                        <ColumnDefinition Width="96" />
+                                        <ColumnDefinition Width="8" />
+                                        <ColumnDefinition Width="104" />
+                                    </Grid.ColumnDefinitions>
+
+                                    <TextBlock x:Name="ReadinessSummaryTextBlock"
+                                               Text="Среда: проверка не запускалась"
+                                               Foreground="{StaticResource MutedTextBrush}"
+                                               FontSize="12"
+                                               VerticalAlignment="Center"
+                                               TextWrapping="Wrap" />
+                                    <Button x:Name="CheckReadinessButton"
+                                            Grid.Column="2"
+                                            Content="Среда"
+                                            Click="CheckReadinessButton_Click" />
+                                    <Button x:Name="RepairReadinessButton"
+                                            Grid.Column="4"
+                                            Content="Исправить"
+                                            Click="RepairReadinessButton_Click" />
+                                </Grid>
                             </StackPanel>
                         </Border>
 
@@ -356,6 +386,7 @@
                                 Margin="0,0,0,20">
                             <Grid>
                                 <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto" />
                                     <RowDefinition Height="Auto" />
                                     <RowDefinition Height="Auto" />
                                     <RowDefinition Height="Auto" />
@@ -499,7 +530,32 @@
                                             Click="ResetServerHealthButton_Click" />
                                 </Grid>
 
-                                <Grid Grid.Row="3" Margin="0,12,0,0">
+                                <ListView x:Name="ServersListView"
+                                          Grid.Row="3"
+                                          Height="150"
+                                          Margin="0,12,0,0"
+                                          BorderBrush="{StaticResource LineBrush}"
+                                          BorderThickness="1"
+                                          SelectionChanged="ServersListView_SelectionChanged">
+                                    <ListView.View>
+                                        <GridView>
+                                            <GridViewColumn Header="Сервер"
+                                                            Width="260"
+                                                            DisplayMemberBinding="{Binding DisplayName}" />
+                                            <GridViewColumn Header="Протокол"
+                                                            Width="120"
+                                                            DisplayMemberBinding="{Binding ProtocolLabel}" />
+                                            <GridViewColumn Header="Статус"
+                                                            Width="120"
+                                                            DisplayMemberBinding="{Binding StatusLabel}" />
+                                            <GridViewColumn Header="Адрес"
+                                                            Width="260"
+                                                            DisplayMemberBinding="{Binding Endpoint}" />
+                                        </GridView>
+                                    </ListView.View>
+                                </ListView>
+
+                                <Grid Grid.Row="4" Margin="0,12,0,0">
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="*" />
                                         <ColumnDefinition Width="8" />
@@ -527,7 +583,7 @@
                                 </Grid>
 
                                 <ListBox x:Name="SubscriptionSourcesListBox"
-                                         Grid.Row="4"
+                                         Grid.Row="5"
                                          Height="112"
                                          Margin="0,12,0,0"
                                          BorderBrush="{StaticResource LineBrush}"
@@ -563,7 +619,7 @@
                                 </ListBox>
 
                                 <TextBlock x:Name="SubscriptionStatusTextBlock"
-                                           Grid.Row="5"
+                                           Grid.Row="6"
                                            Text="Подписка не добавлена"
                                            Foreground="{StaticResource MutedTextBrush}"
                                            FontSize="12"

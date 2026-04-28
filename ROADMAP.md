@@ -1,6 +1,6 @@
 # Samhain Security Roadmap
 
-Version baseline: `0.3.9`
+Version baseline: `0.4.9`
 
 ## Product Goal
 
@@ -307,6 +307,50 @@ The default UI should stay close to the simplicity of Happ: a small set of obvio
 - Done: selected profile health summary.
 - Done: watchdog check/failure counters saved with profiles.
 - Done: reset action for clearing server health and ranking state.
+
+### 0.4.0
+
+- Done: local install helpers now cover packaged service setup, optional startup entry, and Start Menu shortcut creation.
+- Done: portable packages include install/uninstall helper scripts.
+
+### 0.4.1
+
+- Done: in-app environment readiness check for local data folders, service availability, privileges, and selected protocol engine.
+
+### 0.4.2
+
+- Done: quick repair action creates required local folders and attempts service install/start when elevated.
+
+### 0.4.3
+
+- Done: compact server catalog table with server, protocol, status, and endpoint columns.
+- Done: selecting a table row loads the matching profile and server dropdown choice.
+
+### 0.4.4
+
+- Done: local connection history store under `%APPDATA%\SamhainSecurity\connection-history.json`.
+- Done: connect, disconnect, and status actions append redacted history entries.
+
+### 0.4.5
+
+- Done: support export includes a support report, connection history, and redacted structured logs.
+
+### 0.4.6
+
+- Done: quiet subscription refresh uses a configurable interval and continues when one source fails.
+
+### 0.4.7
+
+- Done: daily status band now includes readiness and recent history summaries without exposing raw technical fields.
+
+### 0.4.8
+
+- Done: shared secret redaction protects UI logs, structured logs, connection state, connection history, and exported diagnostic logs.
+
+### 0.4.9
+
+- Done: release-candidate version bump and portable package defaults.
+- Done: installer plan updated for local service, startup, and shortcut flow.
 
 ## Design Direction
 

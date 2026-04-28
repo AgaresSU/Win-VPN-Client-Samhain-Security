@@ -1,5 +1,5 @@
 param(
-    [string]$Version = "0.3.9",
+    [string]$Version = "0.4.9",
     [string]$Runtime = "win-x64",
     [string]$Configuration = "Release",
     [bool]$SelfContained = $false,
@@ -40,6 +40,7 @@ $serviceProject = Join-Path $repoRoot "SamhainSecurity.Service\SamhainSecurity.S
 $appOut = Join-Path $packagePath "app"
 $serviceOut = Join-Path $packagePath "service"
 $enginesOut = Join-Path $packagePath "engines"
+$scriptsOut = Join-Path $packagePath "scripts"
 $selfContainedValue = $SelfContained.ToString().ToLowerInvariant()
 
 dotnet publish $appProject -c $Configuration -r $Runtime "--self-contained:$selfContainedValue" -o $appOut
@@ -47,6 +48,10 @@ dotnet publish $serviceProject -c $Configuration -r $Runtime "--self-contained:$
 
 New-Item -ItemType Directory -Path $enginesOut -Force | Out-Null
 Copy-Item -Path (Join-Path $repoRoot "engines\*") -Destination $enginesOut -Recurse -Force
+New-Item -ItemType Directory -Path $scriptsOut -Force | Out-Null
+Copy-Item -Path (Join-Path $repoRoot "scripts\install-local.ps1") -Destination $scriptsOut -Force
+Copy-Item -Path (Join-Path $repoRoot "scripts\uninstall-local.ps1") -Destination $scriptsOut -Force
+Copy-Item -Path (Join-Path $repoRoot "scripts\installer-plan.json") -Destination $scriptsOut -Force
 
 $readme = @"
 Samhain Security $Version portable package
@@ -58,6 +63,10 @@ Optional service commands from an elevated terminal:
   service\SamhainSecurity.Service.exe install
   service\SamhainSecurity.Service.exe start
   service\SamhainSecurity.Service.exe status
+
+Local install helper:
+  scripts\install-local.ps1 -PackagePath . -StartService -CreateStartMenuShortcut
+  scripts\uninstall-local.ps1 -PackagePath . -RemoveShortcut
 
 External engines:
   Put sing-box.exe under engines\sing-box\

@@ -1,6 +1,6 @@
 {
   "product": "Samhain Security",
-  "version": "0.3.9",
+  "version": "0.4.9",
   "windowsRuntime": "win-x64",
   "appEntry": "app/SamhainSecurity.exe",
   "serviceEntry": "service/SamhainSecurity.Service.exe",
@@ -13,6 +13,7 @@
   "actions": [
     "copy portable package",
     "install local service when elevated",
+    "create optional Start Menu shortcut",
     "optionally enable per-user startup",
     "preserve existing profiles and subscriptions",
     "remove service on uninstall without deleting user data"
