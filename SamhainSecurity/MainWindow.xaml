@@ -684,7 +684,19 @@
                                           BorderThickness="1"
                                           KeyDown="ServersListView_KeyDown"
                                           MouseDoubleClick="ServersListView_MouseDoubleClick"
+                                          PreviewMouseRightButtonDown="ServersListView_PreviewMouseRightButtonDown"
                                           SelectionChanged="ServersListView_SelectionChanged">
+                                    <ListView.ContextMenu>
+                                        <ContextMenu Opened="ServersListContextMenu_Opened">
+                                            <MenuItem Header="Подключить"
+                                                      Click="ServerContextConnectMenuItem_Click" />
+                                            <MenuItem x:Name="ServerContextFavoriteMenuItem"
+                                                      Header="В избранное"
+                                                      Click="ServerContextFavoriteMenuItem_Click" />
+                                            <MenuItem Header="Копировать адрес"
+                                                      Click="ServerContextCopyEndpointMenuItem_Click" />
+                                        </ContextMenu>
+                                    </ListView.ContextMenu>
                                     <ListView.View>
                                         <GridView>
                                             <GridViewColumn Header="Сервер"

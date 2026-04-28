@@ -1,6 +1,6 @@
 # Samhain Security Roadmap
 
-Version baseline: `0.5.8`
+Version baseline: `0.5.9`
 
 ## Product Goal
 
@@ -412,6 +412,12 @@ The default UI should stay close to the simplicity of Happ: a small set of obvio
 - Done: Enter in server search selects the first visible server.
 - Done: Escape in server search clears the search text.
 - Done: Enter or double-click in the server table connects the selected server.
+
+### 0.5.9
+
+- Done: right-clicking a server row selects it before opening row actions.
+- Done: row actions can connect, add or remove favorite state, or copy the visible address.
+- Done: the existing favorite button and row menu share the same save-and-refresh path.
 
 ## Design Direction
 

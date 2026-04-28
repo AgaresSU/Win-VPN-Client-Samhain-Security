@@ -10,6 +10,7 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Data;
 using System.Windows.Input;
+using System.Windows.Media;
 using System.Windows.Threading;
 using Microsoft.Win32;
 using SamhainSecurity.Models;
@@ -278,6 +279,60 @@ public partial class MainWindow : Window
         }
     }
 
+    private void ServersListView_PreviewMouseRightButtonDown(object sender, MouseButtonEventArgs e)
+    {
+        if (FindVisualParent<System.Windows.Controls.ListViewItem>(e.OriginalSource as DependencyObject) is not { } row)
+        {
+            return;
+        }
+
+        row.IsSelected = true;
+        row.Focus();
+
+        if (row.DataContext is ServerListItem item)
+        {
+            ServerSelectorComboBox.SelectedItem = item;
+            ApplyServerChoice(item, $"Сервер: {item.DisplayName}");
+        }
+    }
+
+    private void ServersListContextMenu_Opened(object sender, RoutedEventArgs e)
+    {
+        var selected = GetSelectedServerChoice();
+        ServerContextFavoriteMenuItem.Header = selected?.Profile.IsFavorite == true
+            ? "Убрать из избранного"
+            : "В избранное";
+        ServerContextFavoriteMenuItem.IsEnabled = !_isBusy && selected is not null;
+    }
+
+    private void ServerContextConnectMenuItem_Click(object sender, RoutedEventArgs e)
+    {
+        ConnectSelectedServerFromCatalog();
+    }
+
+    private async void ServerContextFavoriteMenuItem_Click(object sender, RoutedEventArgs e)
+    {
+        if (GetSelectedServerChoice() is not { } item)
+        {
+            StatusTextBlock.Text = "Выберите сервер";
+            return;
+        }
+
+        await ToggleServerFavoriteAsync(item);
+    }
+
+    private void ServerContextCopyEndpointMenuItem_Click(object sender, RoutedEventArgs e)
+    {
+        if (GetSelectedServerChoice() is not { } item)
+        {
+            StatusTextBlock.Text = "Выберите сервер";
+            return;
+        }
+
+        System.Windows.Clipboard.SetText(item.Endpoint);
+        StatusTextBlock.Text = "Адрес сервера скопирован";
+    }
+
     private void RecommendedServerButton_Click(object sender, RoutedEventArgs e)
     {
         SelectRecommendedServer(GetBestServerChoice(visibleOnly: true), "Рекомендуем");
@@ -404,8 +459,7 @@ public partial class MainWindow : Window
 
     private void ConnectSelectedServerFromCatalog()
     {
-        var selected = ServersListView.SelectedItem as ServerListItem
-            ?? ServerSelectorComboBox.SelectedItem as ServerListItem;
+        var selected = GetSelectedServerChoice();
         if (selected is null)
         {
             StatusTextBlock.Text = "Выберите сервер";
@@ -433,12 +487,17 @@ public partial class MainWindow : Window
 
     private async void FavoriteServerButton_Click(object sender, RoutedEventArgs e)
     {
-        if (ServerSelectorComboBox.SelectedItem is not ServerListItem item)
+        if (GetSelectedServerChoice() is not { } item)
         {
             StatusTextBlock.Text = "Выберите сервер";
             return;
         }
 
+        await ToggleServerFavoriteAsync(item);
+    }
+
+    private async Task ToggleServerFavoriteAsync(ServerListItem item)
+    {
         item.Profile.IsFavorite = !item.Profile.IsFavorite;
         item.Profile.UpdatedAt = DateTimeOffset.UtcNow;
         await _profileStore.SaveAsync(_profiles);
@@ -446,6 +505,28 @@ public partial class MainWindow : Window
         StatusTextBlock.Text = item.Profile.IsFavorite
             ? "Сервер добавлен в избранное"
             : "Сервер убран из избранного";
+    }
+
+    private ServerListItem? GetSelectedServerChoice()
+    {
+        return ServersListView.SelectedItem as ServerListItem
+            ?? ServerSelectorComboBox.SelectedItem as ServerListItem;
+    }
+
+    private static T? FindVisualParent<T>(DependencyObject? child)
+        where T : DependencyObject
+    {
+        while (child is not null)
+        {
+            if (child is T typed)
+            {
+                return typed;
+            }
+
+            child = VisualTreeHelper.GetParent(child);
+        }
+
+        return null;
     }
 
     private void BestServerButton_Click(object sender, RoutedEventArgs e)

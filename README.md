@@ -1,6 +1,6 @@
 # Samhain Security
 
-Version: `0.5.8`
+Version: `0.5.9`
 
 Desktop secure tunneling client for Windows built with WPF and .NET 9.
 
@@ -41,6 +41,7 @@ Desktop secure tunneling client for Windows built with WPF and .NET 9.
 - Adds visible server filter state and a one-click reset for search, favorites-only, and sorting.
 - Remembers server catalog sort and favorites-only preference while keeping search text temporary.
 - Adds daily server shortcuts: Enter in search selects the first visible server, Escape clears search, and double-clicking a server connects it.
+- Adds right-click server row actions for connect, favorite toggle, and address copy.
 - Adds pre-connect validation for VLESS Reality and WireGuard-style configs with clear local errors.
 - Adds optional reconnect after resume or network changes for the last successful profile.
 - Adds tray-first server selection with connect selected, connect best, and current server submenu.
@@ -119,7 +120,7 @@ Portable package:
 Local package helper:
 
 ```powershell
-.\scripts\install-local.ps1 -PackagePath ".\dist\SamhainSecurity-0.5.8-win-x64" -StartService -CreateStartMenuShortcut
+.\scripts\install-local.ps1 -PackagePath ".\dist\SamhainSecurity-0.5.9-win-x64" -StartService -CreateStartMenuShortcut
 ```
 
 Default install root is `%ProgramFiles%\Samhain Security`. The helper stops and replaces the previous service registration, copies the package to the install root, writes `install-manifest.json`, and preserves `%APPDATA%\SamhainSecurity`.
@@ -224,6 +225,8 @@ Version `0.5.6` makes catalog filtering safer for daily use. The server counter 
 Version `0.5.7` remembers daily catalog preferences. Sort mode and the favorites-only switch are saved in app behavior settings, while the search box is intentionally cleared between sessions.
 
 Version `0.5.8` improves daily keyboard flow. Enter in server search selects the first visible result, Escape clears search, Enter in the server table connects the selected row, and double-clicking a row also connects it.
+
+Version `0.5.9` adds right-click server row actions. A row context menu can connect the selected server, add or remove it from favorites, or copy the visible address.
 
 ## Versioning
 

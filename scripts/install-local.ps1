@@ -10,7 +10,7 @@ param(
 )
 
 $ErrorActionPreference = "Stop"
-$Version = "0.5.8"
+$Version = "0.5.9"
 $ServiceName = "SamhainSecurity.Service"
 $ProductName = "Samhain Security"
 
