@@ -340,6 +340,12 @@
                                            FontSize="12"
                                            Margin="0,8,0,0"
                                            TextWrapping="Wrap" />
+                                <TextBlock x:Name="HealthSummaryTextBlock"
+                                           Text="Здоровье: нет данных"
+                                           Foreground="{StaticResource MutedTextBrush}"
+                                           FontSize="12"
+                                           Margin="0,4,0,0"
+                                           TextWrapping="Wrap" />
                             </StackPanel>
                         </Border>
 
@@ -419,6 +425,8 @@
                                         <ColumnDefinition Width="88" />
                                         <ColumnDefinition Width="8" />
                                         <ColumnDefinition Width="104" />
+                                        <ColumnDefinition Width="8" />
+                                        <ColumnDefinition Width="84" />
                                     </Grid.ColumnDefinitions>
 
                                     <StackPanel Grid.Column="0">
@@ -483,6 +491,12 @@
                                             Content="Проверить"
                                             VerticalAlignment="Bottom"
                                             Click="ProbeServersButton_Click" />
+
+                                    <Button x:Name="ResetServerHealthButton"
+                                            Grid.Column="10"
+                                            Content="Сброс"
+                                            VerticalAlignment="Bottom"
+                                            Click="ResetServerHealthButton_Click" />
                                 </Grid>
 
                                 <Grid Grid.Row="3" Margin="0,12,0,0">

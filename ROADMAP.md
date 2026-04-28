@@ -1,6 +1,6 @@
 # Samhain Security Roadmap
 
-Version baseline: `0.3.8`
+Version baseline: `0.3.9`
 
 ## Product Goal
 
@@ -301,6 +301,12 @@ The default UI should stay close to the simplicity of Happ: a small set of obvio
 - Done: optional connection watchdog.
 - Done: periodic status checks after successful connect.
 - Done: automatic recovery through the reserve-server flow when the active route drops.
+
+### 0.3.9
+
+- Done: selected profile health summary.
+- Done: watchdog check/failure counters saved with profiles.
+- Done: reset action for clearing server health and ranking state.
 
 ## Design Direction
 

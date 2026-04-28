@@ -22,6 +22,12 @@ public sealed class VpnProfile
 
     public DateTimeOffset? LastProbedAt { get; set; }
 
+    public DateTimeOffset? LastWatchdogCheckedAt { get; set; }
+
+    public int WatchdogFailureCount { get; set; }
+
+    public string LastWatchdogMessage { get; set; } = string.Empty;
+
     public string ServerAddress { get; set; } = string.Empty;
 
     public int ServerPort { get; set; } = 443;

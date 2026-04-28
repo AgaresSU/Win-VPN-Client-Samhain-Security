@@ -332,6 +332,36 @@ public partial class MainWindow : Window
         }, "Проверка серверов...");
     }
 
+    private async void ResetServerHealthButton_Click(object sender, RoutedEventArgs e)
+    {
+        await RunUiActionAsync(async () =>
+        {
+            var source = SubscriptionSelectorComboBox.SelectedItem as SubscriptionSourceListItem;
+            var profiles = GetProfilesForSubscription(source).ToList();
+            if (profiles.Count == 0)
+            {
+                StatusTextBlock.Text = "Нет серверов";
+                return;
+            }
+
+            foreach (var profile in profiles)
+            {
+                profile.LastLatencyMs = null;
+                profile.LastProbeStatus = string.Empty;
+                profile.LastProbedAt = null;
+                profile.LastWatchdogCheckedAt = null;
+                profile.WatchdogFailureCount = 0;
+                profile.LastWatchdogMessage = string.Empty;
+                profile.UpdatedAt = DateTimeOffset.UtcNow;
+            }
+
+            await _profileStore.SaveAsync(_profiles);
+            RenderServerChoices(source, (ServerSelectorComboBox.SelectedItem as ServerListItem)?.Profile.Id);
+            UpdateDailyStatusPanel(GetCurrentOrSelectedProfile());
+            StatusTextBlock.Text = $"Статусы сброшены: {profiles.Count}";
+        }, "Сброс статусов...");
+    }
+
     private void ProtocolComboBox_SelectionChanged(object sender, System.Windows.Controls.SelectionChangedEventArgs e)
     {
         if (_isLoadingProfile)
@@ -656,6 +686,8 @@ public partial class MainWindow : Window
         profile.LastProbeStatus = ServerProbeStatus.Connected;
         profile.LastLatencyMs ??= 0;
         profile.LastProbedAt = DateTimeOffset.UtcNow;
+        profile.WatchdogFailureCount = 0;
+        profile.LastWatchdogMessage = "Подключено";
         profile.UpdatedAt = DateTimeOffset.UtcNow;
     }
 
@@ -664,6 +696,8 @@ public partial class MainWindow : Window
         profile.LastLatencyMs = null;
         profile.LastProbeStatus = ServerProbeStatus.Failed;
         profile.LastProbedAt = DateTimeOffset.UtcNow;
+        profile.WatchdogFailureCount++;
+        profile.LastWatchdogMessage = "Подключение не удалось";
         profile.UpdatedAt = DateTimeOffset.UtcNow;
     }
 
@@ -1181,6 +1215,9 @@ public partial class MainWindow : Window
             LastLatencyMs = oldProfile?.LastLatencyMs,
             LastProbeStatus = oldProfile?.LastProbeStatus ?? string.Empty,
             LastProbedAt = oldProfile?.LastProbedAt,
+            LastWatchdogCheckedAt = oldProfile?.LastWatchdogCheckedAt,
+            WatchdogFailureCount = oldProfile?.WatchdogFailureCount ?? 0,
+            LastWatchdogMessage = oldProfile?.LastWatchdogMessage ?? string.Empty,
             ServerAddress = serverAddress,
             ServerPort = serverPort,
             TunnelType = TunnelTypeComboBox.SelectedValue is VpnTunnelType tunnelType
@@ -1429,6 +1466,7 @@ public partial class MainWindow : Window
         DailyProtectionTextBlock.Text = BuildDailyProtectionText(snapshot);
         DailyAutoModeTextBlock.Text = BuildDailyAutoModeText();
         DailyServiceTextBlock.Text = _dailyServiceState;
+        HealthSummaryTextBlock.Text = BuildHealthSummary(profile ?? ProfilesListBox.SelectedItem as VpnProfile);
         if (ConnectionProgressBar.Visibility != Visibility.Visible)
         {
             ConnectionDetailTextBlock.Text = hasProfile
@@ -1437,6 +1475,29 @@ public partial class MainWindow : Window
         }
 
         ApplyDailyConnectionBrush(_dailyConnectionState);
+    }
+
+    private static string BuildHealthSummary(VpnProfile? profile)
+    {
+        if (profile is null)
+        {
+            return "Здоровье: нет данных";
+        }
+
+        var checkedAt = profile.LastWatchdogCheckedAt is null
+            ? "надзор еще не проверял"
+            : $"надзор {profile.LastWatchdogCheckedAt.Value.ToLocalTime():HH:mm}";
+        var latency = profile.LastLatencyMs is null
+            ? "задержка неизвестна"
+            : $"{profile.LastLatencyMs} мс";
+        var failures = profile.WatchdogFailureCount == 0
+            ? "сбоев нет"
+            : $"сбоев: {profile.WatchdogFailureCount}";
+        var message = string.IsNullOrWhiteSpace(profile.LastWatchdogMessage)
+            ? string.Empty
+            : $"; {profile.LastWatchdogMessage}";
+
+        return $"Здоровье: {checkedAt}; {latency}; {failures}{message}";
     }
 
     private DailyProfileSnapshot BuildDailyProfileSnapshot(VpnProfile? profile)
@@ -1760,6 +1821,7 @@ public partial class MainWindow : Window
         FavoriteServerButton.IsEnabled = !isBusy;
         BestServerButton.IsEnabled = !isBusy;
         ProbeServersButton.IsEnabled = !isBusy;
+        ResetServerHealthButton.IsEnabled = !isBusy && _serverChoices.Count > 0;
         DiagnosticsButton.IsEnabled = !isBusy;
         ExportDiagnosticsButton.IsEnabled = !isBusy;
         RunAsAdminButton.IsEnabled = !isBusy;
@@ -2345,6 +2407,9 @@ public partial class MainWindow : Window
         target.LastLatencyMs = existing.LastLatencyMs;
         target.LastProbeStatus = existing.LastProbeStatus ?? string.Empty;
         target.LastProbedAt = existing.LastProbedAt;
+        target.LastWatchdogCheckedAt = existing.LastWatchdogCheckedAt;
+        target.WatchdogFailureCount = existing.WatchdogFailureCount;
+        target.LastWatchdogMessage = existing.LastWatchdogMessage ?? string.Empty;
     }
 
     private static string BuildSubscriptionStatus(
@@ -2649,12 +2714,19 @@ public partial class MainWindow : Window
 
             if (statusResult.IsSuccess && state != "Отключено")
             {
+                profile.LastWatchdogCheckedAt = DateTimeOffset.UtcNow;
+                profile.WatchdogFailureCount = 0;
+                profile.LastWatchdogMessage = "Надзор: маршрут работает";
+                profile.UpdatedAt = DateTimeOffset.UtcNow;
+                await _profileStore.SaveAsync(_profiles);
                 UpdateDailyStatusPanel(profile, "Подключено");
                 ConnectionDetailTextBlock.Text = $"Надзор: проверено {DateTime.Now:HH:mm}";
                 return;
             }
 
             MarkProfileConnectFailed(profile);
+            profile.LastWatchdogCheckedAt = DateTimeOffset.UtcNow;
+            profile.LastWatchdogMessage = FriendlyErrorService.ToUserMessage(statusResult);
             await _profileStore.SaveAsync(_profiles);
             if (DateTimeOffset.UtcNow - _lastWatchdogRecoveryAt < TimeSpan.FromMinutes(2))
             {
@@ -2980,6 +3052,11 @@ public partial class MainWindow : Window
 
         private static string BuildStatusLabel(VpnProfile profile)
         {
+            if (profile.WatchdogFailureCount > 0)
+            {
+                return $"сбоев {profile.WatchdogFailureCount}";
+            }
+
             if (profile.IsFavorite)
             {
                 return "избранное";

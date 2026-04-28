@@ -7,7 +7,7 @@ $ErrorActionPreference = "Stop"
 
 if ([string]::IsNullOrWhiteSpace($PackagePath)) {
     $repoRoot = Resolve-Path (Join-Path $PSScriptRoot "..")
-    $PackagePath = Join-Path $repoRoot "dist\SamhainSecurity-0.3.8-win-x64"
+    $PackagePath = Join-Path $repoRoot "dist\SamhainSecurity-0.3.9-win-x64"
 }
 
 $packageFullPath = [System.IO.Path]::GetFullPath($PackagePath)
