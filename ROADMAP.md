@@ -1,6 +1,6 @@
 # Samhain Security Roadmap
 
-Version baseline: `0.6.3`
+Version baseline: `0.6.4`
 
 ## Product Goal
 
@@ -442,6 +442,12 @@ The default UI should stay close to the simplicity of Happ: a small set of obvio
 - Done: VLESS TCP Reality configs now include `sing-box` process rules for selected app paths and process names.
 - Done: the service pipe carries application routing mode and targets for tunnel and protection actions.
 - Done: protection preview/status includes the application routing plan and app bypass firewall rules where path-based rules are applicable.
+
+### 0.6.4
+
+- Done: switched the app shell to a dark red graphite cyberpunk palette.
+- Done: replaced bright default WPF control states for buttons, inputs, selectors, lists, table headers, checkboxes, and scrollbars.
+- Done: enabled dark native window caption colors on supported Windows builds.
 
 ## Design Direction
 

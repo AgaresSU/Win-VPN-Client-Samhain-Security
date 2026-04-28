@@ -4,12 +4,14 @@ using System.Diagnostics;
 using System.Drawing;
 using System.Net.NetworkInformation;
 using System.Reflection;
+using System.Runtime.InteropServices;
 using System.Text.RegularExpressions;
 using System.Threading;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Data;
 using System.Windows.Input;
+using System.Windows.Interop;
 using System.Windows.Media;
 using System.Windows.Threading;
 using Microsoft.Win32;
@@ -24,6 +26,10 @@ public partial class MainWindow : Window
     private const int MaxServerProbesPerRun = 60;
     private const int MaxConcurrentServerProbes = 6;
     private const int MaxFailoverCandidates = 3;
+    private const int DwmwaUseImmersiveDarkMode = 20;
+    private const int DwmwaUseImmersiveDarkModeBefore20H1 = 19;
+    private const int DwmwaCaptionColor = 35;
+    private const int DwmwaTextColor = 36;
 
     private readonly ObservableCollection<VpnProfile> _profiles = [];
     private readonly ObservableCollection<SubscriptionSourceListItem> _subscriptionSources = [];
@@ -134,6 +140,40 @@ public partial class MainWindow : Window
         UpdateAdminButton();
         UpdateDailyStatusPanel();
     }
+
+    protected override void OnSourceInitialized(EventArgs e)
+    {
+        base.OnSourceInitialized(e);
+        ApplyDarkWindowChrome();
+    }
+
+    private void ApplyDarkWindowChrome()
+    {
+        try
+        {
+            var handle = new WindowInteropHelper(this).Handle;
+            var enabled = 1;
+            _ = DwmSetWindowAttribute(handle, DwmwaUseImmersiveDarkMode, ref enabled, sizeof(int));
+            _ = DwmSetWindowAttribute(handle, DwmwaUseImmersiveDarkModeBefore20H1, ref enabled, sizeof(int));
+
+            var captionColor = ToColorRef(0x09, 0x0B, 0x0F);
+            var textColor = ToColorRef(0xEC, 0xE7, 0xE2);
+            _ = DwmSetWindowAttribute(handle, DwmwaCaptionColor, ref captionColor, sizeof(int));
+            _ = DwmSetWindowAttribute(handle, DwmwaTextColor, ref textColor, sizeof(int));
+        }
+        catch
+        {
+            // Older Windows builds can ignore DWM color attributes.
+        }
+    }
+
+    private static int ToColorRef(byte red, byte green, byte blue)
+    {
+        return red | (green << 8) | (blue << 16);
+    }
+
+    [DllImport("dwmapi.dll")]
+    private static extern int DwmSetWindowAttribute(IntPtr hwnd, int attribute, ref int attributeValue, int attributeSize);
 
     private async void Window_Loaded(object sender, RoutedEventArgs e)
     {

@@ -1,6 +1,6 @@
 # Samhain Security
 
-Version: `0.6.3`
+Version: `0.6.4`
 
 Desktop secure tunneling client for Windows built with WPF and .NET 9.
 
@@ -46,6 +46,7 @@ Desktop secure tunneling client for Windows built with WPF and .NET 9.
 - Highlights the active server category and keeps the catalog title synchronized with category and filter state.
 - Distinguishes three application routing modes: whole computer, selected applications only, and whole computer except selected applications.
 - Applies VLESS application routing through generated `sing-box` process rules and reports the policy through the service protection status.
+- Replaces bright default Windows control chrome with a dark red graphite cyberpunk theme and muted text contrast.
 - Adds pre-connect validation for VLESS Reality and WireGuard-style configs with clear local errors.
 - Adds optional reconnect after resume or network changes for the last successful profile.
 - Adds tray-first server selection with connect selected, connect best, and current server submenu.
@@ -124,7 +125,7 @@ Portable package:
 Local package helper:
 
 ```powershell
-.\scripts\install-local.ps1 -PackagePath ".\dist\SamhainSecurity-0.6.3-win-x64" -StartService -CreateStartMenuShortcut
+.\scripts\install-local.ps1 -PackagePath ".\dist\SamhainSecurity-0.6.4-win-x64" -StartService -CreateStartMenuShortcut
 ```
 
 Default install root is `%ProgramFiles%\Samhain Security`. The helper stops and replaces the previous service registration, copies the package to the install root, writes `install-manifest.json`, and preserves `%APPDATA%\SamhainSecurity`.
@@ -239,6 +240,8 @@ Version `0.6.1` polishes category navigation. The active server category is high
 Version `0.6.2` adds stored application routing modes. Profiles can now remember whole-computer routing, selected-applications-only routing, or whole-computer-except-selected-applications routing, and the selected mode is shown in the daily status panel.
 
 Version `0.6.3` starts real application-aware routing. VLESS TCP Reality now generates `sing-box` process rules for selected app paths or process names, the service pipe carries the policy, and protection status/preview shows the active application routing plan.
+
+Version `0.6.4` retunes the desktop visual system. The main shell now uses a dark red graphite cyberpunk palette, dark templates for default controls, subdued disabled states, dark list/table headers, dark scrollbars, and a dark native window caption where Windows supports it.
 
 ## Versioning
 
