@@ -1044,10 +1044,36 @@
                                 </StackPanel>
                             </Grid>
 
-                            <CheckBox x:Name="SplitTunnelingCheckBox"
-                                      Content="Split tunneling"
-                                      Foreground="{StaticResource TextBrush}"
-                                      Margin="0,16,0,0" />
+                        </StackPanel>
+
+                        <StackPanel Margin="0,16,0,0">
+                            <TextBlock Text="Маршрутизация приложений"
+                                       FontWeight="SemiBold"
+                                       Foreground="{StaticResource TextBrush}"
+                                       Margin="0,0,0,8" />
+
+                            <TextBlock Text="Режим" Style="{StaticResource LabelTextStyle}" />
+                            <ComboBox x:Name="AppRoutingModeComboBox"
+                                      DisplayMemberPath="DisplayName"
+                                      SelectedValuePath="Value"
+                                      SelectionChanged="AppRoutingModeComboBox_SelectionChanged" />
+
+                            <TextBlock Text="Приложения"
+                                       Style="{StaticResource LabelTextStyle}"
+                                       Margin="0,12,0,0" />
+                            <TextBox x:Name="AppRoutingPathsTextBox"
+                                     Height="72"
+                                     AcceptsReturn="True"
+                                     TextChanged="AppRoutingPathsTextBox_TextChanged"
+                                     TextWrapping="Wrap"
+                                     VerticalContentAlignment="Top"
+                                     VerticalScrollBarVisibility="Auto" />
+                            <TextBlock x:Name="AppRoutingHintTextBlock"
+                                       Text="Режим на весь компьютер не требует списка приложений."
+                                       Foreground="{StaticResource MutedTextBrush}"
+                                       FontSize="12"
+                                       TextWrapping="Wrap"
+                                       Margin="0,6,0,0" />
                         </StackPanel>
 
                         <StackPanel x:Name="VlessRealityPanel" Margin="0,18,0,0">

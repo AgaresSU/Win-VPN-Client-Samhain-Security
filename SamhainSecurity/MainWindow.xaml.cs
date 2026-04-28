@@ -121,7 +121,13 @@ public partial class MainWindow : Window
             .ToList();
         TunnelTypeComboBox.SelectedValue = VpnTunnelType.Ikev2;
 
+        AppRoutingModeComboBox.ItemsSource = Enum.GetValues<AppRoutingMode>()
+            .Select(mode => new AppRoutingModeOption(mode))
+            .ToList();
+        AppRoutingModeComboBox.SelectedValue = AppRoutingMode.EntireComputer;
+
         UpdateProtocolFields();
+        UpdateAppRoutingHint();
         InitializeTrayIcon();
         InitializeReconnectMonitors();
         InitializeConnectionWatchdog();
@@ -1668,6 +1674,7 @@ public partial class MainWindow : Window
         var tunnelConfig = GetTunnelConfig();
         var serverAddress = ServerTextBox.Text.Trim();
         var serverPort = ParsePortOrDefault(ServerPortTextBox.Text);
+        var appRoutingMode = GetSelectedAppRoutingMode();
 
         if (protocol is VpnProtocolType.WireGuard or VpnProtocolType.AmneziaWireGuard
             && TryParseEndpointFromConfig(tunnelConfig, out var endpointHost, out var endpointPort))
@@ -1699,7 +1706,9 @@ public partial class MainWindow : Window
             UserName = UserNameTextBox.Text.Trim(),
             EncryptedPassword = _protector.Protect(PasswordBox.Password),
             EncryptedL2tpPsk = _protector.Protect(L2tpPskPasswordBox.Password),
-            SplitTunneling = SplitTunnelingCheckBox.IsChecked == true,
+            SplitTunneling = appRoutingMode != AppRoutingMode.EntireComputer,
+            AppRoutingMode = appRoutingMode,
+            AppRoutingPaths = AppRoutingPathsTextBox.Text.Trim(),
             KillSwitchEnabled = KillSwitchCheckBox.IsChecked == true,
             DnsLeakProtectionEnabled = DnsLeakProtectionCheckBox.IsChecked == true,
             AllowLanTraffic = AllowLanTrafficCheckBox.IsChecked == true,
@@ -1787,7 +1796,8 @@ public partial class MainWindow : Window
             UserNameTextBox.Text = profile.UserName;
             PasswordBox.Password = _protector.Unprotect(profile.EncryptedPassword);
             L2tpPskPasswordBox.Password = _protector.Unprotect(profile.EncryptedL2tpPsk);
-            SplitTunnelingCheckBox.IsChecked = profile.SplitTunneling;
+            AppRoutingModeComboBox.SelectedValue = GetProfileAppRoutingMode(profile);
+            AppRoutingPathsTextBox.Text = profile.AppRoutingPaths;
             KillSwitchCheckBox.IsChecked = profile.KillSwitchEnabled;
             DnsLeakProtectionCheckBox.IsChecked = profile.DnsLeakProtectionEnabled;
             AllowLanTrafficCheckBox.IsChecked = profile.AllowLanTraffic;
@@ -1813,6 +1823,7 @@ public partial class MainWindow : Window
         }
 
         UpdateProtocolFields();
+        UpdateAppRoutingHint();
         UpdateDailyStatusPanel(profile);
         _ = RefreshEngineCatalogAsync(showStatus: false);
     }
@@ -1831,7 +1842,8 @@ public partial class MainWindow : Window
             UserNameTextBox.Text = string.Empty;
             PasswordBox.Password = string.Empty;
             L2tpPskPasswordBox.Password = string.Empty;
-            SplitTunnelingCheckBox.IsChecked = false;
+            AppRoutingModeComboBox.SelectedValue = AppRoutingMode.EntireComputer;
+            AppRoutingPathsTextBox.Text = string.Empty;
             KillSwitchCheckBox.IsChecked = false;
             DnsLeakProtectionCheckBox.IsChecked = false;
             AllowLanTrafficCheckBox.IsChecked = true;
@@ -1851,7 +1863,48 @@ public partial class MainWindow : Window
         }
 
         UpdateProtocolFields();
+        UpdateAppRoutingHint();
         _ = RefreshEngineCatalogAsync(showStatus: false);
+    }
+
+    private void AppRoutingModeComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        UpdateAppRoutingHint();
+        UpdateDailyStatusPanel();
+    }
+
+    private void AppRoutingPathsTextBox_TextChanged(object sender, TextChangedEventArgs e)
+    {
+        if (!_isLoadingProfile)
+        {
+            UpdateDailyStatusPanel();
+        }
+    }
+
+    private void UpdateAppRoutingHint()
+    {
+        var mode = GetSelectedAppRoutingMode();
+        AppRoutingPathsTextBox.IsEnabled = mode != AppRoutingMode.EntireComputer;
+        AppRoutingHintTextBlock.Text = mode switch
+        {
+            AppRoutingMode.SelectedAppsOnly => "Укажите .exe, которые должны идти через защищенный маршрут. Один путь на строку.",
+            AppRoutingMode.EntireComputerExceptSelectedApps => "Укажите .exe, которые должны обходить защищенный маршрут. Один путь на строку.",
+            _ => "Режим на весь компьютер не требует списка приложений."
+        };
+    }
+
+    private AppRoutingMode GetSelectedAppRoutingMode()
+    {
+        return AppRoutingModeComboBox.SelectedValue is AppRoutingMode selectedMode
+            ? selectedMode
+            : AppRoutingMode.EntireComputer;
+    }
+
+    private static AppRoutingMode GetProfileAppRoutingMode(VpnProfile profile)
+    {
+        return profile.AppRoutingMode == AppRoutingMode.EntireComputer && profile.SplitTunneling
+            ? AppRoutingMode.SelectedAppsOnly
+            : profile.AppRoutingMode;
     }
 
     private void UpdateProtocolFields()
@@ -1968,7 +2021,7 @@ public partial class MainWindow : Window
         DailyRouteTextBlock.Text = BuildDailyRouteText(snapshot);
         DailyProtocolTextBlock.Text = snapshot.Protocol.ToDisplayName();
         DailyProtectionTextBlock.Text = BuildDailyProtectionText(snapshot);
-        DailyAutoModeTextBlock.Text = BuildDailyAutoModeText();
+        DailyAutoModeTextBlock.Text = $"{BuildDailyAppRoutingText(snapshot)}; {BuildDailyAutoModeText()}";
         DailyServiceTextBlock.Text = _dailyServiceState;
         ReadinessSummaryTextBlock.Text = _releaseReadinessState;
         HealthSummaryTextBlock.Text = BuildHealthSummary(profile ?? ProfilesListBox.SelectedItem as VpnProfile);
@@ -2014,6 +2067,8 @@ public partial class MainWindow : Window
                 profile.Protocol,
                 profile.ServerAddress,
                 profile.ServerPort,
+                GetProfileAppRoutingMode(profile),
+                profile.AppRoutingPaths,
                 profile.KillSwitchEnabled,
                 profile.DnsLeakProtectionEnabled,
                 profile.AllowLanTraffic);
@@ -2037,6 +2092,8 @@ public partial class MainWindow : Window
             protocol,
             serverAddress,
             serverPort,
+            GetSelectedAppRoutingMode(),
+            AppRoutingPathsTextBox.Text.Trim(),
             KillSwitchCheckBox.IsChecked == true,
             DnsLeakProtectionCheckBox.IsChecked == true,
             AllowLanTrafficCheckBox.IsChecked == true);
@@ -2081,6 +2138,31 @@ public partial class MainWindow : Window
         }
 
         return string.Join(", ", parts);
+    }
+
+    private static string BuildDailyAppRoutingText(DailyProfileSnapshot snapshot)
+    {
+        var count = CountAppRoutingPaths(snapshot.AppRoutingPaths);
+        var suffix = count > 0 ? $" ({count})" : string.Empty;
+
+        return snapshot.AppRoutingMode switch
+        {
+            AppRoutingMode.SelectedAppsOnly => $"Режим: только выбранные приложения{suffix}",
+            AppRoutingMode.EntireComputerExceptSelectedApps => $"Режим: весь компьютер, кроме выбранных приложений{suffix}",
+            _ => "Режим: весь компьютер"
+        };
+    }
+
+    private static int CountAppRoutingPaths(string paths)
+    {
+        if (string.IsNullOrWhiteSpace(paths))
+        {
+            return 0;
+        }
+
+        return paths
+            .Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Count();
     }
 
     private string BuildDailyAutoModeText()
@@ -3342,6 +3424,8 @@ public partial class MainWindow : Window
             ? existing.EncryptedTunnelConfig
             : importedTunnelConfig;
         target.SplitTunneling = existing.SplitTunneling;
+        target.AppRoutingMode = GetProfileAppRoutingMode(existing);
+        target.AppRoutingPaths = existing.AppRoutingPaths;
         target.KillSwitchEnabled = existing.KillSwitchEnabled;
         target.DnsLeakProtectionEnabled = existing.DnsLeakProtectionEnabled;
         target.AllowLanTraffic = existing.AllowLanTraffic;
@@ -3905,6 +3989,8 @@ public partial class MainWindow : Window
         VpnProtocolType Protocol,
         string ServerAddress,
         int ServerPort,
+        AppRoutingMode AppRoutingMode,
+        string AppRoutingPaths,
         bool KillSwitchEnabled,
         bool DnsLeakProtectionEnabled,
         bool AllowLanTraffic);

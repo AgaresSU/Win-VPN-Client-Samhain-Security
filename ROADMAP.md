@@ -1,6 +1,6 @@
 # Samhain Security Roadmap
 
-Version baseline: `0.6.1`
+Version baseline: `0.6.2`
 
 ## Product Goal
 
@@ -430,6 +430,12 @@ The default UI should stay close to the simplicity of Happ: a small set of obvio
 - Done: the active server category is visually highlighted in the left navigation.
 - Done: the central catalog title follows the selected category.
 - Done: manual search, favorites-only, or sort changes mark the catalog as a filtered view.
+
+### 0.6.2
+
+- Done: profiles now store one of three application routing modes.
+- Done: the advanced settings screen exposes whole-computer, selected-applications-only, and whole-computer-except-selected-applications routing.
+- Done: the daily status panel shows the selected application routing mode and configured app count.
 
 ## Design Direction
 

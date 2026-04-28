@@ -42,6 +42,10 @@ public sealed class VpnProfile
 
     public bool SplitTunneling { get; set; }
 
+    public AppRoutingMode AppRoutingMode { get; set; } = AppRoutingMode.EntireComputer;
+
+    public string AppRoutingPaths { get; set; } = string.Empty;
+
     public bool KillSwitchEnabled { get; set; }
 
     public bool DnsLeakProtectionEnabled { get; set; }
