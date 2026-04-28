@@ -26,6 +26,7 @@ const LOCAL_PROXY_PORT: u16 = 20808;
 const TUN_INTERFACE_NAME: &str = "samhain-tun";
 const TUN_ADDRESS: &str = "172.19.0.1/30";
 const TUN_DNS: &[&str] = &["1.1.1.1", "8.8.8.8"];
+const ADAPTER_DRY_RUN_ENV: &str = "SAMHAIN_ADAPTER_DRY_RUN";
 
 fn main() -> Result<()> {
     let mut args = std::env::args().skip(1);
@@ -54,7 +55,10 @@ fn print_stub(command: &str) {
 }
 
 fn print_status() -> Result<()> {
-    println!("{}", encode_event(&ServiceEvent::State(current_state(false)))?);
+    println!(
+        "{}",
+        encode_event(&ServiceEvent::State(current_state(false)))?
+    );
     Ok(())
 }
 
@@ -69,7 +73,9 @@ fn run_service() -> Result<()> {
 fn handle_payload(payload: &str) -> String {
     let response = match decode_request(payload) {
         Ok(request) => handle_request(request),
-        Err(error) => ResponseEnvelope::error("invalid-request", format!("Invalid request: {error}")),
+        Err(error) => {
+            ResponseEnvelope::error("invalid-request", format!("Invalid request: {error}"))
+        }
     };
 
     encode_response(&response).unwrap_or_else(|error| {
@@ -356,7 +362,9 @@ fn select_server(server_id: &str) -> Option<Server> {
 }
 
 fn service_store() -> &'static Mutex<ServiceStore> {
-    STORE.get_or_init(|| Mutex::new(ServiceStore::load().unwrap_or_else(|_| ServiceStore::fallback())))
+    STORE.get_or_init(|| {
+        Mutex::new(ServiceStore::load().unwrap_or_else(|_| ServiceStore::fallback()))
+    })
 }
 
 #[derive(Debug)]
@@ -580,13 +588,12 @@ impl ServiceStore {
             .ok_or_else(|| anyhow!("подписка не найдена"))?;
 
         let old = self.state.subscriptions[index].clone();
-        let url = secret::unprotect_string(&old.protected_url)
-            .or_else(|_| {
-                old.protected_url
-                    .strip_prefix("unprotected:")
-                    .map(str::to_string)
-                    .ok_or_else(|| anyhow!("исходная ссылка недоступна"))
-            })?;
+        let url = secret::unprotect_string(&old.protected_url).or_else(|_| {
+            old.protected_url
+                .strip_prefix("unprotected:")
+                .map(str::to_string)
+                .ok_or_else(|| anyhow!("исходная ссылка недоступна"))
+        })?;
 
         let mut servers = Vec::new();
         for payload in fetch_subscription_payloads(&url)? {
@@ -943,12 +950,9 @@ fn storage_path() -> PathBuf {
 }
 
 fn stable_subscription_id(name: &str, url: &str) -> String {
-    let checksum = name
-        .bytes()
-        .chain(url.bytes())
-        .fold(0u32, |acc, byte| {
-            acc.wrapping_mul(31).wrapping_add(byte as u32)
-        });
+    let checksum = name.bytes().chain(url.bytes()).fold(0u32, |acc, byte| {
+        acc.wrapping_mul(31).wrapping_add(byte as u32)
+    });
     format!("subscription-{checksum:08x}")
 }
 
@@ -1050,6 +1054,24 @@ struct GeneratedEngineConfig {
     full_config: String,
     redacted_config: String,
     warnings: Vec<String>,
+}
+
+#[derive(Debug, Clone)]
+struct AdapterCommandSet {
+    start_args: Vec<String>,
+    stop_args: Vec<String>,
+    strategy: String,
+}
+
+#[derive(Debug, Clone)]
+struct ActiveAdapter {
+    kind: EngineKind,
+    server_id: String,
+    adapter_name: String,
+    executable_path: PathBuf,
+    config_path: PathBuf,
+    stop_args: Vec<String>,
+    strategy: String,
 }
 
 #[derive(Debug, Clone)]
@@ -1159,11 +1181,117 @@ impl TunManager {
 }
 
 #[derive(Debug)]
+struct AdapterManager {
+    active: Option<ActiveAdapter>,
+}
+
+impl AdapterManager {
+    fn new() -> Self {
+        Self { active: None }
+    }
+
+    fn start(
+        &mut self,
+        kind: EngineKind,
+        server_id: &str,
+        executable_path: PathBuf,
+        config_path: PathBuf,
+        full_config: &str,
+        logs: &Arc<Mutex<Vec<EngineLogEntry>>>,
+    ) -> Result<ActiveAdapter> {
+        self.stop(logs)?;
+
+        if let Some(parent) = config_path.parent() {
+            fs::create_dir_all(parent)
+                .with_context(|| format!("Could not create {}", parent.display()))?;
+        }
+        fs::write(&config_path, full_config)
+            .with_context(|| format!("Could not write {}", config_path.display()))?;
+
+        let adapter_name = adapter_name_for(server_id, kind);
+        let commands = adapter_command_set(kind, &executable_path, &config_path, &adapter_name)?;
+        if adapter_dry_run() {
+            push_engine_log(
+                logs,
+                "info",
+                "adapter",
+                &format!(
+                    "Dry-run adapter start via {}: {}",
+                    commands.strategy,
+                    shell_preview(&executable_path, &commands.start_args)
+                ),
+            );
+        } else {
+            run_adapter_command(
+                "start",
+                &executable_path,
+                &commands.start_args,
+                logs,
+                &commands.strategy,
+            )?;
+        }
+
+        let active = ActiveAdapter {
+            kind,
+            server_id: server_id.to_string(),
+            adapter_name,
+            executable_path,
+            config_path,
+            stop_args: commands.stop_args,
+            strategy: commands.strategy,
+        };
+        self.active = Some(active.clone());
+        Ok(active)
+    }
+
+    fn stop(&mut self, logs: &Arc<Mutex<Vec<EngineLogEntry>>>) -> Result<()> {
+        let Some(active) = self.active.take() else {
+            return Ok(());
+        };
+
+        if adapter_dry_run() {
+            push_engine_log(
+                logs,
+                "info",
+                "adapter",
+                &format!(
+                    "Dry-run adapter stop via {}: {}",
+                    active.strategy,
+                    shell_preview(&active.executable_path, &active.stop_args)
+                ),
+            );
+        } else {
+            run_adapter_command(
+                "stop",
+                &active.executable_path,
+                &active.stop_args,
+                logs,
+                &active.strategy,
+            )?;
+        }
+
+        push_engine_log(
+            logs,
+            "info",
+            "adapter",
+            &format!(
+                "Stopped {} adapter {} for {}",
+                engine_name(active.kind),
+                active.adapter_name,
+                active.server_id
+            ),
+        );
+        Ok(())
+    }
+}
+
+#[derive(Debug)]
 struct EngineManager {
     child: Option<Child>,
     state: EngineLifecycleState,
     proxy: ProxyManager,
     tun: TunManager,
+    adapter: AdapterManager,
     logs: Arc<Mutex<Vec<EngineLogEntry>>>,
     last_plan: Option<EngineStartPlan>,
 }
@@ -1175,6 +1303,7 @@ impl EngineManager {
             state: EngineLifecycleState::default(),
             proxy: ProxyManager::new(),
             tun: TunManager::new(),
+            adapter: AdapterManager::new(),
             logs: Arc::new(Mutex::new(Vec::new())),
             last_plan: None,
         }
@@ -1239,29 +1368,6 @@ impl EngineManager {
         self.stop()?;
 
         let generated = generate_engine_config(server, raw_url, route_mode)?;
-        if generated.path == EnginePath::Adapter {
-            self.state = EngineLifecycleState {
-                status: "adapter-pending".to_string(),
-                engine: generated.engine,
-                server_id: Some(server.id.clone()),
-                pid: None,
-                started_at: None,
-                stopped_at: None,
-                last_exit_code: None,
-                restart_attempts: 0,
-                config_path: None,
-                message: "Адаптерный запуск будет включён в отдельном этапе.".to_string(),
-                log_tail: self.log_tail(),
-            };
-            push_engine_log(
-                &self.logs,
-                "info",
-                "manager",
-                &format!("Adapter lifecycle is pending for {}", server.name),
-            );
-            return Ok(self.snapshot());
-        }
-
         let catalog = discover_engines();
         let Some(engine) = catalog
             .iter()
@@ -1302,6 +1408,74 @@ impl EngineManager {
             .map(PathBuf::from)
             .ok_or_else(|| anyhow!("путь движка не найден"))?;
         let config_path = engine_config_path(&server.id, generated.engine);
+        if generated.path == EnginePath::Adapter {
+            match self.adapter.start(
+                generated.engine,
+                &server.id,
+                executable_path,
+                config_path.clone(),
+                &generated.full_config,
+                &self.logs,
+            ) {
+                Ok(active) => {
+                    if let Err(error) = self.proxy.restore() {
+                        push_engine_log(
+                            &self.logs,
+                            "error",
+                            "proxy",
+                            &format!("Could not restore system proxy before adapter path: {error}"),
+                        );
+                    }
+                    self.tun.restore();
+                    self.state = EngineLifecycleState {
+                        status: "running".to_string(),
+                        engine: generated.engine,
+                        server_id: Some(server.id.clone()),
+                        pid: None,
+                        started_at: Some(now_engine_label()),
+                        stopped_at: None,
+                        last_exit_code: None,
+                        restart_attempts: 0,
+                        config_path: Some(active.config_path.display().to_string()),
+                        message: format!(
+                            "Адаптер {} запущен через {}.",
+                            active.adapter_name, active.strategy
+                        ),
+                        log_tail: self.log_tail(),
+                    };
+                    push_engine_log(
+                        &self.logs,
+                        "info",
+                        "adapter",
+                        &format!(
+                            "Started {} adapter {} for {}",
+                            engine_name(generated.engine),
+                            active.adapter_name,
+                            server.name
+                        ),
+                    );
+                }
+                Err(error) => {
+                    self.state = EngineLifecycleState {
+                        status: "failed".to_string(),
+                        engine: generated.engine,
+                        server_id: Some(server.id.clone()),
+                        pid: None,
+                        started_at: None,
+                        stopped_at: Some(now_engine_label()),
+                        last_exit_code: None,
+                        restart_attempts: 0,
+                        config_path: Some(config_path.display().to_string()),
+                        message: format!("Адаптерный запуск не удался: {error}"),
+                        log_tail: self.log_tail(),
+                    };
+                    push_engine_log(&self.logs, "error", "adapter", &self.state.message);
+                }
+            }
+
+            return Ok(self.snapshot());
+        }
+
         let args = engine_args(generated.engine, &config_path);
         let plan = EngineStartPlan {
             kind: generated.engine,
@@ -1364,6 +1538,16 @@ impl EngineManager {
             let _ = child.kill();
             let status = child.wait().ok();
             self.state.last_exit_code = status.and_then(|value| value.code());
+        }
+
+        if let Err(error) = self.adapter.stop(&self.logs) {
+            push_engine_log(
+                &self.logs,
+                "error",
+                "adapter",
+                &format!("Could not stop adapter path: {error}"),
+            );
+            return Err(error);
         }
 
         if let Some(path) = self.state.config_path.as_deref() {
@@ -1532,11 +1716,28 @@ fn generate_engine_config(
     }
 
     if path == EnginePath::Tun {
-        warnings.push("TUN требует прав администратора и доступного TUN-драйвера движка.".to_string());
+        warnings
+            .push("TUN требует прав администратора и доступного TUN-драйвера движка.".to_string());
     }
 
-    let full_config = build_sing_box_config(server, raw_url, false, route_mode)?;
-    let redacted_config = build_sing_box_config(server, raw_url, true, route_mode)?;
+    if path == EnginePath::Adapter {
+        warnings.push(
+            "Адаптерный путь требует прав администратора и установленного runtime-инструмента."
+                .to_string(),
+        );
+    }
+
+    let (full_config, redacted_config) = if path == EnginePath::Adapter {
+        let (full, mut adapter_warnings) = build_adapter_config(server, raw_url, false)?;
+        let (redacted, _) = build_adapter_config(server, raw_url, true)?;
+        warnings.append(&mut adapter_warnings);
+        (full, redacted)
+    } else {
+        (
+            build_sing_box_config(server, raw_url, false, route_mode)?,
+            build_sing_box_config(server, raw_url, true, route_mode)?,
+        )
+    };
 
     Ok(GeneratedEngineConfig {
         engine,
@@ -1544,6 +1745,203 @@ fn generate_engine_config(
         full_config,
         redacted_config,
         warnings,
+    })
+}
+
+fn build_adapter_config(
+    server: &Server,
+    raw_url: &str,
+    redacted: bool,
+) -> Result<(String, Vec<String>)> {
+    let trimmed = raw_url.trim();
+    let full_config = if looks_like_adapter_config(trimmed) {
+        normalize_adapter_config(trimmed)
+    } else {
+        build_adapter_config_from_url(server, trimmed, redacted)?
+    };
+    let display_config = redact_adapter_config(&full_config, redacted);
+    let warnings = validate_adapter_config(&full_config, server.protocol)?;
+    Ok((display_config, warnings))
+}
+
+fn build_adapter_config_from_url(server: &Server, raw_url: &str, redacted: bool) -> Result<String> {
+    let parsed =
+        url::Url::parse(raw_url).context("не удалось разобрать ссылку адаптерного профиля")?;
+    let private_key = query_secret_any(&parsed, &["private_key", "privateKey", "key"], redacted)
+        .or_else(|| {
+            let user = parsed.username();
+            if user.is_empty() {
+                None
+            } else if redacted {
+                Some(redacted_value(true))
+            } else {
+                Some(user.to_string())
+            }
+        })
+        .ok_or_else(|| anyhow!("в профиле нет PrivateKey"))?;
+    let public_key = query_secret_any(
+        &parsed,
+        &["public_key", "publicKey", "peer_public_key"],
+        redacted,
+    )
+    .ok_or_else(|| anyhow!("в профиле нет PublicKey peer"))?;
+    let address = query_value_any(&parsed, &["address", "addr", "ip"])
+        .ok_or_else(|| anyhow!("в профиле нет Address"))?;
+    let endpoint = query_value_any(&parsed, &["endpoint"]).unwrap_or_else(|| {
+        let port = server.port.unwrap_or(51820);
+        format!("{}:{port}", server.host)
+    });
+    if endpoint.trim_matches(':').is_empty() {
+        return Err(anyhow!("в профиле нет Endpoint"));
+    }
+
+    let mut lines = vec![
+        "[Interface]".to_string(),
+        format!("PrivateKey = {private_key}"),
+        format!("Address = {address}"),
+    ];
+    if let Some(dns) = query_value_any(&parsed, &["dns", "DNS"]) {
+        lines.push(format!("DNS = {dns}"));
+    }
+    if let Some(mtu) = query_value_any(&parsed, &["mtu", "MTU"]) {
+        lines.push(format!("MTU = {mtu}"));
+    }
+    if server.protocol == Protocol::AmneziaWg {
+        for key in ["Jc", "Jmin", "Jmax", "S1", "S2", "H1", "H2", "H3", "H4"] {
+            if let Some(value) = query_value_any(&parsed, &[key, &key.to_ascii_lowercase()]) {
+                lines.push(format!("{key} = {value}"));
+            }
+        }
+    }
+
+    lines.push(String::new());
+    lines.push("[Peer]".to_string());
+    lines.push(format!("PublicKey = {public_key}"));
+    if let Some(preshared) = query_secret_any(
+        &parsed,
+        &["preshared_key", "presharedKey", "psk", "preSharedKey"],
+        redacted,
+    ) {
+        lines.push(format!("PresharedKey = {preshared}"));
+    }
+    lines.push(format!(
+        "AllowedIPs = {}",
+        query_value_any(&parsed, &["allowed_ips", "allowedIPs"])
+            .unwrap_or_else(|| "0.0.0.0/0, ::/0".to_string())
+    ));
+    lines.push(format!("Endpoint = {endpoint}"));
+    lines.push(format!(
+        "PersistentKeepalive = {}",
+        query_value_any(
+            &parsed,
+            &["persistent_keepalive", "persistentKeepalive", "keepalive"]
+        )
+        .unwrap_or_else(|| "25".to_string())
+    ));
+
+    Ok(lines.join("\n") + "\n")
+}
+
+fn looks_like_adapter_config(value: &str) -> bool {
+    value.contains("[Interface]") && value.contains("[Peer]")
+}
+
+fn normalize_adapter_config(value: &str) -> String {
+    value
+        .lines()
+        .map(str::trim_end)
+        .collect::<Vec<_>>()
+        .join("\n")
+        + "\n"
+}
+
+fn redact_adapter_config(config: &str, redacted: bool) -> String {
+    if !redacted {
+        return config.to_string();
+    }
+
+    config
+        .lines()
+        .map(|line| {
+            let trimmed = line.trim_start();
+            if trimmed.starts_with('#') || trimmed.starts_with(';') {
+                return line.to_string();
+            }
+            let Some((key, _)) = line.split_once('=') else {
+                return line.to_string();
+            };
+            let key = key.trim();
+            if ["PrivateKey", "PublicKey", "PresharedKey"]
+                .iter()
+                .any(|candidate| key.eq_ignore_ascii_case(candidate))
+            {
+                format!("{key} = {}", redacted_value(true))
+            } else {
+                line.to_string()
+            }
+        })
+        .collect::<Vec<_>>()
+        .join("\n")
+        + "\n"
+}
+
+fn validate_adapter_config(config: &str, protocol: Protocol) -> Result<Vec<String>> {
+    if !config_has_section(config, "Interface") {
+        return Err(anyhow!("в адаптерном профиле нет секции [Interface]"));
+    }
+    if !config_has_section(config, "Peer") {
+        return Err(anyhow!("в адаптерном профиле нет секции [Peer]"));
+    }
+
+    for key in ["PrivateKey", "Address", "PublicKey", "Endpoint"] {
+        if adapter_config_value(config, key).is_none() {
+            return Err(anyhow!("в адаптерном профиле нет {key}"));
+        }
+    }
+
+    let mut warnings = Vec::new();
+    if adapter_config_value(config, "DNS").is_none() {
+        warnings.push("DNS не указан в адаптерном профиле.".to_string());
+    }
+    if adapter_config_value(config, "MTU").is_none() {
+        warnings.push("MTU не указан; runtime применит значение по умолчанию.".to_string());
+    }
+    if adapter_config_value(config, "PersistentKeepalive").is_none() {
+        warnings.push(
+            "PersistentKeepalive не указан; на NAT-сетях соединение может засыпать.".to_string(),
+        );
+    }
+    if protocol == Protocol::AmneziaWg {
+        let has_awg_options = ["Jc", "Jmin", "Jmax", "S1", "S2", "H1", "H2", "H3", "H4"]
+            .iter()
+            .any(|key| adapter_config_value(config, key).is_some());
+        if !has_awg_options {
+            warnings.push("AmneziaWG-параметры обфускации не найдены в профиле.".to_string());
+        }
+    }
+
+    Ok(warnings)
+}
+
+fn config_has_section(config: &str, section: &str) -> bool {
+    let expected = format!("[{}]", section.to_ascii_lowercase());
+    config
+        .lines()
+        .any(|line| line.trim().to_ascii_lowercase() == expected)
+}
+
+fn adapter_config_value(config: &str, key: &str) -> Option<String> {
+    config.lines().find_map(|line| {
+        let trimmed = line.trim();
+        if trimmed.starts_with('#') || trimmed.starts_with(';') {
+            return None;
+        }
+        let (line_key, value) = trimmed.split_once('=')?;
+        if line_key.trim().eq_ignore_ascii_case(key) {
+            Some(value.trim().to_string())
+        } else {
+            None
+        }
     })
 }
 
@@ -1794,6 +2192,119 @@ fn engine_args(kind: EngineKind, config_path: &std::path::Path) -> Vec<String> {
     }
 }
 
+fn adapter_command_set(
+    kind: EngineKind,
+    executable_path: &std::path::Path,
+    config_path: &std::path::Path,
+    adapter_name: &str,
+) -> Result<AdapterCommandSet> {
+    let exe_name = executable_path
+        .file_name()
+        .and_then(|name| name.to_str())
+        .unwrap_or_default()
+        .to_ascii_lowercase();
+    let config = config_path.display().to_string();
+
+    if kind == EngineKind::WireGuard && exe_name.contains("wireguard") && !exe_name.contains("go") {
+        return Ok(AdapterCommandSet {
+            start_args: vec!["/installtunnelservice".to_string(), config],
+            stop_args: vec![
+                "/uninstalltunnelservice".to_string(),
+                adapter_name.to_string(),
+            ],
+            strategy: "WireGuard tunnel service".to_string(),
+        });
+    }
+
+    if exe_name.contains("wg-quick") || exe_name.contains("awg-quick") {
+        return Ok(AdapterCommandSet {
+            start_args: vec!["up".to_string(), config.clone()],
+            stop_args: vec!["down".to_string(), config],
+            strategy: format!("{} quick", engine_name(kind)),
+        });
+    }
+
+    Err(anyhow!(
+        "{} найден, но это не lifecycle-инструмент. Нужен wireguard.exe, wg-quick.exe или awg-quick.exe.",
+        executable_path.display()
+    ))
+}
+
+fn run_adapter_command(
+    action: &str,
+    executable_path: &std::path::Path,
+    args: &[String],
+    logs: &Arc<Mutex<Vec<EngineLogEntry>>>,
+    strategy: &str,
+) -> Result<()> {
+    push_engine_log(
+        logs,
+        "info",
+        "adapter",
+        &format!(
+            "Running adapter {action} via {strategy}: {}",
+            shell_preview(executable_path, args)
+        ),
+    );
+    let output = Command::new(executable_path)
+        .args(args)
+        .output()
+        .with_context(|| format!("Could not run {}", executable_path.display()))?;
+    let stdout = String::from_utf8_lossy(&output.stdout).trim().to_string();
+    let stderr = String::from_utf8_lossy(&output.stderr).trim().to_string();
+
+    if !stdout.is_empty() {
+        push_engine_log(logs, "info", "adapter", &stdout);
+    }
+    if !stderr.is_empty() {
+        push_engine_log(logs, "warn", "adapter", &stderr);
+    }
+
+    if !output.status.success() {
+        return Err(anyhow!(
+            "adapter {action} failed with code {}{}",
+            output
+                .status
+                .code()
+                .map(|code| code.to_string())
+                .unwrap_or_else(|| "unknown".to_string()),
+            if stderr.is_empty() {
+                String::new()
+            } else {
+                format!(": {stderr}")
+            }
+        ));
+    }
+
+    Ok(())
+}
+
+fn adapter_name_for(server_id: &str, kind: EngineKind) -> String {
+    let prefix = match kind {
+        EngineKind::WireGuard => "samhain-wireguard",
+        EngineKind::AmneziaWg => "samhain-amneziawg",
+        _ => "samhain-adapter",
+    };
+    format!("{prefix}-{}", sanitize_filename(server_id))
+}
+
+fn adapter_dry_run() -> bool {
+    std::env::var_os(ADAPTER_DRY_RUN_ENV).is_some()
+}
+
+fn shell_preview(executable_path: &std::path::Path, args: &[String]) -> String {
+    std::iter::once(executable_path.display().to_string())
+        .chain(args.iter().map(|arg| {
+            if arg.contains(' ') {
+                format!("\"{arg}\"")
+            } else {
+                arg.to_string()
+            }
+        }))
+        .collect::<Vec<_>>()
+        .join(" ")
+}
+
 fn discover_engines() -> Vec<EngineCatalogEntry> {
     [
         EngineKind::SingBox,
@@ -1817,11 +2328,10 @@ fn discover_engine(kind: EngineKind) -> EngineCatalogEntry {
     EngineCatalogEntry {
         kind,
         name: engine_name(kind).to_string(),
-        executable_path: executable_path.as_ref().map(|path| path.display().to_string()),
-        search_paths: dirs
-            .iter()
-            .map(|path| path.display().to_string())
-            .collect(),
+        executable_path: executable_path
+            .as_ref()
+            .map(|path| path.display().to_string()),
+        search_paths: dirs.iter().map(|path| path.display().to_string()).collect(),
         available: executable_path.is_some(),
     }
 }
@@ -1855,23 +2365,43 @@ fn engine_binary_names(kind: EngineKind) -> &'static [&'static str] {
     match kind {
         EngineKind::SingBox => &["sing-box.exe", "sing-box"],
         EngineKind::Xray => &["xray.exe", "xray"],
-        EngineKind::WireGuard => &["wireguard.exe", "wg.exe", "wireguard-go.exe", "wireguard"],
-        EngineKind::AmneziaWg => &["amneziawg.exe", "awg.exe", "awg-go.exe", "amneziawg"],
+        EngineKind::WireGuard => &[
+            "wireguard.exe",
+            "wg-quick.exe",
+            "wireguard",
+            "wg.exe",
+            "wireguard-go.exe",
+        ],
+        EngineKind::AmneziaWg => &[
+            "awg-quick.exe",
+            "amneziawg.exe",
+            "amneziawg",
+            "awg.exe",
+            "awg-go.exe",
+        ],
         EngineKind::Unknown => &[],
     }
 }
 
 fn engine_config_path(server_id: &str, kind: EngineKind) -> PathBuf {
+    let extension = match kind {
+        EngineKind::WireGuard | EngineKind::AmneziaWg => "conf",
+        _ => "json",
+    };
+    let name = match kind {
+        EngineKind::WireGuard | EngineKind::AmneziaWg => adapter_name_for(server_id, kind),
+        _ => format!(
+            "{}-{}",
+            engine_name(kind).to_ascii_lowercase(),
+            sanitize_filename(server_id)
+        ),
+    };
     storage_path()
         .parent()
         .map(PathBuf::from)
         .unwrap_or_else(std::env::temp_dir)
         .join("engine")
-        .join(format!(
-            "{}-{}.json",
-            engine_name(kind).to_ascii_lowercase(),
-            sanitize_filename(server_id)
-        ))
+        .join(format!("{name}.{extension}"))
 }
 
 fn sanitize_filename(value: &str) -> String {
@@ -1901,8 +2431,28 @@ fn query_value(parsed: &Option<url::Url>, key: &str) -> Option<String> {
     })
 }
 
+fn query_value_any(parsed: &url::Url, keys: &[&str]) -> Option<String> {
+    parsed.query_pairs().find_map(|(name, value)| {
+        if keys.iter().any(|key| name.eq_ignore_ascii_case(key)) {
+            Some(value.to_string())
+        } else {
+            None
+        }
+    })
+}
+
 fn query_secret(parsed: &Option<url::Url>, key: &str, redacted: bool) -> Option<String> {
     query_value(parsed, key).map(|value| {
+        if redacted {
+            redacted_value(true)
+        } else {
+            value
+        }
+    })
+}
+
+fn query_secret_any(parsed: &url::Url, keys: &[&str], redacted: bool) -> Option<String> {
+    query_value_any(parsed, keys).map(|value| {
         if redacted {
             redacted_value(true)
         } else {
@@ -1951,7 +2501,10 @@ fn parse_shadowsocks_userinfo(parsed: &Option<url::Url>, redacted: bool) -> (Str
             },
         );
     }
-    ("2022-blake3-aes-128-gcm".to_string(), redacted_value(redacted))
+    (
+        "2022-blake3-aes-128-gcm".to_string(),
+        redacted_value(redacted),
+    )
 }
 
 fn redacted_value(redacted: bool) -> String {
@@ -1990,8 +2543,11 @@ fn push_engine_log(
     }
 }
 
-fn spawn_engine_reader<R>(stream: R, stream_name: &'static str, logs: Arc<Mutex<Vec<EngineLogEntry>>>)
-where
+fn spawn_engine_reader<R>(
+    stream: R,
+    stream_name: &'static str,
+    logs: Arc<Mutex<Vec<EngineLogEntry>>>,
+) where
     R: Read + Send + 'static,
 {
     thread::spawn(move || {
@@ -2019,7 +2575,8 @@ mod system_proxy {
         RegOpenKeyExW, RegQueryValueExW, RegSetValueExW,
     };
 
-    const INTERNET_SETTINGS: &str = "Software\\Microsoft\\Windows\\CurrentVersion\\Internet Settings";
+    const INTERNET_SETTINGS: &str =
+        "Software\\Microsoft\\Windows\\CurrentVersion\\Internet Settings";
 
     pub fn read() -> Result<SystemProxySnapshot> {
         if dry_run() {
@@ -2052,7 +2609,11 @@ mod system_proxy {
 
         let key = open_key(KEY_SET_VALUE)?;
         write_dword(key, "ProxyEnable", u32::from(snapshot.enabled))?;
-        write_string(key, "ProxyServer", snapshot.server.as_deref().unwrap_or_default())?;
+        write_string(
+            key,
+            "ProxyServer",
+            snapshot.server.as_deref().unwrap_or_default(),
+        )?;
         unsafe {
             RegCloseKey(key);
         }
@@ -2063,9 +2624,8 @@ mod system_proxy {
     fn open_key(access: u32) -> Result<HKEY> {
         let mut key: HKEY = null_mut();
         let path = wide_null(INTERNET_SETTINGS);
-        let status = unsafe {
-            RegOpenKeyExW(HKEY_CURRENT_USER, path.as_ptr(), 0, access, &mut key)
-        };
+        let status =
+            unsafe { RegOpenKeyExW(HKEY_CURRENT_USER, path.as_ptr(), 0, access, &mut key) };
         if status != ERROR_SUCCESS {
             return Err(anyhow!("RegOpenKeyExW failed: {status}"));
         }
@@ -2488,11 +3048,17 @@ mod tests {
     fn discovers_engine_catalog_entries() {
         let catalog = discover_engines();
 
-        assert!(catalog.iter().any(|entry| entry.kind == EngineKind::SingBox));
+        assert!(
+            catalog
+                .iter()
+                .any(|entry| entry.kind == EngineKind::SingBox)
+        );
         assert!(catalog.iter().any(|entry| entry.kind == EngineKind::Xray));
-        assert!(catalog
-            .iter()
-            .all(|entry| !entry.name.is_empty() && !entry.search_paths.is_empty()));
+        assert!(
+            catalog
+                .iter()
+                .all(|entry| !entry.name.is_empty() && !entry.search_paths.is_empty())
+        );
     }
 
     #[test]
@@ -2502,9 +3068,17 @@ mod tests {
         let generated =
             generate_engine_config(&server, raw_url, RouteMode::WholeComputer).expect("config");
 
-        assert!(generated.full_config.contains("00000000-0000-4000-8000-000000000001"));
+        assert!(
+            generated
+                .full_config
+                .contains("00000000-0000-4000-8000-000000000001")
+        );
         assert!(generated.full_config.contains("public-secret"));
-        assert!(!generated.redacted_config.contains("00000000-0000-4000-8000-000000000001"));
+        assert!(
+            !generated
+                .redacted_config
+                .contains("00000000-0000-4000-8000-000000000001")
+        );
         assert!(!generated.redacted_config.contains("public-secret"));
         assert!(!generated.redacted_config.contains("short-secret"));
         assert!(generated.redacted_config.contains("<redacted>"));
@@ -2532,6 +3106,74 @@ mod tests {
 
         assert_eq!(generated.path, EnginePath::Proxy);
         assert!(generated.redacted_config.contains("\"type\": \"mixed\""));
-        assert!(generated.warnings.iter().any(|warning| warning.contains("точная маршрутизация")));
+        assert!(
+            generated
+                .warnings
+                .iter()
+                .any(|warning| warning.contains("точная маршрутизация"))
+        );
+    }
+
+    #[test]
+    fn wireguard_profile_generates_adapter_config() {
+        let raw_config = "[Interface]\nPrivateKey = private-secret\nAddress = 10.8.0.2/32\nDNS = 1.1.1.1\nMTU = 1420\n\n[Peer]\nPublicKey = public-secret\nAllowedIPs = 0.0.0.0/0, ::/0\nEndpoint = 203.0.113.10:51820\nPersistentKeepalive = 25\n";
+        let server = Server {
+            id: "wg-1".to_string(),
+            name: "WG Test".to_string(),
+            host: "203.0.113.10".to_string(),
+            port: Some(51820),
+            protocol: Protocol::WireGuard,
+            country_code: None,
+            ping_ms: None,
+            raw_url: raw_config.to_string(),
+        };
+        let generated =
+            generate_engine_config(&server, raw_config, RouteMode::WholeComputer).expect("config");
+
+        assert_eq!(generated.engine, EngineKind::WireGuard);
+        assert_eq!(generated.path, EnginePath::Adapter);
+        assert!(generated.full_config.contains("private-secret"));
+        assert!(generated.full_config.contains("public-secret"));
+        assert!(!generated.redacted_config.contains("private-secret"));
+        assert!(!generated.redacted_config.contains("public-secret"));
+        assert!(
+            generated
+                .redacted_config
+                .contains("PrivateKey = <redacted>")
+        );
+        assert!(
+            engine_config_path(&server.id, generated.engine)
+                .display()
+                .to_string()
+                .ends_with(".conf")
+        );
+    }
+
+    #[test]
+    fn amnezia_profile_preserves_obfuscation_fields() {
+        let raw_config = "[Interface]\nPrivateKey = private-secret\nAddress = 10.9.0.2/32\nDNS = 1.1.1.1\nMTU = 1420\nJc = 4\nJmin = 40\nJmax = 70\nS1 = 10\nS2 = 20\nH1 = 1\nH2 = 2\nH3 = 3\nH4 = 4\n\n[Peer]\nPublicKey = public-secret\nAllowedIPs = 0.0.0.0/0, ::/0\nEndpoint = 198.51.100.10:51820\nPersistentKeepalive = 25\n";
+        let server = Server {
+            id: "awg-1".to_string(),
+            name: "AWG Test".to_string(),
+            host: "198.51.100.10".to_string(),
+            port: Some(51820),
+            protocol: Protocol::AmneziaWg,
+            country_code: None,
+            ping_ms: None,
+            raw_url: raw_config.to_string(),
+        };
+        let generated =
+            generate_engine_config(&server, raw_config, RouteMode::WholeComputer).expect("config");
+
+        assert_eq!(generated.engine, EngineKind::AmneziaWg);
+        assert_eq!(generated.path, EnginePath::Adapter);
+        assert!(generated.full_config.contains("Jc = 4"));
+        assert!(generated.full_config.contains("H4 = 4"));
+        assert!(
+            !generated
+                .warnings
+                .iter()
+                .any(|warning| warning.contains("обфускации"))
+        );
     }
 }

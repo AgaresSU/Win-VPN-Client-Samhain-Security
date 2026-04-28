@@ -1,6 +1,6 @@
 # Architecture
 
-Version: `0.7.8`
+Version: `0.7.9`
 
 ## Components
 
@@ -43,4 +43,4 @@ Ctrl+V / Add subscription
   -> show speed, traffic, session time
 ```
 
-The `0.7.8` build implements the shell, state model, versioned IPC envelopes, a Windows named-pipe service endpoint, real subscription ingestion, DPAPI-protected service storage, compact service-backed subscription groups, service-owned latency probes, Engine Manager V1, the first proxy path, and the whole-computer TUN path foundation. Whole-computer mode now generates a sing-box `tun` inbound with DNS hijack, auto-route, strict-route, service-owned TUN lifecycle state, and rollback on stop or unrecovered crash. Adapter-based launches remain reserved for the dedicated WireGuard/AmneziaWG milestone.
+The `0.7.9` build implements the shell, state model, versioned IPC envelopes, a Windows named-pipe service endpoint, real subscription ingestion, DPAPI-protected service storage, compact service-backed subscription groups, service-owned latency probes, Engine Manager V1, the first proxy path, the whole-computer TUN path foundation, and the WireGuard/AmneziaWG adapter path. Adapter profiles are generated as `.conf` files, required interface/peer fields are validated, secrets are redacted in previews, lifecycle commands are owned by the service, and stop rollback removes the generated profile after the adapter is stopped.

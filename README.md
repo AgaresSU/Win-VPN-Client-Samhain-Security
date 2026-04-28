@@ -1,6 +1,6 @@
 # Samhain Security Native
 
-Version: `0.7.8`
+Version: `0.7.9`
 
 Native Windows secure tunneling client prototype built from a clean base.
 
@@ -35,13 +35,13 @@ Implemented in `0.7.0`:
 - Engine manager V1: bundled-engine discovery, lifecycle IPC, redacted config preview, process start/stop/restart hooks, log capture, and one-step crash retry.
 - First proxy path: service-owned system proxy snapshot/apply/rollback, local mixed inbound on `127.0.0.1:20808`, advanced proxy status, and packaged `app/engines` discovery.
 - Whole-computer TUN path foundation: sing-box TUN config generation, DNS hijack policy, TUN lifecycle IPC state, advanced TUN status, and rollback on stop or unrecovered crash.
+- WireGuard and AmneziaWG adapter path: `.conf` generation, secret-redacted preview, required field validation, adapter lifecycle commands, dry-run diagnostics, and stop rollback.
 - Package script for a local Windows distributable.
 
 Not implemented yet:
 
 - Real service installation.
 - Production protocol runtime bundle.
-- WireGuard and AmneziaWG adapter lifecycle.
 - Firewall/WFP app-routing policy.
 - Code signing and online updater.
 
@@ -60,5 +60,5 @@ Not implemented yet:
 The package is written to:
 
 ```text
-dist\SamhainSecurityNative-0.7.8-win-x64
+dist\SamhainSecurityNative-0.7.9-win-x64
 ```

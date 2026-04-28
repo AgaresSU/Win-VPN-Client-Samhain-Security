@@ -1691,8 +1691,8 @@ QString AppController::engineStatusLabel(const QString &status) const
     if (status == "crashed") {
         return "Сбой";
     }
-    if (status == "adapter-pending") {
-        return "Ожидает адаптер";
+    if (status == "failed") {
+        return "Ошибка";
     }
     return "Остановлен";
 }
