@@ -1,5 +1,5 @@
 param(
-    [string]$Version = "0.7.6",
+    [string]$Version = "0.7.7",
     [string]$Configuration = "Release"
 )
 
@@ -13,6 +13,7 @@ $PackageRoot = Join-Path $RepoRoot "dist\SamhainSecurityNative-$Version-win-x64"
 $AppOut = Join-Path $PackageRoot "app"
 $ServiceOut = Join-Path $PackageRoot "service"
 $DocsOut = Join-Path $PackageRoot "docs"
+$EnginesOut = Join-Path $AppOut "engines"
 $QtExe = Join-Path $RepoRoot "build\desktop-qt\SamhainSecurityNative.exe"
 $ServiceExe = Join-Path $RepoRoot "target\release\samhain-service.exe"
 
@@ -47,13 +48,16 @@ if (Test-Path $PackageRoot) {
     Remove-Item -LiteralPath $PackageRoot -Recurse -Force
 }
 
-New-Item -ItemType Directory -Force -Path $AppOut, $ServiceOut, $DocsOut | Out-Null
+New-Item -ItemType Directory -Force -Path $AppOut, $ServiceOut, $DocsOut, $EnginesOut | Out-Null
 Copy-Item -LiteralPath $QtExe -Destination $AppOut -Force
 Copy-Item -LiteralPath $ServiceExe -Destination $ServiceOut -Force
 Copy-Item -LiteralPath (Join-Path $RepoRoot "README.md") -Destination $PackageRoot -Force
 Copy-Item -LiteralPath (Join-Path $RepoRoot "VERSION") -Destination $PackageRoot -Force
 Copy-Item -Path (Join-Path $RepoRoot "docs\*") -Destination $DocsOut -Recurse -Force
 Copy-Item -LiteralPath (Join-Path $RepoRoot "assets") -Destination $PackageRoot -Recurse -Force
+if (Test-Path (Join-Path $RepoRoot "engines")) {
+    Copy-Item -Path (Join-Path $RepoRoot "engines\*") -Destination $EnginesOut -Recurse -Force
+}
 
 Invoke-Checked "windeployqt" @(
     "--qmldir",

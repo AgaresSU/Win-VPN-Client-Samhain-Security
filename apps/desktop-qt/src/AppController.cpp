@@ -527,6 +527,16 @@ QStringList AppController::engineCatalog() const
     return m_engineCatalog;
 }
 
+QString AppController::proxyStatus() const
+{
+    return m_proxyStatus;
+}
+
+QString AppController::proxyDetail() const
+{
+    return m_proxyDetail;
+}
+
 QStringList AppController::logs() const
 {
     return m_logs;
@@ -608,6 +618,7 @@ void AppController::toggleConnection()
                 emit engineChanged();
                 return;
             }
+            refreshProxyStatus();
             appendLog("Сервис: состояние движка обновлено");
         }
     } else {
@@ -633,6 +644,7 @@ void AppController::toggleConnection()
 
     emit statusChanged();
     emit connectionChanged();
+    emit proxyChanged();
 }
 
 void AppController::testPing()
@@ -1052,12 +1064,59 @@ void AppController::stopEngine()
     const auto document = QJsonDocument::fromJson(response.toUtf8());
     const auto event = document.object().value("event").toObject();
     applyEngineStatusEvent(event);
+    refreshProxyStatus();
     m_connected = false;
     m_statsTimer.stop();
     m_statusText = m_engineDetail;
     emit connectionChanged();
     emit statusChanged();
     emit engineChanged();
+}
+
+void AppController::refreshProxyStatus()
+{
+    QJsonObject command;
+    command["type"] = "get-proxy-status";
+    const auto response = requestService(command, IpcEngineTimeoutMs);
+    if (response.isEmpty()) {
+        m_proxyStatus = "Сервис недоступен";
+        m_proxyDetail = "Состояние proxy path не получено";
+        emit proxyChanged();
+        return;
+    }
+
+    const auto document = QJsonDocument::fromJson(response.toUtf8());
+    const auto root = document.object();
+    const auto event = root.value("event").toObject();
+    if (!root.value("ok").toBool(false) || !applyProxyStatusEvent(event)) {
+        m_proxyStatus = "Неизвестно";
+        m_proxyDetail = event.value("message").toString("Состояние proxy path не получено");
+    }
+    emit proxyChanged();
+}
+
+void AppController::restoreProxyPolicy()
+{
+    QJsonObject command;
+    command["type"] = "restore-proxy-policy";
+    const auto response = requestService(command, IpcEngineTimeoutMs);
+    if (response.isEmpty()) {
+        m_proxyStatus = "Сервис недоступен";
+        m_proxyDetail = "Восстановление недоступно";
+        emit proxyChanged();
+        return;
+    }
+
+    const auto document = QJsonDocument::fromJson(response.toUtf8());
+    const auto root = document.object();
+    const auto event = root.value("event").toObject();
+    if (!root.value("ok").toBool(false) || !applyProxyStatusEvent(event)) {
+        m_proxyStatus = "Ошибка";
+        m_proxyDetail = event.value("message").toString("Proxy path не восстановлен");
+    } else {
+        appendLog("Proxy path: выполнено восстановление");
+    }
+    emit proxyChanged();
 }
 
 void AppController::setRouteModeIndex(int routeModeIndex)
@@ -1217,6 +1276,7 @@ bool AppController::applyServiceState(const QJsonObject &state)
     m_routeModeIndex = routeModeIndexFromWire(state.value("route_mode").toString("whole-computer"));
     applyEngineStateObject(state.value("engine_state").toObject());
     applyEngineCatalogArray(state.value("engine_catalog").toArray());
+    applyProxyStateObject(state.value("proxy_state").toObject());
     m_connected = !state.value("connected_server_id").toString().isEmpty()
         && m_engineStatus == "Запущен";
     m_serverModel.setSubscriptions(items, state.value("selected_server_id").toString());
@@ -1229,6 +1289,7 @@ bool AppController::applyServiceState(const QJsonObject &state)
     emit routeModeChanged();
     emit connectionChanged();
     emit engineChanged();
+    emit proxyChanged();
     emit statusChanged();
     return true;
 }
@@ -1440,6 +1501,16 @@ bool AppController::applyEngineStatusEvent(const QJsonObject &event)
     return false;
 }
 
+bool AppController::applyProxyStatusEvent(const QJsonObject &event)
+{
+    const auto type = event.value("type").toString();
+    if (type == "proxy-status") {
+        applyProxyStateObject(event.value("state").toObject());
+        return true;
+    }
+    return false;
+}
+
 void AppController::applyEngineStateObject(const QJsonObject &state)
 {
     const auto status = state.value("status").toString("stopped");
@@ -1471,6 +1542,28 @@ void AppController::applyEngineStateObject(const QJsonObject &state)
             appendLog("Движок/" + stream + ": " + line);
         }
     }
+}
+
+void AppController::applyProxyStateObject(const QJsonObject &state)
+{
+    const auto status = state.value("status").toString("inactive");
+    const auto enabled = state.value("enabled").toBool(false);
+    const auto endpoint = state.value("endpoint").toString();
+    const auto previousServer = state.value("previous_server").toString();
+    const auto message = state.value("message").toString();
+
+    m_proxyStatus = proxyStatusLabel(status, enabled);
+    QStringList detail;
+    if (!endpoint.isEmpty()) {
+        detail.push_back("Текущий: " + endpoint);
+    }
+    if (!previousServer.isEmpty()) {
+        detail.push_back("Предыдущий: " + previousServer);
+    }
+    if (!message.isEmpty()) {
+        detail.push_back(message);
+    }
+    m_proxyDetail = detail.isEmpty() ? "Системный proxy не изменялся" : detail.join(" · ");
 }
 
 void AppController::applyEngineCatalogArray(const QJsonArray &catalog)
@@ -1505,6 +1598,20 @@ QString AppController::engineStatusLabel(const QString &status) const
         return "Ожидает адаптер";
     }
     return "Остановлен";
+}
+
+QString AppController::proxyStatusLabel(const QString &status, bool enabled) const
+{
+    if (status == "active") {
+        return enabled ? "Активен" : "Ожидает";
+    }
+    if (status == "restored") {
+        return "Восстановлен";
+    }
+    if (status == "error") {
+        return "Ошибка";
+    }
+    return "Не активен";
 }
 
 bool AppController::applyPingEvent(const QJsonObject &event)

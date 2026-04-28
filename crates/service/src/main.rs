@@ -5,8 +5,8 @@ use samhain_core::{
 };
 use samhain_ipc::{
     ClientCommand, EngineCatalogEntry, EngineConfigPreview, EngineKind, EngineLifecycleState,
-    EngineLogEntry, IPC_PROTOCOL_VERSION, PingProbeResult, RequestEnvelope, ResponseEnvelope,
-    ServiceEvent, ServiceState, decode_request, encode_event, encode_response,
+    EngineLogEntry, IPC_PROTOCOL_VERSION, PingProbeResult, ProxyLifecycleState, RequestEnvelope,
+    ResponseEnvelope, ServiceEvent, ServiceState, decode_request, encode_event, encode_response,
 };
 use serde::{Deserialize, Serialize};
 use std::fs;
@@ -20,6 +20,8 @@ use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 static STORE: OnceLock<Mutex<ServiceStore>> = OnceLock::new();
 const PROBE_TIMEOUT: Duration = Duration::from_millis(260);
+const LOCAL_PROXY_HOST: &str = "127.0.0.1";
+const LOCAL_PROXY_PORT: u16 = 20808;
 
 fn main() -> Result<()> {
     let mut args = std::env::args().skip(1);
@@ -113,6 +115,16 @@ fn handle_command(command: ClientCommand) -> ServiceEvent {
             Ok(state) => ServiceEvent::EngineStatus { state },
             Err(error) => ServiceEvent::Error {
                 message: format!("Не удалось получить состояние движка: {error}"),
+            },
+        },
+        ClientCommand::GetProxyStatus => match service_store()
+            .lock()
+            .map_err(|_| anyhow!("Service store lock is poisoned."))
+            .map(|mut store| store.proxy_status())
+        {
+            Ok(state) => ServiceEvent::ProxyStatus { state },
+            Err(error) => ServiceEvent::Error {
+                message: format!("Не удалось получить состояние proxy: {error}"),
             },
         },
         ClientCommand::AddSubscription { name, url } => {
@@ -241,6 +253,16 @@ fn handle_command(command: ClientCommand) -> ServiceEvent {
                 message: format!("Не удалось перезапустить движок: {error}"),
             },
         },
+        ClientCommand::RestoreProxyPolicy => match service_store()
+            .lock()
+            .map_err(|_| anyhow!("Service store lock is poisoned."))
+            .and_then(|mut store| store.restore_proxy_policy())
+        {
+            Ok(state) => ServiceEvent::ProxyStatus { state },
+            Err(error) => ServiceEvent::Error {
+                message: format!("Не удалось восстановить proxy: {error}"),
+            },
+        },
         ClientCommand::TestPing { server_id } => match service_store()
             .lock()
             .map_err(|_| anyhow!("Service store lock is poisoned."))
@@ -285,6 +307,7 @@ fn current_state(running: bool) -> ServiceState {
             route_mode: RouteMode::WholeComputer,
             engine_state: EngineLifecycleState::default(),
             engine_catalog: discover_engines(),
+            proxy_state: ProxyLifecycleState::default(),
             probe_queue_active: false,
             probe_results: Vec::new(),
             subscriptions: vec![sample_subscription()],
@@ -348,6 +371,7 @@ impl ServiceStore {
     fn service_state(&mut self, running: bool) -> ServiceState {
         let engine_state = self.engine_manager.snapshot();
         let engine_catalog = self.engine_manager.catalog();
+        let proxy_state = self.engine_manager.proxy_snapshot();
         ServiceState {
             version: env!("CARGO_PKG_VERSION").to_string(),
             running,
@@ -356,6 +380,7 @@ impl ServiceStore {
             route_mode: self.state.route_mode,
             engine_state,
             engine_catalog,
+            proxy_state,
             probe_queue_active: self.state.probe_queue_active,
             probe_results: self.state.probe_results.clone(),
             subscriptions: self
@@ -454,6 +479,10 @@ impl ServiceStore {
         self.engine_manager.snapshot()
     }
 
+    fn proxy_status(&mut self) -> ProxyLifecycleState {
+        self.engine_manager.proxy_snapshot()
+    }
+
     fn preview_engine_config(&mut self, server_id: &str) -> Result<EngineConfigPreview> {
         let server = self
             .find_server(server_id)
@@ -492,6 +521,10 @@ impl ServiceStore {
         self.state.connected_server_id = None;
         self.save()?;
         Ok(state)
+    }
+
+    fn restore_proxy_policy(&mut self) -> Result<ProxyLifecycleState> {
+        self.engine_manager.restore_proxy_policy()
     }
 
     fn restart_engine(
@@ -975,10 +1008,74 @@ struct GeneratedEngineConfig {
     warnings: Vec<String>,
 }
 
+#[derive(Debug, Clone)]
+struct SystemProxySnapshot {
+    enabled: bool,
+    server: Option<String>,
+}
+
+#[derive(Debug)]
+struct ProxyManager {
+    previous: Option<SystemProxySnapshot>,
+    state: ProxyLifecycleState,
+}
+
+impl ProxyManager {
+    fn new() -> Self {
+        Self {
+            previous: None,
+            state: ProxyLifecycleState::default(),
+        }
+    }
+
+    fn apply(&mut self, endpoint: &str) -> Result<ProxyLifecycleState> {
+        if self.previous.is_none() {
+            self.previous = Some(system_proxy::read()?);
+        }
+
+        system_proxy::apply(endpoint)?;
+        let previous = self.previous.clone();
+        self.state = ProxyLifecycleState {
+            status: "active".to_string(),
+            enabled: true,
+            endpoint: Some(endpoint.to_string()),
+            previous_enabled: previous.as_ref().map(|value| value.enabled),
+            previous_server: previous.and_then(|value| value.server),
+            applied_at: Some(now_engine_label()),
+            restored_at: None,
+            message: format!("System proxy points to {endpoint}."),
+        };
+        Ok(self.snapshot())
+    }
+
+    fn restore(&mut self) -> Result<ProxyLifecycleState> {
+        let Some(previous) = self.previous.take() else {
+            self.state.status = "inactive".to_string();
+            self.state.enabled = false;
+            self.state.endpoint = None;
+            self.state.message = "System proxy policy is inactive.".to_string();
+            return Ok(self.snapshot());
+        };
+
+        system_proxy::write(&previous)?;
+        self.state.status = "restored".to_string();
+        self.state.enabled = previous.enabled;
+        self.state.endpoint = previous.server.clone();
+        self.state.restored_at = Some(now_engine_label());
+        self.state.message = "System proxy policy was restored.".to_string();
+        Ok(self.snapshot())
+    }
+
+    fn snapshot(&self) -> ProxyLifecycleState {
+        self.state.clone()
+    }
+}
+
 #[derive(Debug)]
 struct EngineManager {
     child: Option<Child>,
     state: EngineLifecycleState,
+    proxy: ProxyManager,
     logs: Arc<Mutex<Vec<EngineLogEntry>>>,
     last_plan: Option<EngineStartPlan>,
 }
@@ -988,6 +1085,7 @@ impl EngineManager {
         Self {
             child: None,
             state: EngineLifecycleState::default(),
+            proxy: ProxyManager::new(),
             logs: Arc::new(Mutex::new(Vec::new())),
             last_plan: None,
         }
@@ -1002,6 +1100,15 @@ impl EngineManager {
         self.reap_finished_process();
         self.state.log_tail = self.log_tail();
         self.state.clone()
+    }
+
+    fn proxy_snapshot(&mut self) -> ProxyLifecycleState {
+        self.reap_finished_process();
+        self.proxy.snapshot()
+    }
+
+    fn restore_proxy_policy(&mut self) -> Result<ProxyLifecycleState> {
+        self.proxy.restore()
     }
 
     fn preview_config(&mut self, server: &Server, raw_url: &str) -> Result<EngineConfigPreview> {
@@ -1107,6 +1214,27 @@ impl EngineManager {
             full_config: generated.full_config,
         };
         self.spawn_plan(plan, 0)?;
+        match self.proxy.apply(&local_proxy_endpoint()) {
+            Ok(proxy_state) => {
+                self.state.message = format!(
+                    "Движок {} запущен. Proxy: {}.",
+                    engine_name(generated.engine),
+                    proxy_state
+                        .endpoint
+                        .unwrap_or_else(|| local_proxy_endpoint())
+                );
+                push_engine_log(
+                    &self.logs,
+                    "info",
+                    "proxy",
+                    &format!("Applied system proxy {}", local_proxy_endpoint()),
+                );
+            }
+            Err(error) => {
+                let _ = self.stop();
+                return Err(anyhow!("не удалось применить системный proxy: {error}"));
+            }
+        }
         Ok(self.snapshot())
     }
 
@@ -1120,6 +1248,16 @@ impl EngineManager {
 
         if let Some(path) = self.state.config_path.as_deref() {
             let _ = fs::remove_file(path);
+        }
+
+        if let Err(error) = self.proxy.restore() {
+            push_engine_log(
+                &self.logs,
+                "error",
+                "proxy",
+                &format!("Could not restore system proxy: {error}"),
+            );
+            return Err(error);
         }
 
         self.state.status = "stopped".to_string();
@@ -1209,6 +1347,7 @@ impl EngineManager {
         );
         push_engine_log(&self.logs, "warn", "manager", &self.state.message);
 
+        let mut restarted = false;
         if self.state.restart_attempts < 1 {
             if let Some(plan) = self.last_plan.clone() {
                 let restart_attempts = self.state.restart_attempts + 1;
@@ -1216,7 +1355,20 @@ impl EngineManager {
                     self.state.status = "crashed".to_string();
                     self.state.message = format!("Автоперезапуск не удался: {error}");
                     push_engine_log(&self.logs, "error", "manager", &self.state.message);
+                } else {
+                    restarted = true;
                 }
+            }
+        }
+
+        if !restarted {
+            if let Err(error) = self.proxy.restore() {
+                push_engine_log(
+                    &self.logs,
+                    "error",
+                    "proxy",
+                    &format!("Could not restore system proxy after crash: {error}"),
+                );
             }
         }
 
@@ -1384,8 +1536,8 @@ fn build_sing_box_config(server: &Server, raw_url: &str, redacted: bool) -> Resu
             {
                 "type": "mixed",
                 "tag": "local-proxy",
-                "listen": "127.0.0.1",
-                "listen_port": 20808
+                "listen": LOCAL_PROXY_HOST,
+                "listen_port": LOCAL_PROXY_PORT
             }
         ],
         "outbounds": [
@@ -1542,6 +1694,10 @@ fn sanitize_filename(value: &str) -> String {
         .collect()
 }
 
+fn local_proxy_endpoint() -> String {
+    format!("{LOCAL_PROXY_HOST}:{LOCAL_PROXY_PORT}")
+}
+
 fn query_value(parsed: &Option<url::Url>, key: &str) -> Option<String> {
     parsed.as_ref()?.query_pairs().find_map(|(name, value)| {
         if name == key {
@@ -1653,6 +1809,212 @@ where
             }
         }
     });
+}
+
+#[cfg(windows)]
+mod system_proxy {
+    use super::*;
+    use std::ffi::OsStr;
+    use std::os::windows::ffi::OsStrExt;
+    use std::ptr::{null, null_mut};
+    use windows_sys::Win32::Foundation::ERROR_SUCCESS;
+    use windows_sys::Win32::Networking::WinInet::{
+        INTERNET_OPTION_REFRESH, INTERNET_OPTION_SETTINGS_CHANGED, InternetSetOptionW,
+    };
+    use windows_sys::Win32::System::Registry::{
+        HKEY, HKEY_CURRENT_USER, KEY_QUERY_VALUE, KEY_SET_VALUE, REG_DWORD, REG_SZ, RegCloseKey,
+        RegOpenKeyExW, RegQueryValueExW, RegSetValueExW,
+    };
+
+    const INTERNET_SETTINGS: &str = "Software\\Microsoft\\Windows\\CurrentVersion\\Internet Settings";
+
+    pub fn read() -> Result<SystemProxySnapshot> {
+        if dry_run() {
+            return Ok(SystemProxySnapshot {
+                enabled: false,
+                server: None,
+            });
+        }
+
+        let key = open_key(KEY_QUERY_VALUE)?;
+        let enabled = read_dword(key, "ProxyEnable")?.unwrap_or(0) != 0;
+        let server = read_string(key, "ProxyServer")?;
+        unsafe {
+            RegCloseKey(key);
+        }
+        Ok(SystemProxySnapshot { enabled, server })
+    }
+
+    pub fn apply(endpoint: &str) -> Result<()> {
+        write(&SystemProxySnapshot {
+            enabled: true,
+            server: Some(endpoint.to_string()),
+        })
+    }
+
+    pub fn write(snapshot: &SystemProxySnapshot) -> Result<()> {
+        if dry_run() {
+            return Ok(());
+        }
+
+        let key = open_key(KEY_SET_VALUE)?;
+        write_dword(key, "ProxyEnable", u32::from(snapshot.enabled))?;
+        write_string(key, "ProxyServer", snapshot.server.as_deref().unwrap_or_default())?;
+        unsafe {
+            RegCloseKey(key);
+        }
+        notify_settings_changed();
+        Ok(())
+    }
+
+    fn open_key(access: u32) -> Result<HKEY> {
+        let mut key: HKEY = null_mut();
+        let path = wide_null(INTERNET_SETTINGS);
+        let status = unsafe {
+            RegOpenKeyExW(HKEY_CURRENT_USER, path.as_ptr(), 0, access, &mut key)
+        };
+        if status != ERROR_SUCCESS {
+            return Err(anyhow!("RegOpenKeyExW failed: {status}"));
+        }
+        Ok(key)
+    }
+
+    fn read_dword(key: HKEY, name: &str) -> Result<Option<u32>> {
+        let mut value_type = 0;
+        let mut data = [0u8; 4];
+        let mut data_len = data.len() as u32;
+        let name = wide_null(name);
+        let status = unsafe {
+            RegQueryValueExW(
+                key,
+                name.as_ptr(),
+                null_mut(),
+                &mut value_type,
+                data.as_mut_ptr(),
+                &mut data_len,
+            )
+        };
+        if status != ERROR_SUCCESS {
+            return Ok(None);
+        }
+        if value_type != REG_DWORD || data_len < 4 {
+            return Ok(None);
+        }
+        Ok(Some(u32::from_le_bytes(data)))
+    }
+
+    fn read_string(key: HKEY, name: &str) -> Result<Option<String>> {
+        let name = wide_null(name);
+        let mut value_type = 0;
+        let mut data_len = 0u32;
+        let status = unsafe {
+            RegQueryValueExW(
+                key,
+                name.as_ptr(),
+                null_mut(),
+                &mut value_type,
+                null_mut(),
+                &mut data_len,
+            )
+        };
+        if status != ERROR_SUCCESS || value_type != REG_SZ || data_len == 0 {
+            return Ok(None);
+        }
+
+        let mut buffer = vec![0u16; (data_len as usize).div_ceil(2)];
+        let status = unsafe {
+            RegQueryValueExW(
+                key,
+                name.as_ptr(),
+                null_mut(),
+                &mut value_type,
+                buffer.as_mut_ptr().cast(),
+                &mut data_len,
+            )
+        };
+        if status != ERROR_SUCCESS {
+            return Ok(None);
+        }
+
+        if let Some(end) = buffer.iter().position(|ch| *ch == 0) {
+            buffer.truncate(end);
+        }
+        let value = String::from_utf16_lossy(&buffer);
+        Ok((!value.is_empty()).then_some(value))
+    }
+
+    fn write_dword(key: HKEY, name: &str, value: u32) -> Result<()> {
+        let name = wide_null(name);
+        let data = value.to_le_bytes();
+        let status = unsafe {
+            RegSetValueExW(
+                key,
+                name.as_ptr(),
+                0,
+                REG_DWORD,
+                data.as_ptr(),
+                data.len() as u32,
+            )
+        };
+        if status != ERROR_SUCCESS {
+            return Err(anyhow!("RegSetValueExW DWORD failed: {status}"));
+        }
+        Ok(())
+    }
+
+    fn write_string(key: HKEY, name: &str, value: &str) -> Result<()> {
+        let name = wide_null(name);
+        let data = wide_null(value);
+        let status = unsafe {
+            RegSetValueExW(
+                key,
+                name.as_ptr(),
+                0,
+                REG_SZ,
+                data.as_ptr().cast(),
+                (data.len() * 2) as u32,
+            )
+        };
+        if status != ERROR_SUCCESS {
+            return Err(anyhow!("RegSetValueExW string failed: {status}"));
+        }
+        Ok(())
+    }
+
+    fn notify_settings_changed() {
+        unsafe {
+            InternetSetOptionW(null(), INTERNET_OPTION_SETTINGS_CHANGED, null(), 0);
+            InternetSetOptionW(null(), INTERNET_OPTION_REFRESH, null(), 0);
+        }
+    }
+
+    fn dry_run() -> bool {
+        std::env::var_os("SAMHAIN_PROXY_DRY_RUN").is_some()
+    }
+
+    fn wide_null(value: &str) -> Vec<u16> {
+        OsStr::new(value).encode_wide().chain(Some(0)).collect()
+    }
+}
+
+#[cfg(not(windows))]
+mod system_proxy {
+    use super::*;
+
+    pub fn read() -> Result<SystemProxySnapshot> {
+        Ok(SystemProxySnapshot {
+            enabled: false,
+            server: None,
+        })
+    }
+
+    pub fn apply(_endpoint: &str) -> Result<()> {
+        Ok(())
+    }
+
+    pub fn write(_snapshot: &SystemProxySnapshot) -> Result<()> {
+        Ok(())
+    }
 }
 
 mod secret {

@@ -104,6 +104,8 @@ class AppController final : public QObject {
     Q_PROPERTY(QString engineDetail READ engineDetail NOTIFY engineChanged)
     Q_PROPERTY(QString engineConfigPreview READ engineConfigPreview NOTIFY engineChanged)
     Q_PROPERTY(QStringList engineCatalog READ engineCatalog NOTIFY engineChanged)
+    Q_PROPERTY(QString proxyStatus READ proxyStatus NOTIFY proxyChanged)
+    Q_PROPERTY(QString proxyDetail READ proxyDetail NOTIFY proxyChanged)
     Q_PROPERTY(QStringList logs READ logs NOTIFY logsChanged)
 
 public:
@@ -128,6 +130,8 @@ public:
     QString engineDetail() const;
     QString engineConfigPreview() const;
     QStringList engineCatalog() const;
+    QString proxyStatus() const;
+    QString proxyDetail() const;
     QStringList logs() const;
 
     Q_INVOKABLE void navigate(const QString &page);
@@ -148,6 +152,8 @@ public:
     Q_INVOKABLE void previewSelectedEngineConfig();
     Q_INVOKABLE void restartEngine();
     Q_INVOKABLE void stopEngine();
+    Q_INVOKABLE void refreshProxyStatus();
+    Q_INVOKABLE void restoreProxyPolicy();
 
 public slots:
     void setRouteModeIndex(int routeModeIndex);
@@ -161,6 +167,7 @@ signals:
     void routeModeChanged();
     void statsChanged();
     void engineChanged();
+    void proxyChanged();
     void logsChanged();
 
 private:
@@ -182,9 +189,12 @@ private:
     int routeModeIndexFromWire(const QString &routeMode) const;
     bool applyPingEvent(const QJsonObject &event);
     bool applyEngineStatusEvent(const QJsonObject &event);
+    bool applyProxyStatusEvent(const QJsonObject &event);
     void applyEngineStateObject(const QJsonObject &state);
     void applyEngineCatalogArray(const QJsonArray &catalog);
+    void applyProxyStateObject(const QJsonObject &state);
     QString engineStatusLabel(const QString &status) const;
+    QString proxyStatusLabel(const QString &status, bool enabled) const;
     QString pingLabelFromProbe(const QJsonObject &probe) const;
     QString fallbackPingLabel(const QString &serverId) const;
     void appendLog(const QString &message);
@@ -210,6 +220,8 @@ private:
     QString m_engineDetail = "Движок ещё не запускался";
     QString m_engineConfigPreview = "Выберите сервер и нажмите подготовку конфигурации.";
     QStringList m_engineCatalog;
+    QString m_proxyStatus = "Не активен";
+    QString m_proxyDetail = "Системный proxy не изменялся";
     QStringList m_logs;
     QTimer m_statsTimer;
     QTimer m_probeTimer;

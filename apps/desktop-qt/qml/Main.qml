@@ -720,7 +720,7 @@ ApplicationWindow {
             spacing: 18
             PageTitle { text: "О программе" }
             MetricRow { title: "Программа"; value: "Samhain Security Native" }
-            MetricRow { title: "Версия"; value: "0.7.6" }
+            MetricRow { title: "Версия"; value: "0.7.7" }
             MetricRow { title: "Интерфейс"; value: "Qt 6 / QML" }
             MetricRow { title: "Ядро"; value: "Rust workspace" }
             MetricRow { title: "Статус"; value: appController.statusText }
@@ -834,7 +834,7 @@ ApplicationWindow {
     component AdvancedSettingsBox: Rectangle {
         property bool expanded: false
         Layout.fillWidth: true
-        Layout.preferredHeight: expanded ? 520 : 72
+        Layout.preferredHeight: expanded ? 620 : 72
         color: "#333333"
         radius: 6
         clip: true
@@ -886,6 +886,23 @@ ApplicationWindow {
                     maximumLineCount: 3
                     elide: Text.ElideRight
                 }
+                Text {
+                    text: "Proxy path: " + appController.proxyStatus
+                    color: root.text
+                    font.pixelSize: 16
+                    font.bold: true
+                    Layout.fillWidth: true
+                    elide: Text.ElideRight
+                }
+                Text {
+                    text: appController.proxyDetail
+                    color: root.muted
+                    font.pixelSize: 13
+                    wrapMode: Text.WordWrap
+                    Layout.fillWidth: true
+                    maximumLineCount: 2
+                    elide: Text.ElideRight
+                }
                 RowLayout {
                     Layout.fillWidth: true
                     spacing: 10
@@ -914,6 +931,25 @@ ApplicationWindow {
                         text: "Stop"
                         Layout.preferredWidth: 90
                         onClicked: appController.stopEngine()
+                        background: Rectangle { color: "#3B2020"; radius: 8 }
+                        contentItem: Text { text: parent.text; color: root.text; horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter }
+                    }
+                    Item { Layout.fillWidth: true }
+                }
+                RowLayout {
+                    Layout.fillWidth: true
+                    spacing: 10
+                    Button {
+                        text: "Proxy"
+                        Layout.preferredWidth: 118
+                        onClicked: appController.refreshProxyStatus()
+                        background: Rectangle { color: "#242424"; radius: 8 }
+                        contentItem: Text { text: parent.text; color: root.text; horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter }
+                    }
+                    Button {
+                        text: "Restore"
+                        Layout.preferredWidth: 118
+                        onClicked: appController.restoreProxyPolicy()
                         background: Rectangle { color: "#3B2020"; radius: 8 }
                         contentItem: Text { text: parent.text; color: root.text; horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter }
                     }

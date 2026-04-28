@@ -1,6 +1,6 @@
 # Samhain Security Native
 
-Version: `0.7.6`
+Version: `0.7.7`
 
 Native Windows secure tunneling client prototype built from a clean base.
 
@@ -33,13 +33,14 @@ Implemented in `0.7.0`:
 - Persisted selected server and compact grouped server rendering in the desktop shell.
 - Service-backed latency probes with single-server and batch checks, stored probe timestamps, compact row results, and local fallback.
 - Engine manager V1: bundled-engine discovery, lifecycle IPC, redacted config preview, process start/stop/restart hooks, log capture, and one-step crash retry.
+- First proxy path: service-owned system proxy snapshot/apply/rollback, local mixed inbound on `127.0.0.1:20808`, advanced proxy status, and packaged `app/engines` discovery.
 - Package script for a local Windows distributable.
 
 Not implemented yet:
 
-- Real protected route connection.
 - Real service installation.
 - Real TUN/firewall/WFP operations.
+- Production protocol runtime bundle.
 - Code signing and online updater.
 
 ## Build
@@ -57,5 +58,5 @@ Not implemented yet:
 The package is written to:
 
 ```text
-dist\SamhainSecurityNative-0.7.6-win-x64
+dist\SamhainSecurityNative-0.7.7-win-x64
 ```

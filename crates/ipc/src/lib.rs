@@ -60,6 +60,7 @@ pub enum ClientCommand {
     GetState,
     GetEngineCatalog,
     GetEngineStatus,
+    GetProxyStatus,
     AddSubscription { name: String, url: String },
     RefreshSubscription { subscription_id: String },
     RenameSubscription { subscription_id: String, name: String },
@@ -71,6 +72,7 @@ pub enum ClientCommand {
     StartEngine { server_id: String, route_mode: RouteMode },
     StopEngine,
     RestartEngine { server_id: String, route_mode: RouteMode },
+    RestoreProxyPolicy,
     TestPing { server_id: String },
     TestPings { server_ids: Vec<String> },
     CancelPingProbes,
@@ -92,6 +94,7 @@ pub enum ServiceEvent {
     EngineCatalog { engines: Vec<EngineCatalogEntry> },
     EngineStatus { state: EngineLifecycleState },
     EngineConfigPreview { preview: EngineConfigPreview },
+    ProxyStatus { state: ProxyLifecycleState },
     PingResult(PingProbeResult),
     PingBatchResult { results: Vec<PingProbeResult> },
     PingProbesCanceled { canceled: usize },
@@ -174,6 +177,33 @@ impl Default for EngineLifecycleState {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ProxyLifecycleState {
+    pub status: String,
+    pub enabled: bool,
+    pub endpoint: Option<String>,
+    pub previous_enabled: Option<bool>,
+    pub previous_server: Option<String>,
+    pub applied_at: Option<String>,
+    pub restored_at: Option<String>,
+    pub message: String,
+}
+
+impl Default for ProxyLifecycleState {
+    fn default() -> Self {
+        Self {
+            status: "inactive".to_string(),
+            enabled: false,
+            endpoint: None,
+            previous_enabled: None,
+            previous_server: None,
+            applied_at: None,
+            restored_at: None,
+            message: "System proxy policy is inactive.".to_string(),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PingProbeResult {
     pub server_id: String,
     pub ping_ms: Option<u32>,
@@ -192,6 +222,7 @@ pub struct ServiceState {
     pub route_mode: RouteMode,
     pub engine_state: EngineLifecycleState,
     pub engine_catalog: Vec<EngineCatalogEntry>,
+    pub proxy_state: ProxyLifecycleState,
     pub probe_queue_active: bool,
     pub probe_results: Vec<PingProbeResult>,
     pub subscriptions: Vec<Subscription>,
@@ -207,6 +238,7 @@ impl Default for ServiceState {
             route_mode: RouteMode::WholeComputer,
             engine_state: EngineLifecycleState::default(),
             engine_catalog: Vec::new(),
+            proxy_state: ProxyLifecycleState::default(),
             probe_queue_active: false,
             probe_results: Vec::new(),
             subscriptions: Vec::new(),

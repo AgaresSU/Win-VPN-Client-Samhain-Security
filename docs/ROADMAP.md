@@ -1,6 +1,6 @@
 # Roadmap
 
-Current version: `0.7.6`
+Current version: `0.7.7`
 
 This roadmap is the working contract for Samhain Security. Future implementation should follow this order unless a blocker is found and documented in the same commit.
 
@@ -138,6 +138,8 @@ Status: shipped in `v0.7.6` with bundled-engine discovery, lifecycle IPC command
 
 Done when one imported VLESS TCP REALITY server can create a working protected path without TUN.
 
+Status: shipped in `v0.7.7` with local mixed inbound generation, service-owned Windows proxy snapshot/apply/rollback, packaged `app/engines` discovery, proxy lifecycle IPC state, advanced UI status, and rollback on stop or unrecovered engine crash. Runtime byte counters remain on the next telemetry pass because they depend on the selected engine's metrics endpoint.
+
 ### 0.7.8 - Whole Computer TUN Mode
 
 - Add TUN config generation.
@@ -248,13 +250,13 @@ Done when Samhain Security is ready for normal users.
 
 ## Immediate Next Build Order
 
-1. `0.7.7`: first real proxy connection path.
-2. `0.7.8`: whole-computer TUN path.
-3. `0.7.9`: WireGuard and AmneziaWG path.
-4. `0.8.0`: selected/excluded app routing.
-5. `0.8.1`: protection layer.
-6. `0.8.2`: tray, autostart, and link handling.
-7. `0.8.3`: statistics, logs, and support export.
-8. `0.8.4`: UX polish.
-9. `0.8.5`: installer and local operations.
-10. `0.9.0`: beta hardening.
+1. `0.7.8`: whole-computer TUN path.
+2. `0.7.9`: WireGuard and AmneziaWG path.
+3. `0.8.0`: selected/excluded app routing.
+4. `0.8.1`: protection layer.
+5. `0.8.2`: tray, autostart, and link handling.
+6. `0.8.3`: statistics, logs, and support export.
+7. `0.8.4`: UX polish.
+8. `0.8.5`: installer and local operations.
+9. `0.9.0`: beta hardening.
+10. `0.9.5`: release candidate hardening.
