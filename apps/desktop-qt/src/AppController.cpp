@@ -580,6 +580,16 @@ QStringList AppController::routeApplications() const
     return lines;
 }
 
+QString AppController::protectionStatus() const
+{
+    return m_protectionStatus;
+}
+
+QString AppController::protectionDetail() const
+{
+    return m_protectionDetail;
+}
+
 QStringList AppController::logs() const
 {
     return m_logs;
@@ -664,6 +674,7 @@ void AppController::toggleConnection()
             refreshProxyStatus();
             refreshTunStatus();
             refreshAppRoutingPolicy();
+            refreshProtectionPolicy();
             appendLog("Сервис: состояние движка обновлено");
         }
     } else {
@@ -692,6 +703,7 @@ void AppController::toggleConnection()
     emit proxyChanged();
     emit tunChanged();
     emit appRoutingChanged();
+    emit protectionChanged();
 }
 
 void AppController::testPing()
@@ -1114,6 +1126,7 @@ void AppController::stopEngine()
     refreshProxyStatus();
     refreshTunStatus();
     refreshAppRoutingPolicy();
+    refreshProtectionPolicy();
     m_connected = false;
     m_statsTimer.stop();
     m_statusText = m_engineDetail;
@@ -1230,6 +1243,81 @@ void AppController::removeRouteApplication(int index)
     appendLog("Приложение удалено из политики");
     saveState();
     emit appRoutingChanged();
+    emit statusChanged();
+}
+
+void AppController::refreshProtectionPolicy()
+{
+    QJsonObject command;
+    command["type"] = "get-protection-policy";
+    const auto response = requestService(command, IpcEngineTimeoutMs);
+    if (response.isEmpty()) {
+        m_protectionStatus = "Сервис недоступен";
+        m_protectionDetail = "Политика защиты не получена";
+        emit protectionChanged();
+        return;
+    }
+
+    const auto document = QJsonDocument::fromJson(response.toUtf8());
+    const auto root = document.object();
+    const auto event = root.value("event").toObject();
+    if (!root.value("ok").toBool(false) || !applyProtectionPolicyEvent(event)) {
+        m_protectionStatus = "Неизвестно";
+        m_protectionDetail = event.value("message").toString("Политика защиты не получена");
+    }
+    emit protectionChanged();
+}
+
+void AppController::restoreProtectionPolicy()
+{
+    QJsonObject command;
+    command["type"] = "restore-protection-policy";
+    const auto response = requestService(command, IpcEngineTimeoutMs);
+    if (response.isEmpty()) {
+        m_protectionStatus = "Сервис недоступен";
+        m_protectionDetail = "Восстановление защиты недоступно";
+        emit protectionChanged();
+        return;
+    }
+
+    const auto document = QJsonDocument::fromJson(response.toUtf8());
+    const auto root = document.object();
+    const auto event = root.value("event").toObject();
+    if (!root.value("ok").toBool(false) || !applyProtectionPolicyEvent(event)) {
+        m_protectionStatus = "Ошибка";
+        m_protectionDetail = event.value("message").toString("Защита не восстановлена");
+    } else {
+        appendLog("Защита: выполнено восстановление");
+    }
+    emit protectionChanged();
+}
+
+void AppController::emergencyRestore()
+{
+    QJsonObject command;
+    command["type"] = "emergency-restore";
+    const auto response = requestService(command, IpcEngineTimeoutMs);
+    if (response.isEmpty()) {
+        m_statusText = "Сервис недоступен";
+        emit statusChanged();
+        return;
+    }
+
+    const auto document = QJsonDocument::fromJson(response.toUtf8());
+    const auto root = document.object();
+    const auto event = root.value("event").toObject();
+    if (!root.value("ok").toBool(false) || event.value("type").toString() != "state") {
+        m_statusText = event.value("message").toString("Аварийное восстановление не выполнено");
+        emit statusChanged();
+        return;
+    }
+
+    applyServiceState(event);
+    m_connected = false;
+    m_statsTimer.stop();
+    m_statusText = "Всё восстановлено";
+    appendLog("Аварийное восстановление: выполнено");
+    emit connectionChanged();
     emit statusChanged();
 }
 
@@ -1497,6 +1585,7 @@ bool AppController::applyServiceState(const QJsonObject &state)
     applyProxyStateObject(state.value("proxy_state").toObject());
     applyTunStateObject(state.value("tun_state").toObject());
     applyAppRoutingPolicyObject(state.value("app_routing_policy").toObject());
+    applyProtectionPolicyObject(state.value("protection_policy").toObject());
     m_connected = !state.value("connected_server_id").toString().isEmpty()
         && m_engineStatus == "Запущен";
     m_serverModel.setSubscriptions(items, state.value("selected_server_id").toString());
@@ -1512,6 +1601,7 @@ bool AppController::applyServiceState(const QJsonObject &state)
     emit proxyChanged();
     emit tunChanged();
     emit appRoutingChanged();
+    emit protectionChanged();
     emit statusChanged();
     return true;
 }
@@ -1754,6 +1844,16 @@ bool AppController::applyAppRoutingPolicyEvent(const QJsonObject &event)
     return false;
 }
 
+bool AppController::applyProtectionPolicyEvent(const QJsonObject &event)
+{
+    const auto type = event.value("type").toString();
+    if (type == "protection-policy") {
+        applyProtectionPolicyObject(event.value("state").toObject());
+        return true;
+    }
+    return false;
+}
+
 void AppController::applyEngineStateObject(const QJsonObject &state)
 {
     const auto status = state.value("status").toString("stopped");
@@ -1868,6 +1968,34 @@ void AppController::applyAppRoutingPolicyObject(const QJsonObject &state)
     m_routePolicyDetail = detail.join(" · ");
 }
 
+void AppController::applyProtectionPolicyObject(const QJsonObject &state)
+{
+    const auto status = state.value("status").toString("inactive");
+    const auto supported = state.value("supported").toBool(true);
+    const auto enforcing = state.value("enforcing").toBool(false);
+    const auto message = state.value("message").toString();
+    const auto settings = state.value("settings").toObject();
+    const auto ruleNames = state.value("rule_names").toArray();
+    const auto attempts = state.value("restart_attempts").toInt(0);
+
+    m_protectionStatus = protectionStatusLabel(status, supported, enforcing);
+    QStringList detail;
+    detail.push_back(settings.value("kill_switch_enabled").toBool(true) ? "Kill switch: on" : "Kill switch: off");
+    detail.push_back(settings.value("dns_leak_protection_enabled").toBool(true) ? "DNS guard: on" : "DNS guard: off");
+    detail.push_back("IPv6: " + settings.value("ipv6_policy").toString("block"));
+    detail.push_back(settings.value("reconnect_enabled").toBool(true) ? "Watchdog: on" : "Watchdog: off");
+    if (attempts > 0) {
+        detail.push_back("Retries: " + QString::number(attempts));
+    }
+    if (!ruleNames.isEmpty()) {
+        detail.push_back(QString("Rules: %1").arg(ruleNames.size()));
+    }
+    if (!message.isEmpty()) {
+        detail.push_back(message);
+    }
+    m_protectionDetail = detail.join(" · ");
+}
+
 void AppController::syncAppRoutingPolicy()
 {
     QJsonObject command;
@@ -1979,6 +2107,32 @@ QString AppController::routePolicyStatusLabel(const QString &status, bool suppor
     }
     if (status == "restored") {
         return "Восстановлена";
+    }
+    if (status == "inactive") {
+        return "Не активна";
+    }
+    return "Неизвестно";
+}
+
+QString AppController::protectionStatusLabel(const QString &status, bool supported, bool enforcing) const
+{
+    if (status == "active") {
+        return enforcing ? "Активна" : "Вооружена";
+    }
+    if (status == "armed") {
+        return supported ? "Готова" : "Ограничена";
+    }
+    if (status == "dry-run") {
+        return "Проверена";
+    }
+    if (status == "configured") {
+        return supported ? "Готова" : "Требует службу";
+    }
+    if (status == "restored") {
+        return "Восстановлена";
+    }
+    if (status == "error") {
+        return "Ошибка";
     }
     if (status == "inactive") {
         return "Не активна";

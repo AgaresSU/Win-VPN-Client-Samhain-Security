@@ -63,28 +63,65 @@ pub enum ClientCommand {
     GetProxyStatus,
     GetTunStatus,
     GetAppRoutingPolicy,
-    AddSubscription { name: String, url: String },
-    RefreshSubscription { subscription_id: String },
-    RenameSubscription { subscription_id: String, name: String },
-    DeleteSubscription { subscription_id: String },
-    SelectServer { server_id: String },
-    Connect { server_id: String, route_mode: RouteMode },
+    AddSubscription {
+        name: String,
+        url: String,
+    },
+    RefreshSubscription {
+        subscription_id: String,
+    },
+    RenameSubscription {
+        subscription_id: String,
+        name: String,
+    },
+    DeleteSubscription {
+        subscription_id: String,
+    },
+    SelectServer {
+        server_id: String,
+    },
+    Connect {
+        server_id: String,
+        route_mode: RouteMode,
+    },
     Disconnect,
-    PreviewEngineConfig { server_id: String },
-    StartEngine { server_id: String, route_mode: RouteMode },
+    PreviewEngineConfig {
+        server_id: String,
+    },
+    StartEngine {
+        server_id: String,
+        route_mode: RouteMode,
+    },
     StopEngine,
-    RestartEngine { server_id: String, route_mode: RouteMode },
+    RestartEngine {
+        server_id: String,
+        route_mode: RouteMode,
+    },
     RestoreProxyPolicy,
     RestoreTunPolicy,
     SetAppRoutingPolicy {
         route_mode: RouteMode,
         applications: Vec<RouteApplication>,
     },
-    AddRouteApplication { path: String },
-    RemoveRouteApplication { application_id: String },
+    AddRouteApplication {
+        path: String,
+    },
+    RemoveRouteApplication {
+        application_id: String,
+    },
     RestoreAppRoutingPolicy,
-    TestPing { server_id: String },
-    TestPings { server_ids: Vec<String> },
+    GetProtectionPolicy,
+    SetProtectionPolicy {
+        settings: ProtectionSettings,
+    },
+    RestoreProtectionPolicy,
+    EmergencyRestore,
+    TestPing {
+        server_id: String,
+    },
+    TestPings {
+        server_ids: Vec<String>,
+    },
     CancelPingProbes,
 }
 
@@ -107,6 +144,7 @@ pub enum ServiceEvent {
     ProxyStatus { state: ProxyLifecycleState },
     TunStatus { state: TunLifecycleState },
     AppRoutingPolicy { state: AppRoutingPolicyState },
+    ProtectionPolicy { state: ProtectionPolicyState },
     PingResult(PingProbeResult),
     PingBatchResult { results: Vec<PingProbeResult> },
     PingProbesCanceled { canceled: usize },
@@ -281,6 +319,72 @@ impl Default for AppRoutingPolicyState {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum Ipv6Policy {
+    Allow,
+    Block,
+    PreferIpv4,
+}
+
+impl Default for Ipv6Policy {
+    fn default() -> Self {
+        Self::Block
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ProtectionSettings {
+    pub kill_switch_enabled: bool,
+    pub dns_leak_protection_enabled: bool,
+    pub ipv6_policy: Ipv6Policy,
+    pub reconnect_enabled: bool,
+    pub backoff_seconds: u32,
+}
+
+impl Default for ProtectionSettings {
+    fn default() -> Self {
+        Self {
+            kill_switch_enabled: true,
+            dns_leak_protection_enabled: true,
+            ipv6_policy: Ipv6Policy::Block,
+            reconnect_enabled: true,
+            backoff_seconds: 2,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ProtectionPolicyState {
+    pub status: String,
+    pub settings: ProtectionSettings,
+    pub supported: bool,
+    pub enforcing: bool,
+    pub rule_names: Vec<String>,
+    pub applied_at: Option<String>,
+    pub restored_at: Option<String>,
+    pub next_retry_at: Option<String>,
+    pub restart_attempts: u8,
+    pub message: String,
+}
+
+impl Default for ProtectionPolicyState {
+    fn default() -> Self {
+        Self {
+            status: "inactive".to_string(),
+            settings: ProtectionSettings::default(),
+            supported: true,
+            enforcing: false,
+            rule_names: Vec::new(),
+            applied_at: None,
+            restored_at: None,
+            next_retry_at: None,
+            restart_attempts: 0,
+            message: "Protection policy is inactive.".to_string(),
+        }
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PingProbeResult {
     pub server_id: String,
@@ -303,6 +407,7 @@ pub struct ServiceState {
     pub proxy_state: ProxyLifecycleState,
     pub tun_state: TunLifecycleState,
     pub app_routing_policy: AppRoutingPolicyState,
+    pub protection_policy: ProtectionPolicyState,
     pub probe_queue_active: bool,
     pub probe_results: Vec<PingProbeResult>,
     pub subscriptions: Vec<Subscription>,
@@ -321,6 +426,7 @@ impl Default for ServiceState {
             proxy_state: ProxyLifecycleState::default(),
             tun_state: TunLifecycleState::default(),
             app_routing_policy: AppRoutingPolicyState::default(),
+            protection_policy: ProtectionPolicyState::default(),
             probe_queue_active: false,
             probe_results: Vec::new(),
             subscriptions: Vec::new(),

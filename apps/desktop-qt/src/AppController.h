@@ -119,6 +119,8 @@ class AppController final : public QObject {
     Q_PROPERTY(QString routePolicyStatus READ routePolicyStatus NOTIFY appRoutingChanged)
     Q_PROPERTY(QString routePolicyDetail READ routePolicyDetail NOTIFY appRoutingChanged)
     Q_PROPERTY(QStringList routeApplications READ routeApplications NOTIFY appRoutingChanged)
+    Q_PROPERTY(QString protectionStatus READ protectionStatus NOTIFY protectionChanged)
+    Q_PROPERTY(QString protectionDetail READ protectionDetail NOTIFY protectionChanged)
     Q_PROPERTY(QStringList logs READ logs NOTIFY logsChanged)
 
 public:
@@ -151,6 +153,8 @@ public:
     QString routePolicyStatus() const;
     QString routePolicyDetail() const;
     QStringList routeApplications() const;
+    QString protectionStatus() const;
+    QString protectionDetail() const;
     QStringList logs() const;
 
     Q_INVOKABLE void navigate(const QString &page);
@@ -179,6 +183,9 @@ public:
     Q_INVOKABLE void restoreAppRoutingPolicy();
     Q_INVOKABLE void addRouteApplication(const QString &path);
     Q_INVOKABLE void removeRouteApplication(int index);
+    Q_INVOKABLE void refreshProtectionPolicy();
+    Q_INVOKABLE void restoreProtectionPolicy();
+    Q_INVOKABLE void emergencyRestore();
 
 public slots:
     void setRouteModeIndex(int routeModeIndex);
@@ -195,6 +202,7 @@ signals:
     void proxyChanged();
     void tunChanged();
     void appRoutingChanged();
+    void protectionChanged();
     void logsChanged();
 
 private:
@@ -219,17 +227,20 @@ private:
     bool applyProxyStatusEvent(const QJsonObject &event);
     bool applyTunStatusEvent(const QJsonObject &event);
     bool applyAppRoutingPolicyEvent(const QJsonObject &event);
+    bool applyProtectionPolicyEvent(const QJsonObject &event);
     void applyEngineStateObject(const QJsonObject &state);
     void applyEngineCatalogArray(const QJsonArray &catalog);
     void applyProxyStateObject(const QJsonObject &state);
     void applyTunStateObject(const QJsonObject &state);
     void applyAppRoutingPolicyObject(const QJsonObject &state);
+    void applyProtectionPolicyObject(const QJsonObject &state);
     void syncAppRoutingPolicy();
     QJsonArray routeApplicationArray() const;
     QString engineStatusLabel(const QString &status) const;
     QString proxyStatusLabel(const QString &status, bool enabled) const;
     QString tunStatusLabel(const QString &status, bool enabled) const;
     QString routePolicyStatusLabel(const QString &status, bool supported) const;
+    QString protectionStatusLabel(const QString &status, bool supported, bool enforcing) const;
     QString pingLabelFromProbe(const QJsonObject &probe) const;
     QString fallbackPingLabel(const QString &serverId) const;
     void appendLog(const QString &message);
@@ -262,6 +273,8 @@ private:
     QVector<RouteApplicationItem> m_routeApplications;
     QString m_routePolicyStatus = "Не активна";
     QString m_routePolicyDetail = "Режим всего компьютера не требует списка приложений.";
+    QString m_protectionStatus = "Готова";
+    QString m_protectionDetail = "Kill switch, DNS guard, IPv6 policy и watchdog будут применены сервисом.";
     QStringList m_logs;
     QTimer m_statsTimer;
     QTimer m_probeTimer;

@@ -1,6 +1,6 @@
 # Roadmap
 
-Current version: `0.8.0`
+Current version: `0.8.1`
 
 This roadmap is the working contract for Samhain Security. Future implementation should follow this order unless a blocker is found and documented in the same commit.
 
@@ -186,6 +186,8 @@ Status: shipped in `v0.8.0` with selected/excluded application storage, service-
 
 Done when disconnects, crashes, and network changes fail closed or restore cleanly according to user settings.
 
+Status: shipped in `v0.8.1` with service-owned protection settings/state, kill switch/DNS/IPv6/watchdog policy modeling, scoped firewall command planning behind an explicit enforcement flag, emergency restore IPC, UI status in settings, and rollback on stop or unrecovered crash. Full fail-closed enforcement remains tied to the privileged installer/service identity and WFP layer.
+
 ### 0.8.2 - Tray, Autostart, And Link Handling
 
 - Add tray menu and connection status.
@@ -256,11 +258,10 @@ Done when Samhain Security is ready for normal users.
 
 ## Immediate Next Build Order
 
-1. `0.8.1`: protection layer.
-2. `0.8.2`: tray, autostart, and link handling.
-3. `0.8.3`: statistics, logs, and support export.
-4. `0.8.4`: UX polish.
-5. `0.8.5`: installer and local operations.
-6. `0.9.0`: beta hardening.
-7. `0.9.5`: release candidate hardening.
-8. `1.0.0`: stable packaging and release.
+1. `0.8.2`: tray, autostart, and link handling.
+2. `0.8.3`: statistics, logs, and support export.
+3. `0.8.4`: UX polish.
+4. `0.8.5`: installer and local operations.
+5. `0.9.0`: beta hardening.
+6. `0.9.5`: release candidate hardening.
+7. `1.0.0`: stable packaging and release.

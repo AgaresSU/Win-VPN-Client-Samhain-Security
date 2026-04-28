@@ -5,9 +5,10 @@ use samhain_core::{
 };
 use samhain_ipc::{
     AppRoutingPolicyState, ClientCommand, EngineCatalogEntry, EngineConfigPreview, EngineKind,
-    EngineLifecycleState, EngineLogEntry, IPC_PROTOCOL_VERSION, PingProbeResult,
-    ProxyLifecycleState, RequestEnvelope, ResponseEnvelope, RouteApplication, ServiceEvent,
-    ServiceState, TunLifecycleState, decode_request, encode_event, encode_response,
+    EngineLifecycleState, EngineLogEntry, IPC_PROTOCOL_VERSION, Ipv6Policy, PingProbeResult,
+    ProtectionPolicyState, ProtectionSettings, ProxyLifecycleState, RequestEnvelope,
+    ResponseEnvelope, RouteApplication, ServiceEvent, ServiceState, TunLifecycleState,
+    decode_request, encode_event, encode_response,
 };
 use serde::{Deserialize, Serialize};
 use std::fs;
@@ -28,6 +29,10 @@ const TUN_ADDRESS: &str = "172.19.0.1/30";
 const TUN_DNS: &[&str] = &["1.1.1.1", "8.8.8.8"];
 const ADAPTER_DRY_RUN_ENV: &str = "SAMHAIN_ADAPTER_DRY_RUN";
 const APP_ROUTING_DRY_RUN_ENV: &str = "SAMHAIN_APP_ROUTING_DRY_RUN";
+const PROTECTION_DRY_RUN_ENV: &str = "SAMHAIN_PROTECTION_DRY_RUN";
+const PROTECTION_ENFORCE_ENV: &str = "SAMHAIN_PROTECTION_ENFORCE";
+const MAX_RECONNECT_ATTEMPTS: u8 = 3;
+const RECONNECT_BACKOFF_BASE_MS: u64 = 250;
 
 fn main() -> Result<()> {
     let mut args = std::env::args().skip(1);
@@ -156,6 +161,16 @@ fn handle_command(command: ClientCommand) -> ServiceEvent {
             Ok(state) => ServiceEvent::AppRoutingPolicy { state },
             Err(error) => ServiceEvent::Error {
                 message: format!("Не удалось получить политику приложений: {error}"),
+            },
+        },
+        ClientCommand::GetProtectionPolicy => match service_store()
+            .lock()
+            .map_err(|_| anyhow!("Service store lock is poisoned."))
+            .map(|mut store| store.protection_policy())
+        {
+            Ok(state) => ServiceEvent::ProtectionPolicy { state },
+            Err(error) => ServiceEvent::Error {
+                message: format!("Не удалось получить политику защиты: {error}"),
             },
         },
         ClientCommand::AddSubscription { name, url } => {
@@ -347,6 +362,36 @@ fn handle_command(command: ClientCommand) -> ServiceEvent {
                 message: format!("Не удалось восстановить политику приложений: {error}"),
             },
         },
+        ClientCommand::SetProtectionPolicy { settings } => match service_store()
+            .lock()
+            .map_err(|_| anyhow!("Service store lock is poisoned."))
+            .and_then(|mut store| store.set_protection_policy(settings))
+        {
+            Ok(state) => ServiceEvent::ProtectionPolicy { state },
+            Err(error) => ServiceEvent::Error {
+                message: format!("Не удалось сохранить политику защиты: {error}"),
+            },
+        },
+        ClientCommand::RestoreProtectionPolicy => match service_store()
+            .lock()
+            .map_err(|_| anyhow!("Service store lock is poisoned."))
+            .map(|mut store| store.restore_protection_policy())
+        {
+            Ok(state) => ServiceEvent::ProtectionPolicy { state },
+            Err(error) => ServiceEvent::Error {
+                message: format!("Не удалось восстановить защиту: {error}"),
+            },
+        },
+        ClientCommand::EmergencyRestore => match service_store()
+            .lock()
+            .map_err(|_| anyhow!("Service store lock is poisoned."))
+            .and_then(|mut store| store.emergency_restore())
+        {
+            Ok(state) => ServiceEvent::State(state),
+            Err(error) => ServiceEvent::Error {
+                message: format!("Не удалось выполнить аварийное восстановление: {error}"),
+            },
+        },
         ClientCommand::TestPing { server_id } => match service_store()
             .lock()
             .map_err(|_| anyhow!("Service store lock is poisoned."))
@@ -394,6 +439,7 @@ fn current_state(running: bool) -> ServiceState {
             proxy_state: ProxyLifecycleState::default(),
             tun_state: TunLifecycleState::default(),
             app_routing_policy: AppRoutingPolicyState::default(),
+            protection_policy: ProtectionPolicyState::default(),
             probe_queue_active: false,
             probe_results: Vec::new(),
             subscriptions: vec![sample_subscription()],
@@ -464,6 +510,9 @@ impl ServiceStore {
         let app_routing_policy = self
             .engine_manager
             .app_routing_snapshot(self.state.route_mode, self.public_route_applications());
+        let protection_policy = self
+            .engine_manager
+            .protection_snapshot(self.state.protection_settings.clone());
         ServiceState {
             version: env!("CARGO_PKG_VERSION").to_string(),
             running,
@@ -475,6 +524,7 @@ impl ServiceStore {
             proxy_state,
             tun_state,
             app_routing_policy,
+            protection_policy,
             probe_queue_active: self.state.probe_queue_active,
             probe_results: self.state.probe_results.clone(),
             subscriptions: self
@@ -586,6 +636,11 @@ impl ServiceStore {
             .app_routing_snapshot(self.state.route_mode, self.public_route_applications())
     }
 
+    fn protection_policy(&mut self) -> ProtectionPolicyState {
+        self.engine_manager
+            .protection_snapshot(self.state.protection_settings.clone())
+    }
+
     fn preview_engine_config(&mut self, server_id: &str) -> Result<EngineConfigPreview> {
         let server = self
             .find_server(server_id)
@@ -620,6 +675,9 @@ impl ServiceStore {
             return Err(anyhow!("выберите приложения для этого режима"));
         }
         if state.status == "running" || state.status == "starting" {
+            let _ = self
+                .engine_manager
+                .apply_protection_policy(self.state.protection_settings.clone(), route_mode);
             self.state.connected_server_id = Some(server.id.clone());
             self.state.selected_server_id = Some(server.id);
         } else {
@@ -647,6 +705,33 @@ impl ServiceStore {
 
     fn restore_app_routing_policy(&mut self) -> AppRoutingPolicyState {
         self.engine_manager.restore_app_routing_policy()
+    }
+
+    fn set_protection_policy(
+        &mut self,
+        settings: ProtectionSettings,
+    ) -> Result<ProtectionPolicyState> {
+        let settings = normalize_protection_settings(settings);
+        self.state.protection_settings = settings.clone();
+        self.save()?;
+        Ok(self
+            .engine_manager
+            .apply_protection_policy(settings, self.state.route_mode))
+    }
+
+    fn restore_protection_policy(&mut self) -> ProtectionPolicyState {
+        self.engine_manager.restore_protection_policy()
+    }
+
+    fn emergency_restore(&mut self) -> Result<ServiceState> {
+        let _ = self.engine_manager.stop();
+        let _ = self.engine_manager.restore_proxy_policy();
+        let _ = self.engine_manager.restore_tun_policy();
+        let _ = self.engine_manager.restore_app_routing_policy();
+        let _ = self.engine_manager.restore_protection_policy();
+        self.state.connected_server_id = None;
+        self.save()?;
+        Ok(self.service_state(true))
     }
 
     fn set_app_routing_policy(
@@ -875,6 +960,8 @@ struct StoredState {
     probe_results: Vec<PingProbeResult>,
     #[serde(default)]
     route_applications: Vec<StoredRouteApplication>,
+    #[serde(default)]
+    protection_settings: ProtectionSettings,
     subscriptions: Vec<StoredSubscription>,
 }
 
@@ -888,6 +975,7 @@ impl StoredState {
             probe_queue_active: false,
             probe_results: Vec::new(),
             route_applications: Vec::new(),
+            protection_settings: ProtectionSettings::default(),
             subscriptions: vec![StoredSubscription::from_public(sample_subscription())],
         }
     }
@@ -1141,18 +1229,14 @@ fn stable_subscription_id(name: &str, url: &str) -> String {
 }
 
 fn stable_application_id(path: &str) -> String {
-    let checksum = path
-        .to_ascii_lowercase()
-        .bytes()
-        .fold(0u32, |acc, byte| acc.wrapping_mul(33).wrapping_add(byte as u32));
+    let checksum = path.to_ascii_lowercase().bytes().fold(0u32, |acc, byte| {
+        acc.wrapping_mul(33).wrapping_add(byte as u32)
+    });
     format!("app-{checksum:08x}")
 }
 
 fn normalize_application_path(path: &str) -> Result<String> {
-    let trimmed = path
-        .trim()
-        .trim_matches('"')
-        .trim_start_matches("file:///");
+    let trimmed = path.trim().trim_matches('"').trim_start_matches("file:///");
     if trimmed.is_empty() {
         return Err(anyhow!("путь приложения пуст"));
     }
@@ -1525,6 +1609,158 @@ impl AppRoutingManager {
     }
 }
 
+#[derive(Debug, Clone)]
+struct ProtectionFirewallCommand {
+    name: String,
+    args: Vec<String>,
+}
+
+#[derive(Debug)]
+struct ProtectionManager {
+    state: ProtectionPolicyState,
+}
+
+impl ProtectionManager {
+    fn new() -> Self {
+        Self {
+            state: ProtectionPolicyState::default(),
+        }
+    }
+
+    fn snapshot(&self, settings: ProtectionSettings) -> ProtectionPolicyState {
+        let mut state = self.state.clone();
+        state.settings = settings;
+        if matches!(state.status.as_str(), "inactive" | "restored")
+            && protection_enabled(&state.settings)
+        {
+            state.status = "configured".to_string();
+            state.supported = !state.settings.kill_switch_enabled || protection_enforce();
+            state.enforcing = false;
+            state.rule_names = protection_rule_names(&state.settings);
+            state.message = if state.supported {
+                "Защита готова к применению при подключении.".to_string()
+            } else {
+                "Защита подготовлена. Полный kill switch требует привилегированный WFP/firewall enforcement."
+                    .to_string()
+            };
+        }
+        state
+    }
+
+    fn apply(
+        &mut self,
+        settings: ProtectionSettings,
+        route_mode: RouteMode,
+    ) -> ProtectionPolicyState {
+        let settings = normalize_protection_settings(settings);
+        let rule_names = protection_rule_names(&settings);
+
+        if !protection_enabled(&settings) {
+            self.state = ProtectionPolicyState {
+                status: "inactive".to_string(),
+                settings,
+                supported: true,
+                enforcing: false,
+                rule_names: Vec::new(),
+                applied_at: None,
+                restored_at: None,
+                next_retry_at: None,
+                restart_attempts: 0,
+                message: "Защитная политика отключена.".to_string(),
+            };
+            return self.state.clone();
+        }
+
+        if protection_dry_run() {
+            self.state = ProtectionPolicyState {
+                status: "dry-run".to_string(),
+                settings,
+                supported: true,
+                enforcing: false,
+                rule_names,
+                applied_at: Some(now_engine_label()),
+                restored_at: None,
+                next_retry_at: None,
+                restart_attempts: 0,
+                message: protection_message(route_mode, true, false),
+            };
+            return self.state.clone();
+        }
+
+        let enforce = protection_enforce();
+        if enforce {
+            let commands = protection_firewall_commands(&settings);
+            if let Err(error) = protection_firewall::apply(&commands) {
+                self.state = ProtectionPolicyState {
+                    status: "error".to_string(),
+                    settings,
+                    supported: false,
+                    enforcing: false,
+                    rule_names,
+                    applied_at: None,
+                    restored_at: None,
+                    next_retry_at: None,
+                    restart_attempts: 0,
+                    message: format!("Не удалось применить firewall-политику: {error}"),
+                };
+                return self.state.clone();
+            }
+        }
+
+        let full_support = enforce && !settings.kill_switch_enabled;
+        self.state = ProtectionPolicyState {
+            status: if enforce { "active" } else { "armed" }.to_string(),
+            settings,
+            supported: full_support,
+            enforcing: enforce,
+            rule_names,
+            applied_at: Some(now_engine_label()),
+            restored_at: None,
+            next_retry_at: None,
+            restart_attempts: 0,
+            message: protection_message(route_mode, false, enforce),
+        };
+        self.state.clone()
+    }
+
+    fn restore(&mut self) -> ProtectionPolicyState {
+        let rule_names = self.state.rule_names.clone();
+        let restore_result = if self.state.enforcing {
+            protection_firewall::restore(&rule_names)
+        } else {
+            Ok(())
+        };
+
+        self.state.status = if restore_result.is_ok() {
+            "restored".to_string()
+        } else {
+            "error".to_string()
+        };
+        self.state.enforcing = false;
+        self.state.supported = restore_result.is_ok();
+        self.state.restored_at = Some(now_engine_label());
+        self.state.next_retry_at = None;
+        self.state.restart_attempts = 0;
+        self.state.message = match restore_result {
+            Ok(()) => "Защитная политика восстановлена.".to_string(),
+            Err(error) => format!("Восстановление защиты требует внимания: {error}"),
+        };
+        self.state.clone()
+    }
+
+    fn reconnect_enabled(&self) -> bool {
+        self.state.settings.reconnect_enabled
+    }
+
+    fn record_reconnect_attempt(&mut self, attempt: u8) -> ProtectionPolicyState {
+        self.state.restart_attempts = attempt;
+        self.state.next_retry_at = Some(now_engine_label());
+        self.state.message =
+            format!("Watchdog перезапускает движок, попытка {attempt}/{MAX_RECONNECT_ATTEMPTS}.");
+        self.state.clone()
+    }
+}
+
 #[derive(Debug)]
 struct AdapterManager {
     active: Option<ActiveAdapter>,
@@ -1637,6 +1873,7 @@ struct EngineManager {
     proxy: ProxyManager,
     tun: TunManager,
     app_routing: AppRoutingManager,
+    protection: ProtectionManager,
     adapter: AdapterManager,
     logs: Arc<Mutex<Vec<EngineLogEntry>>>,
     last_plan: Option<EngineStartPlan>,
@@ -1650,6 +1887,7 @@ impl EngineManager {
             proxy: ProxyManager::new(),
             tun: TunManager::new(),
             app_routing: AppRoutingManager::new(),
+            protection: ProtectionManager::new(),
             adapter: AdapterManager::new(),
             logs: Arc::new(Mutex::new(Vec::new())),
             last_plan: None,
@@ -1686,6 +1924,11 @@ impl EngineManager {
         self.app_routing.snapshot(route_mode, applications)
     }
 
+    fn protection_snapshot(&mut self, settings: ProtectionSettings) -> ProtectionPolicyState {
+        self.reap_finished_process();
+        self.protection.snapshot(settings)
+    }
+
     fn restore_proxy_policy(&mut self) -> Result<ProxyLifecycleState> {
         self.proxy.restore()
     }
@@ -1707,6 +1950,22 @@ impl EngineManager {
     fn restore_app_routing_policy(&mut self) -> AppRoutingPolicyState {
         let state = self.app_routing.restore();
         push_engine_log(&self.logs, "info", "routing", &state.message);
+        state
+    }
+
+    fn apply_protection_policy(
+        &mut self,
+        settings: ProtectionSettings,
+        route_mode: RouteMode,
+    ) -> ProtectionPolicyState {
+        let state = self.protection.apply(settings, route_mode);
+        push_engine_log(&self.logs, "info", "protection", &state.message);
+        state
+    }
+
+    fn restore_protection_policy(&mut self) -> ProtectionPolicyState {
+        let state = self.protection.restore();
+        push_engine_log(&self.logs, "info", "protection", &state.message);
         state
     }
 
@@ -1937,6 +2196,7 @@ impl EngineManager {
         }
         self.tun.restore();
         self.app_routing.restore();
+        self.protection.restore();
 
         self.state.status = "stopped".to_string();
         self.state.pid = None;
@@ -2030,9 +2290,18 @@ impl EngineManager {
         push_engine_log(&self.logs, "warn", "manager", &self.state.message);
 
         let mut restarted = false;
-        if self.state.restart_attempts < 1 {
+        let max_attempts = if self.protection.reconnect_enabled() {
+            MAX_RECONNECT_ATTEMPTS
+        } else {
+            0
+        };
+        if self.state.restart_attempts < max_attempts {
             if let Some(plan) = self.last_plan.clone() {
                 let restart_attempts = self.state.restart_attempts + 1;
+                self.protection.record_reconnect_attempt(restart_attempts);
+                thread::sleep(Duration::from_millis(
+                    RECONNECT_BACKOFF_BASE_MS * u64::from(restart_attempts),
+                ));
                 if let Err(error) = self.spawn_plan(plan, restart_attempts) {
                     self.state.status = "crashed".to_string();
                     self.state.message = format!("Автоперезапуск не удался: {error}");
@@ -2054,6 +2323,7 @@ impl EngineManager {
             }
             self.tun.restore();
             self.app_routing.restore();
+            self.protection.restore();
         }
 
         self.state.log_tail = self.log_tail();
@@ -2670,6 +2940,113 @@ fn app_routing_dry_run() -> bool {
     std::env::var_os(APP_ROUTING_DRY_RUN_ENV).is_some()
 }
 
+fn protection_dry_run() -> bool {
+    std::env::var_os(PROTECTION_DRY_RUN_ENV).is_some()
+}
+
+fn protection_enforce() -> bool {
+    std::env::var_os(PROTECTION_ENFORCE_ENV).is_some()
+}
+
+fn normalize_protection_settings(mut settings: ProtectionSettings) -> ProtectionSettings {
+    if settings.backoff_seconds == 0 {
+        settings.backoff_seconds = 1;
+    }
+    settings
+}
+
+fn protection_enabled(settings: &ProtectionSettings) -> bool {
+    settings.kill_switch_enabled
+        || settings.dns_leak_protection_enabled
+        || settings.ipv6_policy != Ipv6Policy::Allow
+        || settings.reconnect_enabled
+}
+
+fn protection_rule_names(settings: &ProtectionSettings) -> Vec<String> {
+    let mut names = Vec::new();
+    if settings.kill_switch_enabled {
+        names.push("Samhain Security Kill Switch Guard".to_string());
+    }
+    if settings.dns_leak_protection_enabled {
+        names.push("Samhain Security DNS Guard UDP".to_string());
+        names.push("Samhain Security DNS Guard TCP".to_string());
+    }
+    if settings.ipv6_policy == Ipv6Policy::Block {
+        names.push("Samhain Security IPv6 Guard".to_string());
+    }
+    names
+}
+
+fn protection_firewall_commands(settings: &ProtectionSettings) -> Vec<ProtectionFirewallCommand> {
+    let mut commands = Vec::new();
+    if settings.dns_leak_protection_enabled {
+        commands.push(ProtectionFirewallCommand {
+            name: "Samhain Security DNS Guard UDP".to_string(),
+            args: vec![
+                "advfirewall".to_string(),
+                "firewall".to_string(),
+                "add".to_string(),
+                "rule".to_string(),
+                "name=Samhain Security DNS Guard UDP".to_string(),
+                "dir=out".to_string(),
+                "action=block".to_string(),
+                "protocol=UDP".to_string(),
+                "remoteport=53".to_string(),
+            ],
+        });
+        commands.push(ProtectionFirewallCommand {
+            name: "Samhain Security DNS Guard TCP".to_string(),
+            args: vec![
+                "advfirewall".to_string(),
+                "firewall".to_string(),
+                "add".to_string(),
+                "rule".to_string(),
+                "name=Samhain Security DNS Guard TCP".to_string(),
+                "dir=out".to_string(),
+                "action=block".to_string(),
+                "protocol=TCP".to_string(),
+                "remoteport=53".to_string(),
+            ],
+        });
+    }
+    if settings.ipv6_policy == Ipv6Policy::Block {
+        commands.push(ProtectionFirewallCommand {
+            name: "Samhain Security IPv6 Guard".to_string(),
+            args: vec![
+                "advfirewall".to_string(),
+                "firewall".to_string(),
+                "add".to_string(),
+                "rule".to_string(),
+                "name=Samhain Security IPv6 Guard".to_string(),
+                "dir=out".to_string(),
+                "action=block".to_string(),
+                "remoteip=::/0".to_string(),
+            ],
+        });
+    }
+    commands
+}
+
+fn protection_message(route_mode: RouteMode, dry_run: bool, enforce: bool) -> String {
+    if dry_run {
+        return "Защита проверена в dry-run: kill switch, DNS guard, IPv6 policy, reconnect/watchdog."
+            .to_string();
+    }
+    if enforce {
+        return "DNS/IPv6 firewall guard применён. Полный kill switch остаётся задачей WFP-слоя."
+            .to_string();
+    }
+
+    let mode = match route_mode {
+        RouteMode::WholeComputer => "весь компьютер",
+        RouteMode::SelectedAppsOnly => "только выбранные приложения",
+        RouteMode::ExcludeSelectedApps => "кроме выбранных приложений",
+    };
+    format!(
+        "Защита вооружена для режима {mode}: watchdog и rollback активны, firewall enforcement требует привилегированного запуска."
+    )
+}
+
 fn shell_preview(executable_path: &std::path::Path, args: &[String]) -> String {
     std::iter::once(executable_path.display().to_string())
         .chain(args.iter().map(|arg| {
@@ -2936,6 +3313,82 @@ fn spawn_engine_reader<R>(
             }
         }
     });
+}
+
+#[cfg(windows)]
+mod protection_firewall {
+    use super::*;
+
+    pub fn apply(commands: &[ProtectionFirewallCommand]) -> Result<()> {
+        restore(
+            &commands
+                .iter()
+                .map(|command| command.name.clone())
+                .collect::<Vec<_>>(),
+        )?;
+        for command in commands {
+            run_netsh(&command.args)
+                .with_context(|| format!("Could not apply firewall rule {}", command.name))?;
+        }
+        Ok(())
+    }
+
+    pub fn restore(rule_names: &[String]) -> Result<()> {
+        for name in rule_names {
+            let args = vec![
+                "advfirewall".to_string(),
+                "firewall".to_string(),
+                "delete".to_string(),
+                "rule".to_string(),
+                format!("name={name}"),
+            ];
+            let _ = run_netsh(&args);
+        }
+        Ok(())
+    }
+
+    fn run_netsh(args: &[String]) -> Result<()> {
+        let output = Command::new("netsh")
+            .args(args)
+            .output()
+            .context("Could not run netsh")?;
+        if !output.status.success() {
+            let stderr = String::from_utf8_lossy(&output.stderr).trim().to_string();
+            let stdout = String::from_utf8_lossy(&output.stdout).trim().to_string();
+            return Err(anyhow!(
+                "netsh failed with code {}{}{}",
+                output
+                    .status
+                    .code()
+                    .map(|code| code.to_string())
+                    .unwrap_or_else(|| "unknown".to_string()),
+                if stdout.is_empty() {
+                    String::new()
+                } else {
+                    format!(": {stdout}")
+                },
+                if stderr.is_empty() {
+                    String::new()
+                } else {
+                    format!(": {stderr}")
+                }
+            ));
+        }
+        Ok(())
+    }
+}
+
+#[cfg(not(windows))]
+mod protection_firewall {
+    use super::*;
+
+    pub fn apply(_commands: &[ProtectionFirewallCommand]) -> Result<()> {
+        Ok(())
+    }
+
+    pub fn restore(_rule_names: &[String]) -> Result<()> {
+        Ok(())
+    }
 }
 
 #[cfg(windows)]
@@ -3551,7 +4004,7 @@ mod tests {
             !generated
                 .warnings
                 .iter()
-            .any(|warning| warning.contains("обфускации"))
+                .any(|warning| warning.contains("обфускации"))
         );
     }
 
@@ -3589,5 +4042,63 @@ mod tests {
         let configured = fresh_manager.snapshot(RouteMode::SelectedAppsOnly, state.applications);
         assert_eq!(configured.status, "configured");
         assert_eq!(configured.rule_names.len(), 1);
+    }
+
+    #[test]
+    fn protection_policy_arms_without_enforcement() {
+        let mut manager = ProtectionManager::new();
+        let state = manager.apply(ProtectionSettings::default(), RouteMode::WholeComputer);
+
+        assert_eq!(state.status, "armed");
+        assert!(!state.enforcing);
+        assert!(!state.supported);
+        assert!(
+            state
+                .rule_names
+                .iter()
+                .any(|name| name.contains("DNS Guard"))
+        );
+        assert!(
+            state
+                .rule_names
+                .iter()
+                .any(|name| name.contains("Kill Switch"))
+        );
+
+        let restored = manager.restore();
+        assert_eq!(restored.status, "restored");
+        assert!(!restored.enforcing);
+    }
+
+    #[test]
+    fn protection_firewall_commands_stay_scoped() {
+        let settings = ProtectionSettings {
+            kill_switch_enabled: true,
+            dns_leak_protection_enabled: true,
+            ipv6_policy: Ipv6Policy::Block,
+            reconnect_enabled: true,
+            backoff_seconds: 2,
+        };
+        let commands = protection_firewall_commands(&settings);
+
+        assert_eq!(commands.len(), 3);
+        assert!(
+            commands
+                .iter()
+                .flat_map(|command| command.args.iter())
+                .any(|arg| arg == "remoteport=53")
+        );
+        assert!(
+            commands
+                .iter()
+                .flat_map(|command| command.args.iter())
+                .any(|arg| arg == "remoteip=::/0")
+        );
+        assert!(
+            !commands
+                .iter()
+                .flat_map(|command| command.args.iter())
+                .any(|arg| arg == "action=allow")
+        );
     }
 }

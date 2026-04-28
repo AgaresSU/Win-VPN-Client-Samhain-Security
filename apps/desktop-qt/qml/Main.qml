@@ -825,6 +825,23 @@ ApplicationWindow {
                         contentItem: Text { text: parent.text; color: root.text; horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter }
                     }
                 }
+                SettingsCard {
+                    title: "Защита"
+                    Text {
+                        text: appController.protectionStatus
+                        color: root.muted
+                        font.pixelSize: 16
+                        elide: Text.ElideRight
+                        Layout.fillWidth: true
+                    }
+                    Button {
+                        text: "Обновить"
+                        Layout.preferredWidth: 120
+                        onClicked: appController.refreshProtectionPolicy()
+                        background: Rectangle { color: "#333333"; radius: 8 }
+                        contentItem: Text { text: parent.text; color: root.text; horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter }
+                    }
+                }
                 AdvancedSettingsBox {}
             }
         }
@@ -885,8 +902,8 @@ ApplicationWindow {
             anchors.margins: 36
             spacing: 18
             PageTitle { text: "О программе" }
-            MetricRow { title: "Программа"; value: "Samhain Security Native" }
-            MetricRow { title: "Версия"; value: "0.8.0" }
+                MetricRow { title: "Программа"; value: "Samhain Security Native" }
+            MetricRow { title: "Версия"; value: "0.8.1" }
             MetricRow { title: "Интерфейс"; value: "Qt 6 / QML" }
             MetricRow { title: "Ядро"; value: "Rust workspace" }
             MetricRow { title: "Статус"; value: appController.statusText }
@@ -1000,7 +1017,7 @@ ApplicationWindow {
     component AdvancedSettingsBox: Rectangle {
         property bool expanded: false
         Layout.fillWidth: true
-        Layout.preferredHeight: expanded ? 720 : 72
+        Layout.preferredHeight: expanded ? 860 : 72
         color: "#333333"
         radius: 6
         clip: true
@@ -1086,6 +1103,23 @@ ApplicationWindow {
                     maximumLineCount: 2
                     elide: Text.ElideRight
                 }
+                Text {
+                    text: "Защита: " + appController.protectionStatus
+                    color: root.text
+                    font.pixelSize: 16
+                    font.bold: true
+                    Layout.fillWidth: true
+                    elide: Text.ElideRight
+                }
+                Text {
+                    text: appController.protectionDetail
+                    color: root.muted
+                    font.pixelSize: 13
+                    wrapMode: Text.WordWrap
+                    Layout.fillWidth: true
+                    maximumLineCount: 3
+                    elide: Text.ElideRight
+                }
                 RowLayout {
                     Layout.fillWidth: true
                     spacing: 10
@@ -1148,6 +1182,32 @@ ApplicationWindow {
                         Layout.preferredWidth: 132
                         onClicked: appController.restoreTunPolicy()
                         background: Rectangle { color: "#3B2020"; radius: 8 }
+                        contentItem: Text { text: parent.text; color: root.text; horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter }
+                    }
+                    Item { Layout.fillWidth: true }
+                }
+                RowLayout {
+                    Layout.fillWidth: true
+                    spacing: 10
+                    Button {
+                        text: "Защита"
+                        Layout.preferredWidth: 118
+                        onClicked: appController.refreshProtectionPolicy()
+                        background: Rectangle { color: "#242424"; radius: 8 }
+                        contentItem: Text { text: parent.text; color: root.text; horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter }
+                    }
+                    Button {
+                        text: "Восстановить"
+                        Layout.preferredWidth: 118
+                        onClicked: appController.restoreProtectionPolicy()
+                        background: Rectangle { color: "#3B2020"; radius: 8 }
+                        contentItem: Text { text: parent.text; color: root.text; horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter }
+                    }
+                    Button {
+                        text: "Восстановить всё"
+                        Layout.preferredWidth: 170
+                        onClicked: appController.emergencyRestore()
+                        background: Rectangle { color: "#4A2020"; radius: 8 }
                         contentItem: Text { text: parent.text; color: root.text; horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter }
                     }
                     Item { Layout.fillWidth: true }
