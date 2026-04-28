@@ -8,6 +8,7 @@ using System.Text.RegularExpressions;
 using System.Threading;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Data;
 using System.Windows.Input;
 using System.Windows.Threading;
 using Microsoft.Win32;
@@ -27,6 +28,7 @@ public partial class MainWindow : Window
     private readonly ObservableCollection<SubscriptionSourceListItem> _subscriptionSources = [];
     private readonly ObservableCollection<ServerListItem> _serverChoices = [];
     private readonly ObservableCollection<EngineCatalogEntry> _engineCatalog = [];
+    private ICollectionView? _serverChoicesView;
     private readonly ProfileStore _profileStore = new();
     private readonly AppSettingsStore _appSettingsStore = new();
     private readonly StartupRegistrationService _startupRegistrationService = new();
@@ -87,6 +89,10 @@ public partial class MainWindow : Window
         ServerSelectorComboBox.ItemsSource = _serverChoices;
         ServersListView.ItemsSource = _serverChoices;
         EngineCatalogListView.ItemsSource = _engineCatalog;
+        _serverChoicesView = CollectionViewSource.GetDefaultView(_serverChoices);
+        _serverChoicesView.Filter = FilterServerChoice;
+        ServerSortComboBox.SelectedIndex = 0;
+        UpdateServerCatalogSummary();
         CommandBindings.Add(new CommandBinding(
             ApplicationCommands.Paste,
             PasteCommand_Executed,
@@ -248,6 +254,23 @@ public partial class MainWindow : Window
         ApplyServerChoice(item, $"Сервер: {item.DisplayName}");
     }
 
+    private void ServerCatalogFilter_Changed(object sender, RoutedEventArgs e)
+    {
+        RefreshServerCatalogView();
+    }
+
+    private void ServerSortComboBox_SelectionChanged(object sender, System.Windows.Controls.SelectionChangedEventArgs e)
+    {
+        if (_isLoadingServerChoices)
+        {
+            return;
+        }
+
+        var selectedProfileId = (ServerSelectorComboBox.SelectedItem as ServerListItem)?.Profile.Id
+            ?? (ServersListView.SelectedItem as ServerListItem)?.Profile.Id;
+        RenderServerChoices(SubscriptionSelectorComboBox.SelectedItem as SubscriptionSourceListItem, selectedProfileId);
+    }
+
     private void ApplySelectedServerChoice(string statusText)
     {
         if (ServerSelectorComboBox.SelectedItem is ServerListItem item)
@@ -307,7 +330,8 @@ public partial class MainWindow : Window
         {
             var selectedProfileId = (ServerSelectorComboBox.SelectedItem as ServerListItem)?.Profile.Id;
             var source = SubscriptionSelectorComboBox.SelectedItem as SubscriptionSourceListItem;
-            var targets = _serverChoices
+            var visibleServerCount = GetVisibleServerChoices().Count();
+            var targets = GetVisibleServerChoices()
                 .Select(item => item.Profile)
                 .Take(MaxServerProbesPerRun)
                 .ToList();
@@ -357,7 +381,7 @@ public partial class MainWindow : Window
             await _profileStore.SaveAsync(_profiles);
             RenderServerChoices(source, selectedProfileId);
 
-            StatusTextBlock.Text = targets.Count >= MaxServerProbesPerRun && _serverChoices.Count > MaxServerProbesPerRun
+            StatusTextBlock.Text = targets.Count >= MaxServerProbesPerRun && visibleServerCount > MaxServerProbesPerRun
                 ? $"Проверено серверов: {completed}; доступны: {available}; лимит за раз: {MaxServerProbesPerRun}"
                 : $"Проверено серверов: {completed}; доступны: {available}";
         }, "Проверка серверов...");
@@ -2000,6 +2024,9 @@ public partial class MainWindow : Window
         ToggleSubscriptionButton.IsEnabled = !isBusy && SubscriptionSourcesListBox.SelectedItem is SubscriptionSourceListItem;
         SubscriptionSelectorComboBox.IsEnabled = !isBusy;
         ServerSelectorComboBox.IsEnabled = !isBusy;
+        ServerSearchTextBox.IsEnabled = !isBusy;
+        FavoriteServersOnlyCheckBox.IsEnabled = !isBusy;
+        ServerSortComboBox.IsEnabled = !isBusy;
         ServersListView.IsEnabled = !isBusy;
         FavoriteServerButton.IsEnabled = !isBusy;
         BestServerButton.IsEnabled = !isBusy;
@@ -2255,13 +2282,7 @@ public partial class MainWindow : Window
         {
             _serverChoices.Clear();
 
-            var profiles = GetProfilesForSubscription(source)
-                .OrderBy(profile => GetServerSortKey(profile).ProbeBucket)
-                .ThenByDescending(profile => profile.IsFavorite)
-                .ThenBy(profile => GetServerSortKey(profile).LatencyMs)
-                .ThenByDescending(profile => profile.LastConnectedAt ?? DateTimeOffset.MinValue)
-                .ThenBy(profile => profile.Name, StringComparer.CurrentCultureIgnoreCase)
-                .ThenBy(profile => profile.ServerAddress)
+            var profiles = OrderServerProfiles(GetProfilesForSubscription(source), GetServerSortMode())
                 .ToList();
 
             foreach (var profile in profiles)
@@ -2281,6 +2302,7 @@ public partial class MainWindow : Window
             selected ??= _serverChoices.FirstOrDefault();
             ServerSelectorComboBox.SelectedItem = selected;
             ServersListView.SelectedItem = selected;
+            RefreshServerCatalogView();
             UpdateFavoriteServerButton();
 
             if (source is null)
@@ -2296,9 +2318,111 @@ public partial class MainWindow : Window
         finally
         {
             _isLoadingServerChoices = false;
+            RefreshTrayMenu();
+        }
+    }
+
+    private bool FilterServerChoice(object item)
+    {
+        if (item is not ServerListItem server)
+        {
+            return false;
         }
 
-        RefreshTrayMenu();
+        if (FavoriteServersOnlyCheckBox.IsChecked == true && !server.Profile.IsFavorite)
+        {
+            return false;
+        }
+
+        var query = ServerSearchTextBox.Text.Trim();
+        if (string.IsNullOrWhiteSpace(query))
+        {
+            return true;
+        }
+
+        var terms = query.Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        return terms.All(term => server.SearchText.Contains(term, StringComparison.CurrentCultureIgnoreCase));
+    }
+
+    private void RefreshServerCatalogView()
+    {
+        _serverChoicesView?.Refresh();
+        UpdateServerCatalogSummary();
+        UpdateFavoriteServerButton();
+    }
+
+    private void UpdateServerCatalogSummary()
+    {
+        if (_serverChoicesView is null)
+        {
+            ServerCatalogSummaryTextBlock.Text = "Серверов: 0";
+            return;
+        }
+
+        var visibleCount = GetVisibleServerChoices().Count();
+        var totalCount = _serverChoices.Count;
+        var favoriteCount = _serverChoices.Count(item => item.Profile.IsFavorite);
+        ServerCatalogSummaryTextBlock.Text = visibleCount == totalCount
+            ? $"Серверов: {totalCount}; избранных: {favoriteCount}"
+            : $"Показано: {visibleCount} из {totalCount}; избранных: {favoriteCount}";
+    }
+
+    private IEnumerable<ServerListItem> GetVisibleServerChoices()
+    {
+        return _serverChoicesView is null
+            ? _serverChoices
+            : _serverChoicesView.Cast<ServerListItem>();
+    }
+
+    private string GetServerSortMode()
+    {
+        return (ServerSortComboBox.SelectedItem as ComboBoxItem)?.Tag?.ToString() ?? "smart";
+    }
+
+    private static IOrderedEnumerable<VpnProfile> OrderServerProfiles(IEnumerable<VpnProfile> profiles, string sortMode)
+    {
+        return sortMode switch
+        {
+            "latency" => profiles
+                .OrderBy(profile => GetServerSortKey(profile).ProbeBucket)
+                .ThenBy(profile => GetServerSortKey(profile).LatencyMs)
+                .ThenByDescending(profile => profile.IsFavorite)
+                .ThenByDescending(profile => profile.LastConnectedAt ?? DateTimeOffset.MinValue)
+                .ThenBy(profile => GetProfileSortName(profile), StringComparer.CurrentCultureIgnoreCase)
+                .ThenBy(profile => profile.ServerAddress),
+            "favorite" => profiles
+                .OrderByDescending(profile => profile.IsFavorite)
+                .ThenBy(profile => GetServerSortKey(profile).ProbeBucket)
+                .ThenBy(profile => GetServerSortKey(profile).LatencyMs)
+                .ThenByDescending(profile => profile.LastConnectedAt ?? DateTimeOffset.MinValue)
+                .ThenBy(profile => GetProfileSortName(profile), StringComparer.CurrentCultureIgnoreCase)
+                .ThenBy(profile => profile.ServerAddress),
+            "recent" => profiles
+                .OrderByDescending(profile => profile.LastConnectedAt ?? DateTimeOffset.MinValue)
+                .ThenBy(profile => GetServerSortKey(profile).ProbeBucket)
+                .ThenByDescending(profile => profile.IsFavorite)
+                .ThenBy(profile => GetServerSortKey(profile).LatencyMs)
+                .ThenBy(profile => GetProfileSortName(profile), StringComparer.CurrentCultureIgnoreCase)
+                .ThenBy(profile => profile.ServerAddress),
+            "name" => profiles
+                .OrderBy(profile => GetProfileSortName(profile), StringComparer.CurrentCultureIgnoreCase)
+                .ThenBy(profile => profile.ServerAddress)
+                .ThenBy(profile => profile.ServerPort),
+            _ => profiles
+                .OrderBy(profile => GetServerSortKey(profile).ProbeBucket)
+                .ThenByDescending(profile => profile.IsFavorite)
+                .ThenBy(profile => GetServerSortKey(profile).LatencyMs)
+                .ThenByDescending(profile => profile.LastConnectedAt ?? DateTimeOffset.MinValue)
+                .ThenBy(profile => GetProfileSortName(profile), StringComparer.CurrentCultureIgnoreCase)
+                .ThenBy(profile => profile.ServerAddress)
+        };
+    }
+
+    private static string GetProfileSortName(VpnProfile profile)
+    {
+        return string.IsNullOrWhiteSpace(profile.Name)
+            ? profile.ServerAddress
+            : profile.Name;
     }
 
     private IEnumerable<VpnProfile> GetProfilesForSubscription(SubscriptionSourceListItem? source)
@@ -2344,7 +2468,7 @@ public partial class MainWindow : Window
         if (ServerSelectorComboBox.SelectedItem is not ServerListItem item)
         {
             FavoriteServerButton.Content = "Избранное";
-            FavoriteServerButton.IsEnabled = !_isBusy && _serverChoices.Count > 0;
+            FavoriteServerButton.IsEnabled = !_isBusy && GetVisibleServerChoices().Any();
             return;
         }
 
@@ -2355,13 +2479,12 @@ public partial class MainWindow : Window
 
     private ServerListItem? GetBestServerChoice()
     {
-        return _serverChoices
-            .OrderBy(item => GetServerSortKey(item.Profile).ProbeBucket)
-            .ThenByDescending(item => item.Profile.IsFavorite)
-            .ThenBy(item => GetServerSortKey(item.Profile).LatencyMs)
-            .ThenByDescending(item => item.Profile.LastConnectedAt ?? DateTimeOffset.MinValue)
-            .ThenBy(item => item.DisplayName, StringComparer.CurrentCultureIgnoreCase)
+        var bestProfile = OrderServerProfiles(_serverChoices.Select(item => item.Profile), "smart")
             .FirstOrDefault();
+
+        return bestProfile is null
+            ? null
+            : _serverChoices.FirstOrDefault(item => item.Profile.Id == bestProfile.Id);
     }
 
     private static ServerSortKey GetServerSortKey(VpnProfile profile)
@@ -3292,6 +3415,8 @@ public partial class MainWindow : Window
         public string MenuLabel => BuildMenuLabel(Profile);
 
         public string StatusLabel => BuildStatusLabel(Profile);
+
+        public string SearchText => $"{DisplayName} {Details} {ProtocolLabel} {Endpoint} {MenuLabel} {StatusLabel}";
 
         public string TrayLabel => $"{DisplayName} ({BuildTrayDetails(Profile)})";
 

@@ -1,6 +1,6 @@
 # Samhain Security
 
-Version: `0.5.2`
+Version: `0.5.3`
 
 Desktop secure tunneling client for Windows built with WPF and .NET 9.
 
@@ -35,6 +35,7 @@ Desktop secure tunneling client for Windows built with WPF and .NET 9.
 - Adds a proper local install/upgrade path with install root copy, service replacement, shortcuts, startup entry, and install manifest.
 - Adds an engine manager for sing-box, WireGuard, and AmneziaWG with portable folder creation, version checks, and one-click path selection.
 - Adds runtime config cleanup for temporary VLESS/WireGuard/AmneziaWG files after stop/disconnect and stale startup sweeps.
+- Adds server catalog search, favorites-only filtering, visible counts, and quick sort modes for daily server switching.
 - Adds pre-connect validation for VLESS Reality and WireGuard-style configs with clear local errors.
 - Adds optional reconnect after resume or network changes for the last successful profile.
 - Adds tray-first server selection with connect selected, connect best, and current server submenu.
@@ -113,7 +114,7 @@ Portable package:
 Local package helper:
 
 ```powershell
-.\scripts\install-local.ps1 -PackagePath ".\dist\SamhainSecurity-0.5.2-win-x64" -StartService -CreateStartMenuShortcut
+.\scripts\install-local.ps1 -PackagePath ".\dist\SamhainSecurity-0.5.3-win-x64" -StartService -CreateStartMenuShortcut
 ```
 
 Default install root is `%ProgramFiles%\Samhain Security`. The helper stops and replaces the previous service registration, copies the package to the install root, writes `install-manifest.json`, and preserves `%APPDATA%\SamhainSecurity`.
@@ -206,6 +207,8 @@ Version `0.5.0` starts the beta packaging track. The local installer now perform
 Version `0.5.1` adds the first engine manager pass. The advanced panel now shows sing-box, WireGuard, and AmneziaWG status/version/path, creates portable engine folders, opens the folder for manual drop-in, and can apply a detected engine path to the selected profile.
 
 Version `0.5.2` tightens runtime config handling. Temporary plaintext engine configs are removed after WireGuard/AmneziaWG commands, after sing-box stops, and stale runtime profile folders are swept on app/service startup.
+
+Version `0.5.3` improves daily server selection. The server catalog now supports search, favorites-only filtering, visible/total counts, and sort modes for smart, fast, favorite, recent, and name-based browsing.
 
 ## Versioning
 

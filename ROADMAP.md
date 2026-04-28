@@ -1,6 +1,6 @@
 # Samhain Security Roadmap
 
-Version baseline: `0.5.2`
+Version baseline: `0.5.3`
 
 ## Product Goal
 
@@ -374,6 +374,13 @@ The default UI should stay close to the simplicity of Happ: a small set of obvio
 - Done: service-owned runtime profile folders are swept when the service supervisor starts and stops.
 - Done: WireGuard and AmneziaWG temporary config files are removed after connect/disconnect commands finish.
 - Done: VLESS runtime configs are removed when the managed sing-box process stops or fails to start.
+
+### 0.5.3
+
+- Done: server catalog search for the current subscription list.
+- Done: favorites-only filter and visible/total server count.
+- Done: quick sort modes for smart, fast, favorite, recent, and name-based browsing.
+- Done: manual server checks respect the currently visible catalog filter.
 
 ## Design Direction
 
