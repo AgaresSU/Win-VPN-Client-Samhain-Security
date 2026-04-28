@@ -1,6 +1,6 @@
 # Samhain Security Native
 
-Version: `0.7.0`
+Version: `0.7.1`
 
 Native Windows secure tunneling client prototype built from a clean base.
 
@@ -51,5 +51,5 @@ Not implemented yet:
 The package is written to:
 
 ```text
-dist\SamhainSecurityNative-0.7.0-win-x64
+dist\SamhainSecurityNative-0.7.1-win-x64
 ```
