@@ -1,6 +1,6 @@
 {
   "product": "Samhain Security",
-  "version": "0.5.1",
+  "version": "0.5.2",
   "installRoot": "%ProgramFiles%/Samhain Security",
   "windowsRuntime": "win-x64",
   "appEntry": "app/SamhainSecurity.exe",
@@ -17,6 +17,7 @@
     "copy package files into install root",
     "write install-manifest.json",
     "include engine manager and portable engine folder detection",
+    "clean temporary runtime configs after disconnect and startup sweeps",
     "install local service when elevated",
     "create optional Start Menu shortcut",
     "create optional Desktop shortcut",

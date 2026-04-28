@@ -7,6 +7,11 @@ public sealed class WireGuardTunnelService
 {
     private readonly RuntimePathService _runtimePathService = new();
 
+    public WireGuardTunnelService()
+    {
+        _runtimePathService.CleanupExpired();
+    }
+
     public async Task<CommandResult> ConnectAsync(
         VpnProfile profile,
         string config,
@@ -25,6 +30,7 @@ public sealed class WireGuardTunnelService
         {
             await ProcessRunner.RunProcessAsync(enginePath, ["/uninstalltunnelservice", tunnelName], cancellationToken);
             var installResult = await ProcessRunner.RunProcessAsync(enginePath, ["/installtunnelservice", configPath], cancellationToken);
+            _runtimePathService.CleanupProfileDirectory(profile.Id);
 
             return installResult.IsSuccess
                 ? installResult with { Output = $"WireGuard service installed: WireGuardTunnel${tunnelName}" }
@@ -32,22 +38,26 @@ public sealed class WireGuardTunnelService
         }
         catch (Exception ex)
         {
+            _runtimePathService.CleanupProfileDirectory(profile.Id);
             return new CommandResult(1, string.Empty, ex.Message);
         }
     }
 
-    public Task<CommandResult> DisconnectAsync(VpnProfile profile, CancellationToken cancellationToken = default)
+    public async Task<CommandResult> DisconnectAsync(VpnProfile profile, CancellationToken cancellationToken = default)
     {
         var tunnelName = GetTunnelName(profile);
         var enginePath = EnginePathResolver.ResolveWireGuard(profile.EnginePath);
 
         try
         {
-            return ProcessRunner.RunProcessAsync(enginePath, ["/uninstalltunnelservice", tunnelName], cancellationToken);
+            var result = await ProcessRunner.RunProcessAsync(enginePath, ["/uninstalltunnelservice", tunnelName], cancellationToken);
+            _runtimePathService.CleanupProfileDirectory(profile.Id);
+            return result;
         }
         catch (Exception ex)
         {
-            return Task.FromResult(new CommandResult(1, string.Empty, ex.Message));
+            _runtimePathService.CleanupProfileDirectory(profile.Id);
+            return new CommandResult(1, string.Empty, ex.Message);
         }
     }
 

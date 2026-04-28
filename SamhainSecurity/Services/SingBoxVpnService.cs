@@ -17,6 +17,11 @@ public sealed class SingBoxVpnService
     private readonly Dictionary<string, Process> _processes = [];
     private readonly RuntimePathService _runtimePathService = new();
 
+    public SingBoxVpnService()
+    {
+        _runtimePathService.CleanupExpired();
+    }
+
     public async Task<CommandResult> ConnectAsync(VpnProfile profile, CancellationToken cancellationToken = default)
     {
         Disconnect(profile.Id);
@@ -37,6 +42,7 @@ public sealed class SingBoxVpnService
             var checkResult = await ProcessRunner.RunProcessAsync(enginePath, ["check", "-c", configPath], cancellationToken);
             if (!checkResult.IsSuccess)
             {
+                _runtimePathService.CleanupProfileDirectory(profile.Id);
                 return checkResult;
             }
 
@@ -47,13 +53,15 @@ public sealed class SingBoxVpnService
             if (process.HasExited)
             {
                 _processes.Remove(profile.Id);
+                _runtimePathService.CleanupProfileDirectory(profile.Id);
                 return new CommandResult(process.ExitCode, string.Empty, "sing-box завершился сразу после запуска");
             }
 
-            return new CommandResult(0, $"sing-box запущен. Config: {configPath}", string.Empty);
+            return new CommandResult(0, "sing-box запущен. Runtime config будет удален при отключении.", string.Empty);
         }
         catch (Exception ex)
         {
+            _runtimePathService.CleanupProfileDirectory(profile.Id);
             return new CommandResult(1, string.Empty, ex.Message);
         }
     }
@@ -62,12 +70,14 @@ public sealed class SingBoxVpnService
     {
         if (!_processes.TryGetValue(profileId, out var process))
         {
+            _runtimePathService.CleanupProfileDirectory(profileId);
             return new CommandResult(0, "sing-box не запущен этим приложением", string.Empty);
         }
 
         ProcessRunner.TryKill(process);
         process.Dispose();
         _processes.Remove(profileId);
+        _runtimePathService.CleanupProfileDirectory(profileId);
 
         return new CommandResult(0, "sing-box остановлен", string.Empty);
     }

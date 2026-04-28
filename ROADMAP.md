@@ -1,6 +1,6 @@
 # Samhain Security Roadmap
 
-Version baseline: `0.5.1`
+Version baseline: `0.5.2`
 
 ## Product Goal
 
@@ -367,6 +367,13 @@ The default UI should stay close to the simplicity of Happ: a small set of obvio
 - Done: engine versions and resolved paths are shown in the advanced panel.
 - Done: detected engine paths can be applied to the current profile.
 - Done: root package `engines\...` folders are detected in addition to app-local engine folders.
+
+### 0.5.2
+
+- Done: local runtime profile folders are swept when protocol services start.
+- Done: service-owned runtime profile folders are swept when the service supervisor starts and stops.
+- Done: WireGuard and AmneziaWG temporary config files are removed after connect/disconnect commands finish.
+- Done: VLESS runtime configs are removed when the managed sing-box process stops or fails to start.
 
 ## Design Direction
 

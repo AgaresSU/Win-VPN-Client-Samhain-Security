@@ -4,6 +4,7 @@ using System.Text.Json.Serialization;
 
 public sealed class TunnelSupervisorService : IDisposable
 {
+    private static readonly TimeSpan RuntimeRetention = TimeSpan.FromHours(24);
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
         WriteIndented = true,
@@ -11,6 +12,11 @@ public sealed class TunnelSupervisorService : IDisposable
     };
 
     private readonly Dictionary<string, Process> _singBoxProcesses = [];
+
+    public TunnelSupervisorService()
+    {
+        CleanupExpiredRuntime();
+    }
 
     public Task<PipeResponse> ConnectAsync(PipeRequest request, CancellationToken cancellationToken)
     {
@@ -54,6 +60,7 @@ public sealed class TunnelSupervisorService : IDisposable
         }
 
         _singBoxProcesses.Clear();
+        CleanupExpiredRuntime(TimeSpan.Zero);
     }
 
     private async Task<PipeResponse> ConnectVlessRealityAsync(PipeRequest request, CancellationToken cancellationToken)
@@ -76,6 +83,7 @@ public sealed class TunnelSupervisorService : IDisposable
             var checkResult = await RunAsync(enginePath, ["check", "-c", configPath], cancellationToken);
             if (!checkResult.IsSuccess)
             {
+                CleanupProfileRuntime(GetProfileKey(request));
                 return checkResult;
             }
 
@@ -86,13 +94,15 @@ public sealed class TunnelSupervisorService : IDisposable
             if (process.HasExited)
             {
                 _singBoxProcesses.Remove(GetProfileKey(request));
+                CleanupProfileRuntime(GetProfileKey(request));
                 return new PipeResponse(process.ExitCode, string.Empty, "sing-box exited immediately after start");
             }
 
-            return PipeResponse.Success($"sing-box supervised by service. Config: {configPath}");
+            return PipeResponse.Success("sing-box supervised by service. Runtime config will be removed on disconnect.");
         }
         catch (Exception ex)
         {
+            CleanupProfileRuntime(GetProfileKey(request));
             return PipeResponse.Fail(ex.Message);
         }
     }
@@ -102,12 +112,14 @@ public sealed class TunnelSupervisorService : IDisposable
         var key = GetProfileKey(request);
         if (!_singBoxProcesses.TryGetValue(key, out var process))
         {
+            CleanupProfileRuntime(key);
             return PipeResponse.Success("sing-box is not running under the service");
         }
 
         TryKill(process);
         process.Dispose();
         _singBoxProcesses.Remove(key);
+        CleanupProfileRuntime(key);
 
         return PipeResponse.Success("sing-box stopped by service");
     }
@@ -135,6 +147,7 @@ public sealed class TunnelSupervisorService : IDisposable
         {
             await RunAsync(enginePath, ["/uninstalltunnelservice", tunnelName], cancellationToken);
             var installResult = await RunAsync(enginePath, ["/installtunnelservice", configPath], cancellationToken);
+            CleanupProfileRuntime(GetProfileKey(request));
 
             return installResult.IsSuccess
                 ? installResult with { Output = $"WireGuard service installed by Samhain Security Service: WireGuardTunnel${tunnelName}" }
@@ -142,22 +155,26 @@ public sealed class TunnelSupervisorService : IDisposable
         }
         catch (Exception ex)
         {
+            CleanupProfileRuntime(GetProfileKey(request));
             return PipeResponse.Fail(ex.Message);
         }
     }
 
-    private Task<PipeResponse> DisconnectWireGuardAsync(PipeRequest request, CancellationToken cancellationToken)
+    private async Task<PipeResponse> DisconnectWireGuardAsync(PipeRequest request, CancellationToken cancellationToken)
     {
         var tunnelName = GetTunnelName(request);
         var enginePath = ResolveWireGuard(request.EnginePath);
 
         try
         {
-            return RunAsync(enginePath, ["/uninstalltunnelservice", tunnelName], cancellationToken);
+            var result = await RunAsync(enginePath, ["/uninstalltunnelservice", tunnelName], cancellationToken);
+            CleanupProfileRuntime(GetProfileKey(request));
+            return result;
         }
         catch (Exception ex)
         {
-            return Task.FromResult(PipeResponse.Fail(ex.Message));
+            CleanupProfileRuntime(GetProfileKey(request));
+            return PipeResponse.Fail(ex.Message);
         }
     }
 
@@ -179,10 +196,13 @@ public sealed class TunnelSupervisorService : IDisposable
         try
         {
             await RunAsync(enginePath, ["down", configPath], cancellationToken);
-            return await RunAsync(enginePath, ["up", configPath], cancellationToken);
+            var result = await RunAsync(enginePath, ["up", configPath], cancellationToken);
+            CleanupProfileRuntime(GetProfileKey(request));
+            return result;
         }
         catch (Exception ex)
         {
+            CleanupProfileRuntime(GetProfileKey(request));
             return PipeResponse.Fail(ex.Message);
         }
     }
@@ -194,10 +214,13 @@ public sealed class TunnelSupervisorService : IDisposable
 
         try
         {
-            return await RunAsync(enginePath, ["down", configPath], cancellationToken);
+            var result = await RunAsync(enginePath, ["down", configPath], cancellationToken);
+            CleanupProfileRuntime(GetProfileKey(request));
+            return result;
         }
         catch (Exception ex)
         {
+            CleanupProfileRuntime(GetProfileKey(request));
             return PipeResponse.Fail(ex.Message);
         }
     }
@@ -319,11 +342,78 @@ public sealed class TunnelSupervisorService : IDisposable
 
     private static string GetProfileDirectory(string profileKey)
     {
-        var programData = Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData);
-        var directory = Path.Combine(programData, "SamhainSecurity", "Service", "runtime", SanitizeName(profileKey));
+        var directory = Path.Combine(GetRuntimeRoot(), SanitizeName(profileKey));
         Directory.CreateDirectory(directory);
 
         return directory;
+    }
+
+    private static string GetRuntimeRoot()
+    {
+        var programData = Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData);
+        return Path.Combine(programData, "SamhainSecurity", "Service", "runtime");
+    }
+
+    private static void CleanupProfileRuntime(string profileKey)
+    {
+        SafeDeleteRuntimeDirectory(Path.Combine(GetRuntimeRoot(), SanitizeName(profileKey)));
+    }
+
+    private static void CleanupExpiredRuntime()
+    {
+        CleanupExpiredRuntime(RuntimeRetention);
+    }
+
+    private static void CleanupExpiredRuntime(TimeSpan retention)
+    {
+        var root = GetRuntimeRoot();
+        if (!Directory.Exists(root))
+        {
+            return;
+        }
+
+        foreach (var directory in Directory.GetDirectories(root))
+        {
+            try
+            {
+                var lastWrite = Directory.GetLastWriteTimeUtc(directory);
+                if (DateTime.UtcNow - lastWrite > retention)
+                {
+                    SafeDeleteRuntimeDirectory(directory);
+                }
+            }
+            catch
+            {
+                // Runtime cleanup must not prevent service startup or shutdown.
+            }
+        }
+    }
+
+    private static void SafeDeleteRuntimeDirectory(string directory)
+    {
+        try
+        {
+            if (!Directory.Exists(directory) || !IsUnderRuntimeRoot(directory))
+            {
+                return;
+            }
+
+            Directory.Delete(directory, recursive: true);
+        }
+        catch
+        {
+            // Best-effort cleanup. Engines can briefly keep handles open.
+        }
+    }
+
+    private static bool IsUnderRuntimeRoot(string path)
+    {
+        var root = Path.GetFullPath(GetRuntimeRoot()).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)
+            + Path.DirectorySeparatorChar;
+        var target = Path.GetFullPath(path).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)
+            + Path.DirectorySeparatorChar;
+
+        return target.StartsWith(root, StringComparison.OrdinalIgnoreCase);
     }
 
     private static string ResolveSingBox(string enginePath)

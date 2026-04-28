@@ -7,6 +7,11 @@ public sealed class AmneziaWireGuardService
 {
     private readonly RuntimePathService _runtimePathService = new();
 
+    public AmneziaWireGuardService()
+    {
+        _runtimePathService.CleanupExpired();
+    }
+
     public async Task<CommandResult> ConnectAsync(
         VpnProfile profile,
         string config,
@@ -23,10 +28,13 @@ public sealed class AmneziaWireGuardService
         try
         {
             await ProcessRunner.RunProcessAsync(enginePath, ["down", configPath], cancellationToken);
-            return await ProcessRunner.RunProcessAsync(enginePath, ["up", configPath], cancellationToken);
+            var result = await ProcessRunner.RunProcessAsync(enginePath, ["up", configPath], cancellationToken);
+            _runtimePathService.CleanupProfileDirectory(profile.Id);
+            return result;
         }
         catch (Exception ex)
         {
+            _runtimePathService.CleanupProfileDirectory(profile.Id);
             return new CommandResult(1, string.Empty, ex.Message);
         }
     }
@@ -38,10 +46,13 @@ public sealed class AmneziaWireGuardService
 
         try
         {
-            return await ProcessRunner.RunProcessAsync(enginePath, ["down", configPath], cancellationToken);
+            var result = await ProcessRunner.RunProcessAsync(enginePath, ["down", configPath], cancellationToken);
+            _runtimePathService.CleanupProfileDirectory(profile.Id);
+            return result;
         }
         catch (Exception ex)
         {
+            _runtimePathService.CleanupProfileDirectory(profile.Id);
             return new CommandResult(1, string.Empty, ex.Message);
         }
     }
