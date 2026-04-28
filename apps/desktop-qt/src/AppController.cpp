@@ -537,6 +537,16 @@ QString AppController::proxyDetail() const
     return m_proxyDetail;
 }
 
+QString AppController::tunStatus() const
+{
+    return m_tunStatus;
+}
+
+QString AppController::tunDetail() const
+{
+    return m_tunDetail;
+}
+
 QStringList AppController::logs() const
 {
     return m_logs;
@@ -619,6 +629,7 @@ void AppController::toggleConnection()
                 return;
             }
             refreshProxyStatus();
+            refreshTunStatus();
             appendLog("Сервис: состояние движка обновлено");
         }
     } else {
@@ -645,6 +656,7 @@ void AppController::toggleConnection()
     emit statusChanged();
     emit connectionChanged();
     emit proxyChanged();
+    emit tunChanged();
 }
 
 void AppController::testPing()
@@ -1065,6 +1077,7 @@ void AppController::stopEngine()
     const auto event = document.object().value("event").toObject();
     applyEngineStatusEvent(event);
     refreshProxyStatus();
+    refreshTunStatus();
     m_connected = false;
     m_statsTimer.stop();
     m_statusText = m_engineDetail;
@@ -1093,6 +1106,52 @@ void AppController::refreshProxyStatus()
         m_proxyDetail = event.value("message").toString("Состояние proxy path не получено");
     }
     emit proxyChanged();
+}
+
+void AppController::refreshTunStatus()
+{
+    QJsonObject command;
+    command["type"] = "get-tun-status";
+    const auto response = requestService(command, IpcEngineTimeoutMs);
+    if (response.isEmpty()) {
+        m_tunStatus = "Сервис недоступен";
+        m_tunDetail = "Состояние TUN path не получено";
+        emit tunChanged();
+        return;
+    }
+
+    const auto document = QJsonDocument::fromJson(response.toUtf8());
+    const auto root = document.object();
+    const auto event = root.value("event").toObject();
+    if (!root.value("ok").toBool(false) || !applyTunStatusEvent(event)) {
+        m_tunStatus = "Неизвестно";
+        m_tunDetail = event.value("message").toString("Состояние TUN path не получено");
+    }
+    emit tunChanged();
+}
+
+void AppController::restoreTunPolicy()
+{
+    QJsonObject command;
+    command["type"] = "restore-tun-policy";
+    const auto response = requestService(command, IpcEngineTimeoutMs);
+    if (response.isEmpty()) {
+        m_tunStatus = "Сервис недоступен";
+        m_tunDetail = "Восстановление недоступно";
+        emit tunChanged();
+        return;
+    }
+
+    const auto document = QJsonDocument::fromJson(response.toUtf8());
+    const auto root = document.object();
+    const auto event = root.value("event").toObject();
+    if (!root.value("ok").toBool(false) || !applyTunStatusEvent(event)) {
+        m_tunStatus = "Ошибка";
+        m_tunDetail = event.value("message").toString("TUN path не восстановлен");
+    } else {
+        appendLog("TUN path: выполнено восстановление");
+    }
+    emit tunChanged();
 }
 
 void AppController::restoreProxyPolicy()
@@ -1277,6 +1336,7 @@ bool AppController::applyServiceState(const QJsonObject &state)
     applyEngineStateObject(state.value("engine_state").toObject());
     applyEngineCatalogArray(state.value("engine_catalog").toArray());
     applyProxyStateObject(state.value("proxy_state").toObject());
+    applyTunStateObject(state.value("tun_state").toObject());
     m_connected = !state.value("connected_server_id").toString().isEmpty()
         && m_engineStatus == "Запущен";
     m_serverModel.setSubscriptions(items, state.value("selected_server_id").toString());
@@ -1290,6 +1350,7 @@ bool AppController::applyServiceState(const QJsonObject &state)
     emit connectionChanged();
     emit engineChanged();
     emit proxyChanged();
+    emit tunChanged();
     emit statusChanged();
     return true;
 }
@@ -1511,6 +1572,16 @@ bool AppController::applyProxyStatusEvent(const QJsonObject &event)
     return false;
 }
 
+bool AppController::applyTunStatusEvent(const QJsonObject &event)
+{
+    const auto type = event.value("type").toString();
+    if (type == "tun-status") {
+        applyTunStateObject(event.value("state").toObject());
+        return true;
+    }
+    return false;
+}
+
 void AppController::applyEngineStateObject(const QJsonObject &state)
 {
     const auto status = state.value("status").toString("stopped");
@@ -1566,6 +1637,32 @@ void AppController::applyProxyStateObject(const QJsonObject &state)
     m_proxyDetail = detail.isEmpty() ? "Системный proxy не изменялся" : detail.join(" · ");
 }
 
+void AppController::applyTunStateObject(const QJsonObject &state)
+{
+    const auto status = state.value("status").toString("inactive");
+    const auto enabled = state.value("enabled").toBool(false);
+    const auto interfaceName = state.value("interface_name").toString();
+    const auto address = state.value("address").toString();
+    const auto autoRoute = state.value("auto_route").toBool(false);
+    const auto strictRoute = state.value("strict_route").toBool(false);
+    const auto message = state.value("message").toString();
+
+    m_tunStatus = tunStatusLabel(status, enabled);
+    QStringList detail;
+    if (!interfaceName.isEmpty()) {
+        detail.push_back("Интерфейс: " + interfaceName);
+    }
+    if (!address.isEmpty()) {
+        detail.push_back("Адрес: " + address);
+    }
+    detail.push_back(QString("Маршрут: %1").arg(autoRoute ? "auto" : "off"));
+    detail.push_back(QString("Strict: %1").arg(strictRoute ? "on" : "off"));
+    if (!message.isEmpty()) {
+        detail.push_back(message);
+    }
+    m_tunDetail = detail.join(" · ");
+}
+
 void AppController::applyEngineCatalogArray(const QJsonArray &catalog)
 {
     QStringList lines;
@@ -1601,6 +1698,20 @@ QString AppController::engineStatusLabel(const QString &status) const
 }
 
 QString AppController::proxyStatusLabel(const QString &status, bool enabled) const
+{
+    if (status == "active") {
+        return enabled ? "Активен" : "Ожидает";
+    }
+    if (status == "restored") {
+        return "Восстановлен";
+    }
+    if (status == "error") {
+        return "Ошибка";
+    }
+    return "Не активен";
+}
+
+QString AppController::tunStatusLabel(const QString &status, bool enabled) const
 {
     if (status == "active") {
         return enabled ? "Активен" : "Ожидает";

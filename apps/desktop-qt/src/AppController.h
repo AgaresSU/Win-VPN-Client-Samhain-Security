@@ -106,6 +106,8 @@ class AppController final : public QObject {
     Q_PROPERTY(QStringList engineCatalog READ engineCatalog NOTIFY engineChanged)
     Q_PROPERTY(QString proxyStatus READ proxyStatus NOTIFY proxyChanged)
     Q_PROPERTY(QString proxyDetail READ proxyDetail NOTIFY proxyChanged)
+    Q_PROPERTY(QString tunStatus READ tunStatus NOTIFY tunChanged)
+    Q_PROPERTY(QString tunDetail READ tunDetail NOTIFY tunChanged)
     Q_PROPERTY(QStringList logs READ logs NOTIFY logsChanged)
 
 public:
@@ -132,6 +134,8 @@ public:
     QStringList engineCatalog() const;
     QString proxyStatus() const;
     QString proxyDetail() const;
+    QString tunStatus() const;
+    QString tunDetail() const;
     QStringList logs() const;
 
     Q_INVOKABLE void navigate(const QString &page);
@@ -154,6 +158,8 @@ public:
     Q_INVOKABLE void stopEngine();
     Q_INVOKABLE void refreshProxyStatus();
     Q_INVOKABLE void restoreProxyPolicy();
+    Q_INVOKABLE void refreshTunStatus();
+    Q_INVOKABLE void restoreTunPolicy();
 
 public slots:
     void setRouteModeIndex(int routeModeIndex);
@@ -168,6 +174,7 @@ signals:
     void statsChanged();
     void engineChanged();
     void proxyChanged();
+    void tunChanged();
     void logsChanged();
 
 private:
@@ -190,11 +197,14 @@ private:
     bool applyPingEvent(const QJsonObject &event);
     bool applyEngineStatusEvent(const QJsonObject &event);
     bool applyProxyStatusEvent(const QJsonObject &event);
+    bool applyTunStatusEvent(const QJsonObject &event);
     void applyEngineStateObject(const QJsonObject &state);
     void applyEngineCatalogArray(const QJsonArray &catalog);
     void applyProxyStateObject(const QJsonObject &state);
+    void applyTunStateObject(const QJsonObject &state);
     QString engineStatusLabel(const QString &status) const;
     QString proxyStatusLabel(const QString &status, bool enabled) const;
+    QString tunStatusLabel(const QString &status, bool enabled) const;
     QString pingLabelFromProbe(const QJsonObject &probe) const;
     QString fallbackPingLabel(const QString &serverId) const;
     void appendLog(const QString &message);
@@ -222,6 +232,8 @@ private:
     QStringList m_engineCatalog;
     QString m_proxyStatus = "Не активен";
     QString m_proxyDetail = "Системный proxy не изменялся";
+    QString m_tunStatus = "Не активен";
+    QString m_tunDetail = "TUN path не запускался";
     QStringList m_logs;
     QTimer m_statsTimer;
     QTimer m_probeTimer;

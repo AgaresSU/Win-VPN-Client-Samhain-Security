@@ -61,6 +61,7 @@ pub enum ClientCommand {
     GetEngineCatalog,
     GetEngineStatus,
     GetProxyStatus,
+    GetTunStatus,
     AddSubscription { name: String, url: String },
     RefreshSubscription { subscription_id: String },
     RenameSubscription { subscription_id: String, name: String },
@@ -73,6 +74,7 @@ pub enum ClientCommand {
     StopEngine,
     RestartEngine { server_id: String, route_mode: RouteMode },
     RestoreProxyPolicy,
+    RestoreTunPolicy,
     TestPing { server_id: String },
     TestPings { server_ids: Vec<String> },
     CancelPingProbes,
@@ -95,6 +97,7 @@ pub enum ServiceEvent {
     EngineStatus { state: EngineLifecycleState },
     EngineConfigPreview { preview: EngineConfigPreview },
     ProxyStatus { state: ProxyLifecycleState },
+    TunStatus { state: TunLifecycleState },
     PingResult(PingProbeResult),
     PingBatchResult { results: Vec<PingProbeResult> },
     PingProbesCanceled { canceled: usize },
@@ -204,6 +207,37 @@ impl Default for ProxyLifecycleState {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TunLifecycleState {
+    pub status: String,
+    pub enabled: bool,
+    pub interface_name: Option<String>,
+    pub address: Option<String>,
+    pub dns_servers: Vec<String>,
+    pub auto_route: bool,
+    pub strict_route: bool,
+    pub applied_at: Option<String>,
+    pub restored_at: Option<String>,
+    pub message: String,
+}
+
+impl Default for TunLifecycleState {
+    fn default() -> Self {
+        Self {
+            status: "inactive".to_string(),
+            enabled: false,
+            interface_name: None,
+            address: None,
+            dns_servers: Vec::new(),
+            auto_route: false,
+            strict_route: false,
+            applied_at: None,
+            restored_at: None,
+            message: "TUN policy is inactive.".to_string(),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PingProbeResult {
     pub server_id: String,
     pub ping_ms: Option<u32>,
@@ -223,6 +257,7 @@ pub struct ServiceState {
     pub engine_state: EngineLifecycleState,
     pub engine_catalog: Vec<EngineCatalogEntry>,
     pub proxy_state: ProxyLifecycleState,
+    pub tun_state: TunLifecycleState,
     pub probe_queue_active: bool,
     pub probe_results: Vec<PingProbeResult>,
     pub subscriptions: Vec<Subscription>,
@@ -239,6 +274,7 @@ impl Default for ServiceState {
             engine_state: EngineLifecycleState::default(),
             engine_catalog: Vec::new(),
             proxy_state: ProxyLifecycleState::default(),
+            tun_state: TunLifecycleState::default(),
             probe_queue_active: false,
             probe_results: Vec::new(),
             subscriptions: Vec::new(),

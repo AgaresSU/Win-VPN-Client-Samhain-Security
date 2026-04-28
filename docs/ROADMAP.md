@@ -1,6 +1,6 @@
 # Roadmap
 
-Current version: `0.7.7`
+Current version: `0.7.8`
 
 This roadmap is the working contract for Samhain Security. Future implementation should follow this order unless a blocker is found and documented in the same commit.
 
@@ -150,6 +150,8 @@ Status: shipped in `v0.7.7` with local mixed inbound generation, service-owned W
 
 Done when the whole-computer mode connects, disconnects, and recovers cleanly after process failure.
 
+Status: shipped in `v0.7.8` with sing-box TUN config generation, DNS hijack policy, auto-route and strict-route config, service-owned TUN lifecycle IPC state, advanced UI status, and rollback of proxy/TUN state on stop or unrecovered engine crash. Real byte counters remain on the telemetry milestone.
+
 ### 0.7.9 - WireGuard And AmneziaWG
 
 - Add WireGuard config generation and adapter lifecycle.
@@ -250,13 +252,13 @@ Done when Samhain Security is ready for normal users.
 
 ## Immediate Next Build Order
 
-1. `0.7.8`: whole-computer TUN path.
-2. `0.7.9`: WireGuard and AmneziaWG path.
-3. `0.8.0`: selected/excluded app routing.
-4. `0.8.1`: protection layer.
-5. `0.8.2`: tray, autostart, and link handling.
-6. `0.8.3`: statistics, logs, and support export.
-7. `0.8.4`: UX polish.
-8. `0.8.5`: installer and local operations.
-9. `0.9.0`: beta hardening.
-10. `0.9.5`: release candidate hardening.
+1. `0.7.9`: WireGuard and AmneziaWG path.
+2. `0.8.0`: selected/excluded app routing.
+3. `0.8.1`: protection layer.
+4. `0.8.2`: tray, autostart, and link handling.
+5. `0.8.3`: statistics, logs, and support export.
+6. `0.8.4`: UX polish.
+7. `0.8.5`: installer and local operations.
+8. `0.9.0`: beta hardening.
+9. `0.9.5`: release candidate hardening.
+10. `1.0.0`: stable packaging and release.

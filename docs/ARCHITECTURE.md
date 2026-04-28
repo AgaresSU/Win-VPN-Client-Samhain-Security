@@ -1,6 +1,6 @@
 # Architecture
 
-Version: `0.7.7`
+Version: `0.7.8`
 
 ## Components
 
@@ -43,4 +43,4 @@ Ctrl+V / Add subscription
   -> show speed, traffic, session time
 ```
 
-The `0.7.7` build implements the shell, state model, versioned IPC envelopes, a Windows named-pipe service endpoint, real subscription ingestion, DPAPI-protected service storage, compact service-backed subscription groups, service-owned latency probes, Engine Manager V1, and the first proxy path. The proxy path generates a local mixed inbound on `127.0.0.1:20808`, starts process-based engines when binaries are present, snapshots current Windows proxy settings, applies service-owned proxy policy, and restores the previous policy on stop or unrecovered crash. Adapter-based launches remain reserved for the dedicated WireGuard/AmneziaWG milestone.
+The `0.7.8` build implements the shell, state model, versioned IPC envelopes, a Windows named-pipe service endpoint, real subscription ingestion, DPAPI-protected service storage, compact service-backed subscription groups, service-owned latency probes, Engine Manager V1, the first proxy path, and the whole-computer TUN path foundation. Whole-computer mode now generates a sing-box `tun` inbound with DNS hijack, auto-route, strict-route, service-owned TUN lifecycle state, and rollback on stop or unrecovered crash. Adapter-based launches remain reserved for the dedicated WireGuard/AmneziaWG milestone.

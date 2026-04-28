@@ -6,7 +6,8 @@ use samhain_core::{
 use samhain_ipc::{
     ClientCommand, EngineCatalogEntry, EngineConfigPreview, EngineKind, EngineLifecycleState,
     EngineLogEntry, IPC_PROTOCOL_VERSION, PingProbeResult, ProxyLifecycleState, RequestEnvelope,
-    ResponseEnvelope, ServiceEvent, ServiceState, decode_request, encode_event, encode_response,
+    ResponseEnvelope, ServiceEvent, ServiceState, TunLifecycleState, decode_request, encode_event,
+    encode_response,
 };
 use serde::{Deserialize, Serialize};
 use std::fs;
@@ -22,6 +23,9 @@ static STORE: OnceLock<Mutex<ServiceStore>> = OnceLock::new();
 const PROBE_TIMEOUT: Duration = Duration::from_millis(260);
 const LOCAL_PROXY_HOST: &str = "127.0.0.1";
 const LOCAL_PROXY_PORT: u16 = 20808;
+const TUN_INTERFACE_NAME: &str = "samhain-tun";
+const TUN_ADDRESS: &str = "172.19.0.1/30";
+const TUN_DNS: &[&str] = &["1.1.1.1", "8.8.8.8"];
 
 fn main() -> Result<()> {
     let mut args = std::env::args().skip(1);
@@ -125,6 +129,16 @@ fn handle_command(command: ClientCommand) -> ServiceEvent {
             Ok(state) => ServiceEvent::ProxyStatus { state },
             Err(error) => ServiceEvent::Error {
                 message: format!("Не удалось получить состояние proxy: {error}"),
+            },
+        },
+        ClientCommand::GetTunStatus => match service_store()
+            .lock()
+            .map_err(|_| anyhow!("Service store lock is poisoned."))
+            .map(|mut store| store.tun_status())
+        {
+            Ok(state) => ServiceEvent::TunStatus { state },
+            Err(error) => ServiceEvent::Error {
+                message: format!("Не удалось получить состояние TUN: {error}"),
             },
         },
         ClientCommand::AddSubscription { name, url } => {
@@ -263,6 +277,16 @@ fn handle_command(command: ClientCommand) -> ServiceEvent {
                 message: format!("Не удалось восстановить proxy: {error}"),
             },
         },
+        ClientCommand::RestoreTunPolicy => match service_store()
+            .lock()
+            .map_err(|_| anyhow!("Service store lock is poisoned."))
+            .and_then(|mut store| store.restore_tun_policy())
+        {
+            Ok(state) => ServiceEvent::TunStatus { state },
+            Err(error) => ServiceEvent::Error {
+                message: format!("Не удалось восстановить TUN: {error}"),
+            },
+        },
         ClientCommand::TestPing { server_id } => match service_store()
             .lock()
             .map_err(|_| anyhow!("Service store lock is poisoned."))
@@ -308,6 +332,7 @@ fn current_state(running: bool) -> ServiceState {
             engine_state: EngineLifecycleState::default(),
             engine_catalog: discover_engines(),
             proxy_state: ProxyLifecycleState::default(),
+            tun_state: TunLifecycleState::default(),
             probe_queue_active: false,
             probe_results: Vec::new(),
             subscriptions: vec![sample_subscription()],
@@ -372,6 +397,7 @@ impl ServiceStore {
         let engine_state = self.engine_manager.snapshot();
         let engine_catalog = self.engine_manager.catalog();
         let proxy_state = self.engine_manager.proxy_snapshot();
+        let tun_state = self.engine_manager.tun_snapshot();
         ServiceState {
             version: env!("CARGO_PKG_VERSION").to_string(),
             running,
@@ -381,6 +407,7 @@ impl ServiceStore {
             engine_state,
             engine_catalog,
             proxy_state,
+            tun_state,
             probe_queue_active: self.state.probe_queue_active,
             probe_results: self.state.probe_results.clone(),
             subscriptions: self
@@ -483,6 +510,10 @@ impl ServiceStore {
         self.engine_manager.proxy_snapshot()
     }
 
+    fn tun_status(&mut self) -> TunLifecycleState {
+        self.engine_manager.tun_snapshot()
+    }
+
     fn preview_engine_config(&mut self, server_id: &str) -> Result<EngineConfigPreview> {
         let server = self
             .find_server(server_id)
@@ -525,6 +556,10 @@ impl ServiceStore {
 
     fn restore_proxy_policy(&mut self) -> Result<ProxyLifecycleState> {
         self.engine_manager.restore_proxy_policy()
+    }
+
+    fn restore_tun_policy(&mut self) -> Result<TunLifecycleState> {
+        self.engine_manager.restore_tun_policy()
     }
 
     fn restart_engine(
@@ -993,6 +1028,7 @@ fn probe_server(server: &Server) -> PingProbeResult {
 #[derive(Debug, Clone)]
 struct EngineStartPlan {
     kind: EngineKind,
+    path: EnginePath,
     server_id: String,
     executable_path: PathBuf,
     config_path: PathBuf,
@@ -1000,9 +1036,17 @@ struct EngineStartPlan {
     full_config: String,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum EnginePath {
+    Proxy,
+    Tun,
+    Adapter,
+}
+
 #[derive(Debug, Clone)]
 struct GeneratedEngineConfig {
     engine: EngineKind,
+    path: EnginePath,
     full_config: String,
     redacted_config: String,
     warnings: Vec<String>,
@@ -1072,10 +1116,54 @@ impl ProxyManager {
 }
 
 #[derive(Debug)]
+struct TunManager {
+    state: TunLifecycleState,
+}
+
+impl TunManager {
+    fn new() -> Self {
+        Self {
+            state: TunLifecycleState::default(),
+        }
+    }
+
+    fn apply(&mut self) -> TunLifecycleState {
+        self.state = TunLifecycleState {
+            status: "active".to_string(),
+            enabled: true,
+            interface_name: Some(TUN_INTERFACE_NAME.to_string()),
+            address: Some(TUN_ADDRESS.to_string()),
+            dns_servers: TUN_DNS.iter().map(|value| value.to_string()).collect(),
+            auto_route: true,
+            strict_route: true,
+            applied_at: Some(now_engine_label()),
+            restored_at: None,
+            message: "TUN policy is active through the engine config.".to_string(),
+        };
+        self.snapshot()
+    }
+
+    fn restore(&mut self) -> TunLifecycleState {
+        self.state.enabled = false;
+        self.state.status = "restored".to_string();
+        self.state.auto_route = false;
+        self.state.strict_route = false;
+        self.state.restored_at = Some(now_engine_label());
+        self.state.message = "TUN policy was restored.".to_string();
+        self.snapshot()
+    }
+
+    fn snapshot(&self) -> TunLifecycleState {
+        self.state.clone()
+    }
+}
+
+#[derive(Debug)]
 struct EngineManager {
     child: Option<Child>,
     state: EngineLifecycleState,
     proxy: ProxyManager,
+    tun: TunManager,
     logs: Arc<Mutex<Vec<EngineLogEntry>>>,
     last_plan: Option<EngineStartPlan>,
 }
@@ -1086,6 +1174,7 @@ impl EngineManager {
             child: None,
             state: EngineLifecycleState::default(),
             proxy: ProxyManager::new(),
+            tun: TunManager::new(),
             logs: Arc::new(Mutex::new(Vec::new())),
             last_plan: None,
         }
@@ -1107,8 +1196,17 @@ impl EngineManager {
         self.proxy.snapshot()
     }
 
+    fn tun_snapshot(&mut self) -> TunLifecycleState {
+        self.reap_finished_process();
+        self.tun.snapshot()
+    }
+
     fn restore_proxy_policy(&mut self) -> Result<ProxyLifecycleState> {
         self.proxy.restore()
+    }
+
+    fn restore_tun_policy(&mut self) -> Result<TunLifecycleState> {
+        Ok(self.tun.restore())
     }
 
     fn preview_config(&mut self, server: &Server, raw_url: &str) -> Result<EngineConfigPreview> {
@@ -1141,7 +1239,7 @@ impl EngineManager {
         self.stop()?;
 
         let generated = generate_engine_config(server, raw_url, route_mode)?;
-        if generated.engine == EngineKind::WireGuard || generated.engine == EngineKind::AmneziaWg {
+        if generated.path == EnginePath::Adapter {
             self.state = EngineLifecycleState {
                 status: "adapter-pending".to_string(),
                 engine: generated.engine,
@@ -1207,6 +1305,7 @@ impl EngineManager {
         let args = engine_args(generated.engine, &config_path);
         let plan = EngineStartPlan {
             kind: generated.engine,
+            path: generated.path,
             server_id: server.id.clone(),
             executable_path,
             config_path,
@@ -1214,26 +1313,47 @@ impl EngineManager {
             full_config: generated.full_config,
         };
         self.spawn_plan(plan, 0)?;
-        match self.proxy.apply(&local_proxy_endpoint()) {
-            Ok(proxy_state) => {
+        match generated.path {
+            EnginePath::Proxy => match self.proxy.apply(&local_proxy_endpoint()) {
+                Ok(proxy_state) => {
+                    self.tun.restore();
+                    self.state.message = format!(
+                        "Движок {} запущен. Proxy: {}.",
+                        engine_name(generated.engine),
+                        proxy_state
+                            .endpoint
+                            .unwrap_or_else(|| local_proxy_endpoint())
+                    );
+                    push_engine_log(
+                        &self.logs,
+                        "info",
+                        "proxy",
+                        &format!("Applied system proxy {}", local_proxy_endpoint()),
+                    );
+                }
+                Err(error) => {
+                    let _ = self.stop();
+                    return Err(anyhow!("не удалось применить системный proxy: {error}"));
+                }
+            },
+            EnginePath::Tun => {
+                let _ = self.proxy.restore();
+                let tun_state = self.tun.apply();
                 self.state.message = format!(
-                    "Движок {} запущен. Proxy: {}.",
+                    "Движок {} запущен. TUN: {}.",
                     engine_name(generated.engine),
-                    proxy_state
-                        .endpoint
-                        .unwrap_or_else(|| local_proxy_endpoint())
+                    tun_state
+                        .interface_name
+                        .unwrap_or_else(|| TUN_INTERFACE_NAME.to_string())
                 );
                 push_engine_log(
                     &self.logs,
                     "info",
-                    "proxy",
-                    &format!("Applied system proxy {}", local_proxy_endpoint()),
+                    "tun",
+                    &format!("Activated TUN policy for {TUN_INTERFACE_NAME}"),
                 );
             }
-            Err(error) => {
-                let _ = self.stop();
-                return Err(anyhow!("не удалось применить системный proxy: {error}"));
-            }
+            EnginePath::Adapter => {}
         }
         Ok(self.snapshot())
     }
@@ -1259,6 +1379,7 @@ impl EngineManager {
             );
             return Err(error);
         }
+        self.tun.restore();
 
         self.state.status = "stopped".to_string();
         self.state.pid = None;
@@ -1308,7 +1429,11 @@ impl EngineManager {
             last_exit_code: None,
             restart_attempts,
             config_path: Some(config_path),
-            message: format!("Движок {} запущен.", engine_name(plan.kind)),
+            message: format!(
+                "Движок {} запущен через {}.",
+                engine_name(plan.kind),
+                path_name(plan.path)
+            ),
             log_tail: self.log_tail(),
         };
         push_engine_log(
@@ -1370,6 +1495,7 @@ impl EngineManager {
                     &format!("Could not restore system proxy after crash: {error}"),
                 );
             }
+            self.tun.restore();
         }
 
         self.state.log_tail = self.log_tail();
@@ -1393,10 +1519,11 @@ fn generate_engine_config(
     route_mode: RouteMode,
 ) -> Result<GeneratedEngineConfig> {
     let engine = engine_for_protocol(server.protocol);
+    let path = engine_path_for_protocol(server.protocol, route_mode);
     let mut warnings = Vec::new();
     if route_mode != RouteMode::WholeComputer {
         warnings.push(
-            "Режим приложений хранится в состоянии, но прозрачная маршрутизация включается позднее."
+            "Режим приложений хранится в состоянии, но точная маршрутизация включается позднее."
                 .to_string(),
         );
     }
@@ -1404,18 +1531,28 @@ fn generate_engine_config(
         warnings.push("У сервера нет явного порта.".to_string());
     }
 
-    let full_config = build_sing_box_config(server, raw_url, false)?;
-    let redacted_config = build_sing_box_config(server, raw_url, true)?;
+    if path == EnginePath::Tun {
+        warnings.push("TUN требует прав администратора и доступного TUN-драйвера движка.".to_string());
+    }
+
+    let full_config = build_sing_box_config(server, raw_url, false, route_mode)?;
+    let redacted_config = build_sing_box_config(server, raw_url, true, route_mode)?;
 
     Ok(GeneratedEngineConfig {
         engine,
+        path,
         full_config,
         redacted_config,
         warnings,
     })
 }
 
-fn build_sing_box_config(server: &Server, raw_url: &str, redacted: bool) -> Result<String> {
+fn build_sing_box_config(
+    server: &Server,
+    raw_url: &str,
+    redacted: bool,
+    route_mode: RouteMode,
+) -> Result<String> {
     let parsed = url::Url::parse(raw_url).ok();
     let port = server.port.unwrap_or(443);
     let mut outbound = serde_json::Map::new();
@@ -1527,19 +1664,53 @@ fn build_sing_box_config(server: &Server, raw_url: &str, redacted: bool) -> Resu
         }
     }
 
-    let config = serde_json::json!({
-        "log": {
-            "level": "info",
-            "timestamp": true
-        },
-        "inbounds": [
+    let inbounds = if route_mode == RouteMode::WholeComputer {
+        serde_json::json!([
+            {
+                "type": "tun",
+                "tag": "samhain-tun",
+                "interface_name": TUN_INTERFACE_NAME,
+                "address": [TUN_ADDRESS],
+                "mtu": 1500,
+                "auto_route": true,
+                "strict_route": true,
+                "stack": "system",
+                "sniff": true
+            }
+        ])
+    } else {
+        serde_json::json!([
             {
                 "type": "mixed",
                 "tag": "local-proxy",
                 "listen": LOCAL_PROXY_HOST,
                 "listen_port": LOCAL_PROXY_PORT
             }
-        ],
+        ])
+    };
+
+    let config = serde_json::json!({
+        "log": {
+            "level": "info",
+            "timestamp": true
+        },
+        "dns": {
+            "servers": [
+                {
+                    "tag": "samhain-dns",
+                    "address": format!("https://{}/dns-query", TUN_DNS[0]),
+                    "detour": "selected"
+                },
+                {
+                    "tag": "local-dns",
+                    "address": "local",
+                    "detour": "direct"
+                }
+            ],
+            "final": "samhain-dns",
+            "strategy": "prefer_ipv4"
+        },
+        "inbounds": inbounds,
         "outbounds": [
             serde_json::Value::Object(outbound),
             {
@@ -1549,7 +1720,13 @@ fn build_sing_box_config(server: &Server, raw_url: &str, redacted: bool) -> Resu
         ],
         "route": {
             "auto_detect_interface": true,
-            "final": "selected"
+            "final": "selected",
+            "rules": [
+                {
+                    "protocol": "dns",
+                    "action": "hijack-dns"
+                }
+            ]
         },
         "experimental": {
             "cache_file": {
@@ -1572,6 +1749,22 @@ fn engine_for_protocol(protocol: Protocol) -> EngineKind {
         | Protocol::Tuic
         | Protocol::SingBox => EngineKind::SingBox,
         Protocol::Unknown => EngineKind::Unknown,
+    }
+}
+
+fn engine_path_for_protocol(protocol: Protocol, route_mode: RouteMode) -> EnginePath {
+    match protocol {
+        Protocol::AmneziaWg | Protocol::WireGuard => EnginePath::Adapter,
+        _ if route_mode == RouteMode::WholeComputer => EnginePath::Tun,
+        _ => EnginePath::Proxy,
+    }
+}
+
+fn path_name(path: EnginePath) -> &'static str {
+    match path {
+        EnginePath::Proxy => "proxy path",
+        EnginePath::Tun => "TUN path",
+        EnginePath::Adapter => "adapter path",
     }
 }
 
@@ -2315,5 +2508,30 @@ mod tests {
         assert!(!generated.redacted_config.contains("public-secret"));
         assert!(!generated.redacted_config.contains("short-secret"));
         assert!(generated.redacted_config.contains("<redacted>"));
+    }
+
+    #[test]
+    fn whole_computer_generates_tun_path() {
+        let raw_url = "vless://00000000-0000-4000-8000-000000000001@example.com:443?type=tcp&security=reality&pbk=public-secret&sid=short-secret&sni=front.example&fp=chrome#Samhain";
+        let server = parse_server_url(raw_url, 1).expect("server");
+        let generated =
+            generate_engine_config(&server, raw_url, RouteMode::WholeComputer).expect("config");
+
+        assert_eq!(generated.path, EnginePath::Tun);
+        assert!(generated.redacted_config.contains("\"type\": \"tun\""));
+        assert!(generated.redacted_config.contains("\"auto_route\": true"));
+        assert!(!generated.redacted_config.contains("\"type\": \"mixed\""));
+    }
+
+    #[test]
+    fn app_modes_keep_proxy_path_until_policy_milestone() {
+        let raw_url = "vless://00000000-0000-4000-8000-000000000001@example.com:443?type=tcp&security=reality&pbk=public-secret&sid=short-secret&sni=front.example&fp=chrome#Samhain";
+        let server = parse_server_url(raw_url, 1).expect("server");
+        let generated =
+            generate_engine_config(&server, raw_url, RouteMode::SelectedAppsOnly).expect("config");
+
+        assert_eq!(generated.path, EnginePath::Proxy);
+        assert!(generated.redacted_config.contains("\"type\": \"mixed\""));
+        assert!(generated.warnings.iter().any(|warning| warning.contains("точная маршрутизация")));
     }
 }
