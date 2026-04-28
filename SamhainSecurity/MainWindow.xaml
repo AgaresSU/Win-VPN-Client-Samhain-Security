@@ -637,6 +637,8 @@
                                         <ColumnDefinition Width="150" />
                                         <ColumnDefinition Width="12" />
                                         <ColumnDefinition Width="190" />
+                                        <ColumnDefinition Width="12" />
+                                        <ColumnDefinition Width="92" />
                                     </Grid.ColumnDefinitions>
 
                                     <StackPanel Grid.Column="0">
@@ -665,6 +667,12 @@
                                             <ComboBoxItem Content="По имени" Tag="name" />
                                         </ComboBox>
                                     </StackPanel>
+
+                                    <Button x:Name="ClearServerFiltersButton"
+                                            Grid.Column="6"
+                                            Content="Сбросить"
+                                            VerticalAlignment="Bottom"
+                                            Click="ClearServerFiltersButton_Click" />
                                 </Grid>
 
                                 <ListView x:Name="ServersListView"

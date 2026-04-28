@@ -275,6 +275,21 @@ public partial class MainWindow : Window
         RefreshServerCatalogView();
     }
 
+    private void ClearServerFiltersButton_Click(object sender, RoutedEventArgs e)
+    {
+        if (!HasActiveServerCatalogFilter())
+        {
+            StatusTextBlock.Text = "Фильтры уже сброшены";
+            return;
+        }
+
+        ServerSearchTextBox.Clear();
+        FavoriteServersOnlyCheckBox.IsChecked = false;
+        SelectServerSortMode("smart");
+        RefreshServerCatalogView();
+        StatusTextBlock.Text = "Фильтры серверов сброшены";
+    }
+
     private void ServerSortComboBox_SelectionChanged(object sender, System.Windows.Controls.SelectionChangedEventArgs e)
     {
         if (_isLoadingServerChoices)
@@ -2057,6 +2072,7 @@ public partial class MainWindow : Window
         ServerSearchTextBox.IsEnabled = !isBusy;
         FavoriteServersOnlyCheckBox.IsEnabled = !isBusy;
         ServerSortComboBox.IsEnabled = !isBusy;
+        ClearServerFiltersButton.IsEnabled = !isBusy && HasActiveServerCatalogFilter();
         UpdateServerRecommendations();
         ServersListView.IsEnabled = !isBusy;
         FavoriteServerButton.IsEnabled = !isBusy;
@@ -2388,15 +2404,22 @@ public partial class MainWindow : Window
         if (_serverChoicesView is null)
         {
             ServerCatalogSummaryTextBlock.Text = "Серверов: 0";
+            ClearServerFiltersButton.IsEnabled = !_isBusy && HasActiveServerCatalogFilter();
             return;
         }
 
         var visibleCount = GetVisibleServerChoices().Count();
         var totalCount = _serverChoices.Count;
         var favoriteCount = _serverChoices.Count(item => item.Profile.IsFavorite);
-        ServerCatalogSummaryTextBlock.Text = visibleCount == totalCount
+        var summary = visibleCount == totalCount
             ? $"Серверов: {totalCount}; избранных: {favoriteCount}"
             : $"Показано: {visibleCount} из {totalCount}; избранных: {favoriteCount}";
+        var filterLabel = BuildServerCatalogFilterLabel();
+
+        ServerCatalogSummaryTextBlock.Text = string.IsNullOrWhiteSpace(filterLabel)
+            ? summary
+            : $"{summary}; {filterLabel}";
+        ClearServerFiltersButton.IsEnabled = !_isBusy && HasActiveServerCatalogFilter();
     }
 
     private IEnumerable<ServerListItem> GetVisibleServerChoices()
@@ -2518,6 +2541,54 @@ public partial class MainWindow : Window
     private string GetServerSortMode()
     {
         return (ServerSortComboBox.SelectedItem as ComboBoxItem)?.Tag?.ToString() ?? "smart";
+    }
+
+    private string GetServerSortLabel()
+    {
+        return (ServerSortComboBox.SelectedItem as ComboBoxItem)?.Content?.ToString() ?? "Умная";
+    }
+
+    private void SelectServerSortMode(string sortMode)
+    {
+        foreach (var item in ServerSortComboBox.Items.OfType<ComboBoxItem>())
+        {
+            if (string.Equals(item.Tag?.ToString(), sortMode, StringComparison.OrdinalIgnoreCase))
+            {
+                ServerSortComboBox.SelectedItem = item;
+                return;
+            }
+        }
+    }
+
+    private bool HasActiveServerCatalogFilter()
+    {
+        return !string.IsNullOrWhiteSpace(ServerSearchTextBox.Text)
+            || FavoriteServersOnlyCheckBox.IsChecked == true
+            || !string.Equals(GetServerSortMode(), "smart", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private string BuildServerCatalogFilterLabel()
+    {
+        var filters = new List<string>();
+        var query = ServerSearchTextBox.Text.Trim();
+        if (!string.IsNullOrWhiteSpace(query))
+        {
+            filters.Add($"поиск: {query}");
+        }
+
+        if (FavoriteServersOnlyCheckBox.IsChecked == true)
+        {
+            filters.Add("только избранные");
+        }
+
+        if (!string.Equals(GetServerSortMode(), "smart", StringComparison.OrdinalIgnoreCase))
+        {
+            filters.Add($"сортировка: {GetServerSortLabel()}");
+        }
+
+        return filters.Count == 0
+            ? string.Empty
+            : $"фильтры: {string.Join(", ", filters)}";
     }
 
     private static IOrderedEnumerable<VpnProfile> OrderServerProfiles(IEnumerable<VpnProfile> profiles, string sortMode)
