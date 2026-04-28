@@ -101,7 +101,46 @@ fn handle_command(command: ClientCommand) -> ServiceEvent {
                 },
             }
         }
-        ClientCommand::SelectServer { server_id } => match find_server(&server_id) {
+        ClientCommand::RefreshSubscription { subscription_id } => {
+            match service_store()
+                .lock()
+                .map_err(|_| anyhow!("Service store lock is poisoned."))
+                .and_then(|mut store| store.refresh_subscription(&subscription_id))
+            {
+                Ok(subscription) => ServiceEvent::SubscriptionRefreshed { subscription },
+                Err(error) => ServiceEvent::Error {
+                    message: format!("Не удалось обновить подписку: {error}"),
+                },
+            }
+        }
+        ClientCommand::RenameSubscription {
+            subscription_id,
+            name,
+        } => {
+            match service_store()
+                .lock()
+                .map_err(|_| anyhow!("Service store lock is poisoned."))
+                .and_then(|mut store| store.rename_subscription(&subscription_id, name))
+            {
+                Ok(subscription) => ServiceEvent::SubscriptionRenamed { subscription },
+                Err(error) => ServiceEvent::Error {
+                    message: format!("Не удалось переименовать подписку: {error}"),
+                },
+            }
+        }
+        ClientCommand::DeleteSubscription { subscription_id } => {
+            match service_store()
+                .lock()
+                .map_err(|_| anyhow!("Service store lock is poisoned."))
+                .and_then(|mut store| store.delete_subscription(&subscription_id))
+            {
+                Ok(()) => ServiceEvent::SubscriptionDeleted { subscription_id },
+                Err(error) => ServiceEvent::Error {
+                    message: format!("Не удалось удалить подписку: {error}"),
+                },
+            }
+        }
+        ClientCommand::SelectServer { server_id } => match select_server(&server_id) {
             Some(server) => ServiceEvent::ServerSelected { server },
             None => ServiceEvent::Error {
                 message: "No server is available.".to_string(),
@@ -128,6 +167,7 @@ fn current_state(running: bool) -> ServiceState {
         Err(_) => ServiceState {
             version: env!("CARGO_PKG_VERSION").to_string(),
             running,
+            selected_server_id: None,
             connected_server_id: None,
             route_mode: RouteMode::WholeComputer,
             subscriptions: vec![sample_subscription()],
@@ -135,24 +175,19 @@ fn current_state(running: bool) -> ServiceState {
     }
 }
 
-fn find_server(server_id: &str) -> Option<Server> {
-    let store = service_store().lock().ok()?;
-    store
+fn select_server(server_id: &str) -> Option<Server> {
+    let mut store = service_store().lock().ok()?;
+    let server = store
         .state
         .subscriptions
         .iter()
         .flat_map(|subscription| subscription.servers.iter())
         .find(|server| server.id == server_id || server.name == server_id)
-        .cloned()
-        .or_else(|| {
-            store
-                .state
-                .subscriptions
-                .iter()
-                .flat_map(|subscription| subscription.servers.iter())
-                .next()
-                .cloned()
-        })
+        .cloned()?;
+
+    store.state.selected_server_id = Some(server.id.clone());
+    let _ = store.save();
+    Some(server)
 }
 
 fn service_store() -> &'static Mutex<ServiceStore> {
@@ -191,6 +226,7 @@ impl ServiceStore {
         ServiceState {
             version: env!("CARGO_PKG_VERSION").to_string(),
             running,
+            selected_server_id: self.state.selected_server_id.clone(),
             connected_server_id: self.state.connected_server_id.clone(),
             route_mode: self.state.route_mode,
             subscriptions: self
@@ -224,13 +260,112 @@ impl ServiceStore {
 
         let subscription = StoredSubscription::from_import(name, url, servers)?;
         let public = subscription.to_public();
-        self.state
-            .subscriptions
-            .retain(|existing| existing.id != subscription.id);
+        self.state.subscriptions.retain(|existing| {
+            existing.id != subscription.id
+                && (subscription.id == "default-samhain" || existing.id != "default-samhain")
+        });
         self.state.subscriptions.push(subscription);
         self.save()?;
 
         Ok(public)
+    }
+
+    fn refresh_subscription(&mut self, subscription_id: &str) -> Result<Subscription> {
+        let index = self
+            .state
+            .subscriptions
+            .iter()
+            .position(|subscription| subscription.id == subscription_id)
+            .ok_or_else(|| anyhow!("подписка не найдена"))?;
+
+        let old = self.state.subscriptions[index].clone();
+        let url = secret::unprotect_string(&old.protected_url)
+            .or_else(|_| {
+                old.protected_url
+                    .strip_prefix("unprotected:")
+                    .map(str::to_string)
+                    .ok_or_else(|| anyhow!("исходная ссылка недоступна"))
+            })?;
+
+        let mut servers = Vec::new();
+        for payload in fetch_subscription_payloads(&url)? {
+            let report = parse_subscription_payload(&payload);
+            if !report.servers.is_empty() {
+                servers = report.servers;
+                break;
+            }
+        }
+
+        if servers.is_empty() {
+            if let Some(server) = parse_server_url(&url, 1) {
+                servers.push(server);
+            }
+        }
+
+        if servers.is_empty() {
+            return Err(anyhow!("в подписке не найдено поддерживаемых серверов"));
+        }
+
+        let (servers, protected_server_urls) = protect_server_urls(&old.id, servers)?;
+        let refreshed = StoredSubscription {
+            id: old.id,
+            name: old.name,
+            protected_url: old.protected_url,
+            servers,
+            protected_server_urls,
+            updated_at: Some(now_label()),
+        };
+        let public = refreshed.to_public();
+        self.state.subscriptions[index] = refreshed;
+        self.save()?;
+
+        Ok(public)
+    }
+
+    fn rename_subscription(&mut self, subscription_id: &str, name: String) -> Result<Subscription> {
+        let normalized_name = name.trim();
+        if normalized_name.is_empty() {
+            return Err(anyhow!("имя не должно быть пустым"));
+        }
+
+        let subscription = self
+            .state
+            .subscriptions
+            .iter_mut()
+            .find(|subscription| subscription.id == subscription_id)
+            .ok_or_else(|| anyhow!("подписка не найдена"))?;
+
+        subscription.name = normalized_name.to_string();
+        subscription.updated_at = Some(now_label());
+        let public = subscription.to_public();
+        self.save()?;
+
+        Ok(public)
+    }
+
+    fn delete_subscription(&mut self, subscription_id: &str) -> Result<()> {
+        let before = self.state.subscriptions.len();
+        self.state
+            .subscriptions
+            .retain(|subscription| subscription.id != subscription_id);
+
+        if self.state.subscriptions.len() == before {
+            return Err(anyhow!("подписка не найдена"));
+        }
+
+        if let Some(selected_server_id) = &self.state.selected_server_id {
+            let selected_still_exists = self
+                .state
+                .subscriptions
+                .iter()
+                .flat_map(|subscription| subscription.servers.iter())
+                .any(|server| &server.id == selected_server_id);
+            if !selected_still_exists {
+                self.state.selected_server_id = None;
+            }
+        }
+
+        self.save()
     }
 
     fn save(&self) -> Result<()> {
@@ -249,6 +384,8 @@ impl ServiceStore {
 struct StoredState {
     schema_version: u32,
     route_mode: RouteMode,
+    #[serde(default)]
+    selected_server_id: Option<String>,
     connected_server_id: Option<String>,
     subscriptions: Vec<StoredSubscription>,
 }
@@ -258,6 +395,7 @@ impl StoredState {
         Self {
             schema_version: 1,
             route_mode: RouteMode::WholeComputer,
+            selected_server_id: None,
             connected_server_id: None,
             subscriptions: vec![StoredSubscription::from_public(sample_subscription())],
         }

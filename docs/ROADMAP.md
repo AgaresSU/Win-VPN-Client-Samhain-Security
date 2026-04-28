@@ -1,6 +1,6 @@
 # Roadmap
 
-Current version: `0.7.3`
+Current version: `0.7.4`
 
 This roadmap is the working contract for Samhain Security. Future implementation should follow this order unless a blocker is found and documented in the same commit.
 
@@ -101,6 +101,8 @@ Status: shipped in `v0.7.3` for direct links, landing pages, default API profile
 - Show errors inline without opening technical logs.
 
 Done when a normal user can paste a link, pick a server, and understand status without opening advanced settings.
+
+Status: shipped in `v0.7.4` with service-backed grouped subscriptions, expand/collapse, update, rename, delete, safe diagnostics copy, and persisted selected server state.
 
 ### 0.7.5 - Ping And Health Probes
 
@@ -242,13 +244,13 @@ Done when Samhain Security is ready for normal users.
 
 ## Immediate Next Build Order
 
-1. `0.7.4`: compact subscription UI.
-2. `0.7.5`: real ping and health probes.
-3. `0.7.6`: engine manager.
-4. `0.7.7`: first real proxy connection path.
-5. `0.7.8`: whole-computer TUN path.
-6. `0.7.9`: WireGuard and AmneziaWG path.
-7. `0.8.0`: selected/excluded app routing.
-8. `0.8.1`: protection layer.
-9. `0.8.2`: tray, autostart, and link handling.
-10. `0.8.3`: statistics, logs, and support export.
+1. `0.7.5`: real ping and health probes.
+2. `0.7.6`: engine manager.
+3. `0.7.7`: first real proxy connection path.
+4. `0.7.8`: whole-computer TUN path.
+5. `0.7.9`: WireGuard and AmneziaWG path.
+6. `0.8.0`: selected/excluded app routing.
+7. `0.8.1`: protection layer.
+8. `0.8.2`: tray, autostart, and link handling.
+9. `0.8.3`: statistics, logs, and support export.
+10. `0.8.4`: UX polish.

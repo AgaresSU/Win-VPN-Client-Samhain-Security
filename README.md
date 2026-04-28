@@ -1,6 +1,6 @@
 # Samhain Security Native
 
-Version: `0.7.3`
+Version: `0.7.4`
 
 Native Windows secure tunneling client prototype built from a clean base.
 
@@ -29,6 +29,8 @@ Implemented in `0.7.0`:
 - Versioned named-pipe IPC foundation between the desktop shell and Rust service.
 - Real service-side subscription import for direct links, subscription pages, plain/base64 payloads, and AWG JSON profiles.
 - DPAPI-protected storage for subscription URLs and raw server configs.
+- Service-backed subscription groups with expand/collapse, update, rename, delete, and safe diagnostics copy actions.
+- Persisted selected server and compact grouped server rendering in the desktop shell.
 - Package script for a local Windows distributable.
 
 Not implemented yet:
@@ -54,5 +56,5 @@ Not implemented yet:
 The package is written to:
 
 ```text
-dist\SamhainSecurityNative-0.7.3-win-x64
+dist\SamhainSecurityNative-0.7.4-win-x64
 ```

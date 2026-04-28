@@ -9,6 +9,8 @@
 #include <QVector>
 
 struct ServerItem {
+    QString id;
+    QString subscriptionId;
     QString name;
     QString flag;
     QString protocol;
@@ -17,17 +19,31 @@ struct ServerItem {
     bool selected = false;
 };
 
+struct SubscriptionItem {
+    QString id;
+    QString name;
+    QString meta;
+    bool expanded = true;
+    QVector<ServerItem> servers;
+};
+
 class ServerListModel final : public QAbstractListModel {
     Q_OBJECT
 
 public:
     enum Roles {
-        NameRole = Qt::UserRole + 1,
+        IsSubscriptionRole = Qt::UserRole + 1,
+        SubscriptionIdRole,
+        ServerIdRole,
+        NameRole,
         FlagRole,
         ProtocolRole,
         EndpointRole,
         PingRole,
-        SelectedRole
+        SelectedRole,
+        ExpandedRole,
+        MetaRole,
+        ServerCountRole
     };
 
     explicit ServerListModel(QObject *parent = nullptr);
@@ -36,14 +52,33 @@ public:
     QVariant data(const QModelIndex &index, int role = Qt::DisplayRole) const override;
     QHash<int, QByteArray> roleNames() const override;
 
+    void setSubscriptions(QVector<SubscriptionItem> subscriptions, const QString &preferredServerId = {});
     void setServers(QVector<ServerItem> servers);
     void selectRow(int row);
     void setPing(int row, const QString &ping);
+    void toggleSubscription(int row);
+    bool isSubscriptionRow(int row) const;
+    QString subscriptionIdAtRow(int row) const;
+    QString subscriptionNameAtRow(int row) const;
+    int serverCountAtRow(int row) const;
     const ServerItem *selectedServer() const;
+    const SubscriptionItem *selectedSubscription() const;
+    const QVector<SubscriptionItem> &subscriptions() const;
     int selectedRow() const;
 
 private:
-    QVector<ServerItem> m_servers;
+    struct VisibleRow {
+        bool isSubscription = false;
+        int subscriptionIndex = -1;
+        int serverIndex = -1;
+    };
+
+    void rebuildRows();
+    int visibleRowForServer(const QString &serverId) const;
+    void clearSelection();
+
+    QVector<SubscriptionItem> m_subscriptions;
+    QVector<VisibleRow> m_rows;
 };
 
 class AppController final : public QObject {
@@ -87,10 +122,15 @@ public:
 
     Q_INVOKABLE void navigate(const QString &page);
     Q_INVOKABLE void selectServer(int row);
+    Q_INVOKABLE void toggleSubscription(int row);
     Q_INVOKABLE void toggleConnection();
     Q_INVOKABLE void testPing();
     Q_INVOKABLE void pasteFromClipboard();
     Q_INVOKABLE void addSubscription(const QString &name, const QString &url);
+    Q_INVOKABLE void refreshSubscription(int row);
+    Q_INVOKABLE void renameSubscription(int row, const QString &name);
+    Q_INVOKABLE void deleteSubscription(int row);
+    Q_INVOKABLE void copySubscriptionDiagnostics(int row);
     Q_INVOKABLE void clearLogs();
     Q_INVOKABLE void openAdvancedSettings();
 
@@ -113,6 +153,11 @@ private:
     bool applyServiceState(const QJsonObject &state);
     void saveState() const;
     void loadSampleSubscription();
+    SubscriptionItem buildLocalSubscription(
+        const QString &id,
+        const QString &name,
+        const QString &meta,
+        QVector<ServerItem> servers) const;
     QVector<ServerItem> buildServersForUrl(const QString &url) const;
     QString requestService(const QJsonObject &command, int timeoutMs) const;
     QString protocolLabel(const QString &wireProtocol) const;
@@ -126,7 +171,6 @@ private:
     ServerListModel m_serverModel;
     QString m_page = "servers";
     QString m_subscriptionName = "Samhain Security";
-    QString m_subscriptionUrl;
     QString m_subscriptionMeta = "27.04.2026 23:22 | Автообновление - 24ч.";
     QString m_selectedServerName = "Samhain NL Amsterdam #3";
     QString m_selectedServerFlag = "🇳🇱";

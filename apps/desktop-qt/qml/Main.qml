@@ -140,6 +140,73 @@ ApplicationWindow {
         }
     }
 
+    Dialog {
+        id: renameDialog
+        property int rowIndex: -1
+        modal: true
+        x: Math.round((root.width - width) / 2)
+        y: Math.round((root.height - height) / 2)
+        width: 480
+        height: 250
+        padding: 0
+        closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutside
+
+        background: Rectangle {
+            color: "#262626"
+            radius: 18
+            border.color: "#34343A"
+        }
+
+        contentItem: ColumnLayout {
+            spacing: 18
+            anchors.fill: parent
+            anchors.margins: 34
+
+            Text {
+                text: "Переименовать"
+                color: root.text
+                font.pixelSize: 28
+                font.bold: true
+            }
+            TextField {
+                id: renameSubscriptionNameInput
+                Layout.fillWidth: true
+                height: 48
+                color: root.text
+                placeholderText: "Название подписки"
+                placeholderTextColor: "#77777F"
+                background: Rectangle {
+                    color: "#3A3A3A"
+                    radius: 8
+                    border.color: renameSubscriptionNameInput.activeFocus ? root.accent : "#4A4A4A"
+                }
+            }
+            RowLayout {
+                Layout.fillWidth: true
+                Item { Layout.fillWidth: true }
+                Button {
+                    text: "Отмена"
+                    Layout.preferredWidth: 120
+                    height: 48
+                    onClicked: renameDialog.close()
+                    background: Rectangle { color: "#333333"; radius: 8 }
+                    contentItem: Text { text: parent.text; color: root.text; horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter }
+                }
+                Button {
+                    text: "Сохранить"
+                    Layout.preferredWidth: 132
+                    height: 48
+                    onClicked: {
+                        appController.renameSubscription(renameDialog.rowIndex, renameSubscriptionNameInput.text)
+                        renameDialog.close()
+                    }
+                    background: Rectangle { color: root.accent; radius: 8 }
+                    contentItem: Text { text: parent.text; color: "white"; font.bold: true; horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter }
+                }
+            }
+        }
+    }
+
     Rectangle {
         anchors.fill: parent
         color: root.bg
@@ -436,103 +503,124 @@ ApplicationWindow {
                 Layout.fillHeight: true
                 color: "transparent"
 
-                ColumnLayout {
+                ListView {
+                    id: serverList
                     anchors.fill: parent
+                    clip: true
+                    model: appController.serverModel
                     spacing: 0
+                    delegate: Rectangle {
+                        width: serverList.width
+                        height: isSubscription ? 78 : 72
+                        color: isSubscription ? "#343434" : (selected ? root.rowSelected : root.row)
+                        border.color: "#3A3A3A"
+                        border.width: 1
+                        radius: isSubscription ? 8 : 0
 
-                    Rectangle {
-                        Layout.fillWidth: true
-                        Layout.preferredHeight: 78
-                        color: "#343434"
-                        radius: 8
                         Rectangle {
+                            visible: selected && !isSubscription
+                            width: 5
+                            height: parent.height
+                            color: root.accent
                             anchors.left: parent.left
-                            anchors.right: parent.right
-                            anchors.bottom: parent.bottom
-                            height: 10
-                            color: parent.color
                         }
+
+                        MouseArea {
+                            anchors.fill: parent
+                            onClicked: appController.selectServer(index)
+                        }
+
                         RowLayout {
+                            visible: isSubscription
                             anchors.fill: parent
                             anchors.leftMargin: 22
-                            anchors.rightMargin: 18
-                            spacing: 14
-                            Text { text: "⌄"; color: root.muted; font.pixelSize: 24 }
+                            anchors.rightMargin: 14
+                            spacing: 12
+
+                            Text {
+                                text: expanded ? "⌄" : "›"
+                                color: root.muted
+                                font.pixelSize: 24
+                                Layout.preferredWidth: 24
+                                horizontalAlignment: Text.AlignHCenter
+                            }
                             ColumnLayout {
                                 Layout.fillWidth: true
                                 spacing: 5
-                                Text { text: appController.subscriptionName; color: root.text; font.pixelSize: 20; font.bold: true }
-                                Text { text: appController.subscriptionMeta; color: root.muted; font.pixelSize: 14 }
-                            }
-                            Text { text: "↻"; color: "#9D99D7"; font.pixelSize: 28 }
-                            Text { text: "◜"; color: "#9D99D7"; font.pixelSize: 28 }
-                            Text { text: "⋯"; color: "#9D99D7"; font.pixelSize: 28 }
-                        }
-                    }
-
-                    ListView {
-                        id: serverList
-                        Layout.fillWidth: true
-                        Layout.fillHeight: true
-                        clip: true
-                        model: appController.serverModel
-                        delegate: Rectangle {
-                            width: serverList.width
-                            height: 72
-                            color: selected ? root.rowSelected : root.row
-                            border.color: "#3A3A3A"
-                            border.width: 1
-
-                            Rectangle {
-                                visible: selected
-                                width: 5
-                                height: parent.height
-                                color: root.accent
-                                anchors.left: parent.left
-                            }
-
-                            MouseArea {
-                                anchors.fill: parent
-                                onClicked: appController.selectServer(index)
-                            }
-
-                            RowLayout {
-                                anchors.fill: parent
-                                anchors.leftMargin: 18
-                                anchors.rightMargin: 18
-                                spacing: 14
-
-                                Text { text: flag; font.pixelSize: 30; Layout.preferredWidth: 36 }
-                                ColumnLayout {
+                                Text {
+                                    text: name
+                                    color: root.text
+                                    font.pixelSize: 20
+                                    font.bold: true
+                                    elide: Text.ElideRight
                                     Layout.fillWidth: true
-                                    spacing: 4
-                                    Text {
-                                        text: name
-                                        color: root.text
-                                        font.pixelSize: 19
-                                        elide: Text.ElideRight
-                                        Layout.fillWidth: true
-                                    }
-                                    Text {
-                                        text: protocol
-                                        color: root.muted
-                                        font.pixelSize: 13
-                                        elide: Text.ElideRight
-                                        Layout.fillWidth: true
-                                    }
                                 }
                                 Text {
-                                    text: ping
-                                    color: root.text
+                                    text: meta + " · " + serverCount + " серверов"
+                                    color: root.muted
                                     font.pixelSize: 14
-                                    Layout.preferredWidth: 72
-                                    horizontalAlignment: Text.AlignRight
+                                    elide: Text.ElideRight
+                                    Layout.fillWidth: true
                                 }
-                                Text { text: "›"; color: root.muted; font.pixelSize: 26 }
                             }
+                            ButtonIcon { label: "↻"; onClicked: appController.refreshSubscription(index) }
+                            ButtonIcon {
+                                label: "✎"
+                                onClicked: {
+                                    renameDialog.rowIndex = index
+                                    renameSubscriptionNameInput.text = name
+                                    renameDialog.open()
+                                }
+                            }
+                            ButtonIcon { label: "⧉"; onClicked: appController.copySubscriptionDiagnostics(index) }
+                            ButtonIcon { label: "×"; danger: true; onClicked: appController.deleteSubscription(index) }
+                        }
+
+                        RowLayout {
+                            visible: !isSubscription
+                            anchors.fill: parent
+                            anchors.leftMargin: 18
+                            anchors.rightMargin: 18
+                            spacing: 14
+
+                            Text { text: flag; font.pixelSize: 30; Layout.preferredWidth: 36 }
+                            ColumnLayout {
+                                Layout.fillWidth: true
+                                spacing: 4
+                                Text {
+                                    text: name
+                                    color: root.text
+                                    font.pixelSize: 19
+                                    elide: Text.ElideRight
+                                    Layout.fillWidth: true
+                                }
+                                Text {
+                                    text: protocol
+                                    color: root.muted
+                                    font.pixelSize: 13
+                                    elide: Text.ElideRight
+                                    Layout.fillWidth: true
+                                }
+                            }
+                            Text {
+                                text: ping
+                                color: root.text
+                                font.pixelSize: 14
+                                Layout.preferredWidth: 72
+                                horizontalAlignment: Text.AlignRight
+                            }
+                            Text { text: "›"; color: root.muted; font.pixelSize: 26 }
                         }
                     }
                 }
+            }
+
+            Text {
+                text: appController.statusText
+                color: root.muted
+                font.pixelSize: 14
+                elide: Text.ElideRight
+                Layout.fillWidth: true
             }
         }
     }
@@ -635,7 +723,7 @@ ApplicationWindow {
             spacing: 18
             PageTitle { text: "О программе" }
             MetricRow { title: "Программа"; value: "Samhain Security Native" }
-            MetricRow { title: "Версия"; value: "0.7.3" }
+            MetricRow { title: "Версия"; value: "0.7.4" }
             MetricRow { title: "Интерфейс"; value: "Qt 6 / QML" }
             MetricRow { title: "Ядро"; value: "Rust workspace" }
             MetricRow { title: "Статус"; value: appController.statusText }
@@ -675,10 +763,17 @@ ApplicationWindow {
 
     component ButtonIcon: Button {
         property string label: ""
+        property bool danger: false
         Layout.preferredWidth: 46
         Layout.preferredHeight: 46
         background: Rectangle { color: "transparent"; radius: 23 }
-        contentItem: Text { text: label; color: root.muted; font.pixelSize: 28; horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter }
+        contentItem: Text {
+            text: label
+            color: danger ? root.samhainRed : root.muted
+            font.pixelSize: 28
+            horizontalAlignment: Text.AlignHCenter
+            verticalAlignment: Text.AlignVCenter
+        }
     }
 
     component Chip: Rectangle {

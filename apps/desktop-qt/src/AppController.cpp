@@ -36,17 +36,52 @@ int ServerListModel::rowCount(const QModelIndex &parent) const
         return 0;
     }
 
-    return static_cast<int>(m_servers.size());
+    return static_cast<int>(m_rows.size());
 }
 
 QVariant ServerListModel::data(const QModelIndex &index, int role) const
 {
-    if (!index.isValid() || index.row() < 0 || index.row() >= m_servers.size()) {
+    if (!index.isValid() || index.row() < 0 || index.row() >= m_rows.size()) {
         return {};
     }
 
-    const auto &server = m_servers.at(index.row());
+    const auto &row = m_rows.at(index.row());
+    if (row.subscriptionIndex < 0 || row.subscriptionIndex >= m_subscriptions.size()) {
+        return {};
+    }
+
+    const auto &subscription = m_subscriptions.at(row.subscriptionIndex);
+    if (row.isSubscription) {
+        switch (role) {
+        case IsSubscriptionRole:
+            return true;
+        case SubscriptionIdRole:
+            return subscription.id;
+        case NameRole:
+            return subscription.name;
+        case ExpandedRole:
+            return subscription.expanded;
+        case MetaRole:
+            return subscription.meta;
+        case ServerCountRole:
+            return subscription.servers.size();
+        default:
+            return {};
+        }
+    }
+
+    if (row.serverIndex < 0 || row.serverIndex >= subscription.servers.size()) {
+        return {};
+    }
+
+    const auto &server = subscription.servers.at(row.serverIndex);
     switch (role) {
+    case IsSubscriptionRole:
+        return false;
+    case SubscriptionIdRole:
+        return server.subscriptionId;
+    case ServerIdRole:
+        return server.id;
     case NameRole:
         return server.name;
     case FlagRole:
@@ -67,75 +102,261 @@ QVariant ServerListModel::data(const QModelIndex &index, int role) const
 QHash<int, QByteArray> ServerListModel::roleNames() const
 {
     return {
+        {IsSubscriptionRole, "isSubscription"},
+        {SubscriptionIdRole, "subscriptionId"},
+        {ServerIdRole, "serverId"},
         {NameRole, "name"},
         {FlagRole, "flag"},
         {ProtocolRole, "protocol"},
         {EndpointRole, "endpoint"},
         {PingRole, "ping"},
         {SelectedRole, "selected"},
+        {ExpandedRole, "expanded"},
+        {MetaRole, "meta"},
+        {ServerCountRole, "serverCount"},
     };
+}
+
+void ServerListModel::setSubscriptions(QVector<SubscriptionItem> subscriptions, const QString &preferredServerId)
+{
+    auto selectedServerId = preferredServerId;
+    if (selectedServerId.isEmpty()) {
+        if (const auto *server = selectedServer()) {
+            selectedServerId = server->id;
+        }
+    }
+
+    beginResetModel();
+    m_subscriptions = std::move(subscriptions);
+
+    auto hasSelection = false;
+    for (auto &subscription : m_subscriptions) {
+        if (subscription.id.isEmpty()) {
+            subscription.id = "subscription-" + QString::number(qHash(subscription.name));
+        }
+        for (auto &server : subscription.servers) {
+            server.subscriptionId = subscription.id;
+            if (server.id.isEmpty()) {
+                server.id = subscription.id + "-" + server.name;
+            }
+            server.selected = !selectedServerId.isEmpty() && server.id == selectedServerId;
+            hasSelection = hasSelection || server.selected;
+        }
+    }
+
+    if (!hasSelection) {
+        for (auto &subscription : m_subscriptions) {
+            if (!subscription.servers.isEmpty()) {
+                const auto preferred = std::min<qsizetype>(2, subscription.servers.size() - 1);
+                subscription.servers[preferred].selected = true;
+                break;
+            }
+        }
+    }
+
+    rebuildRows();
+    endResetModel();
 }
 
 void ServerListModel::setServers(QVector<ServerItem> servers)
 {
-    beginResetModel();
-    m_servers = std::move(servers);
-    if (!m_servers.isEmpty() && selectedRow() < 0) {
-        const auto preferred = std::min<qsizetype>(2, m_servers.size() - 1);
-        m_servers[preferred].selected = true;
-    }
-    endResetModel();
+    SubscriptionItem subscription;
+    subscription.id = "local-samhain";
+    subscription.name = "Samhain Security";
+    subscription.meta = "Локальный профиль";
+    subscription.expanded = true;
+    subscription.servers = std::move(servers);
+    setSubscriptions({subscription});
 }
 
 void ServerListModel::selectRow(int row)
 {
-    if (row < 0 || row >= m_servers.size()) {
+    if (row < 0 || row >= m_rows.size() || m_rows.at(row).isSubscription) {
+        return;
+    }
+
+    const auto &targetRow = m_rows.at(row);
+    auto &targetServer = m_subscriptions[targetRow.subscriptionIndex].servers[targetRow.serverIndex];
+    if (targetServer.selected) {
         return;
     }
 
     const auto oldRow = selectedRow();
-    if (oldRow == row) {
-        return;
-    }
+    clearSelection();
+    targetServer.selected = true;
 
     if (oldRow >= 0) {
-        m_servers[oldRow].selected = false;
-        emit dataChanged(index(oldRow), index(oldRow), {SelectedRole});
+        emit dataChanged(index(oldRow, 0), index(oldRow, 0), {SelectedRole});
     }
-
-    m_servers[row].selected = true;
-    emit dataChanged(index(row), index(row), {SelectedRole});
+    emit dataChanged(index(row, 0), index(row, 0), {SelectedRole});
 }
 
 void ServerListModel::setPing(int row, const QString &ping)
 {
-    if (row < 0 || row >= m_servers.size()) {
+    if (row < 0 || row >= m_rows.size() || m_rows.at(row).isSubscription) {
         return;
     }
 
-    m_servers[row].ping = ping;
-    emit dataChanged(index(row), index(row), {PingRole});
+    const auto visibleRow = m_rows.at(row);
+    auto &server = m_subscriptions[visibleRow.subscriptionIndex].servers[visibleRow.serverIndex];
+    server.ping = ping;
+    emit dataChanged(index(row, 0), index(row, 0), {PingRole});
+}
+
+void ServerListModel::toggleSubscription(int row)
+{
+    if (row < 0 || row >= m_rows.size() || !m_rows.at(row).isSubscription) {
+        return;
+    }
+
+    const auto subscriptionIndex = m_rows.at(row).subscriptionIndex;
+    if (subscriptionIndex < 0 || subscriptionIndex >= m_subscriptions.size()) {
+        return;
+    }
+
+    beginResetModel();
+    m_subscriptions[subscriptionIndex].expanded = !m_subscriptions[subscriptionIndex].expanded;
+    rebuildRows();
+    endResetModel();
+}
+
+bool ServerListModel::isSubscriptionRow(int row) const
+{
+    return row >= 0 && row < m_rows.size() && m_rows.at(row).isSubscription;
+}
+
+QString ServerListModel::subscriptionIdAtRow(int row) const
+{
+    if (row < 0 || row >= m_rows.size()) {
+        return {};
+    }
+
+    const auto subscriptionIndex = m_rows.at(row).subscriptionIndex;
+    if (subscriptionIndex < 0 || subscriptionIndex >= m_subscriptions.size()) {
+        return {};
+    }
+
+    return m_subscriptions.at(subscriptionIndex).id;
+}
+
+QString ServerListModel::subscriptionNameAtRow(int row) const
+{
+    if (row < 0 || row >= m_rows.size()) {
+        return {};
+    }
+
+    const auto subscriptionIndex = m_rows.at(row).subscriptionIndex;
+    if (subscriptionIndex < 0 || subscriptionIndex >= m_subscriptions.size()) {
+        return {};
+    }
+
+    return m_subscriptions.at(subscriptionIndex).name;
+}
+
+int ServerListModel::serverCountAtRow(int row) const
+{
+    if (row < 0 || row >= m_rows.size()) {
+        return 0;
+    }
+
+    const auto subscriptionIndex = m_rows.at(row).subscriptionIndex;
+    if (subscriptionIndex < 0 || subscriptionIndex >= m_subscriptions.size()) {
+        return 0;
+    }
+
+    return static_cast<int>(m_subscriptions.at(subscriptionIndex).servers.size());
 }
 
 const ServerItem *ServerListModel::selectedServer() const
 {
-    const auto row = selectedRow();
-    if (row < 0) {
-        return nullptr;
+    for (const auto &subscription : m_subscriptions) {
+        for (const auto &server : subscription.servers) {
+            if (server.selected) {
+                return &server;
+            }
+        }
     }
 
-    return &m_servers[row];
+    return nullptr;
+}
+
+const SubscriptionItem *ServerListModel::selectedSubscription() const
+{
+    const auto *server = selectedServer();
+    if (!server) {
+        return m_subscriptions.isEmpty() ? nullptr : &m_subscriptions.first();
+    }
+
+    for (const auto &subscription : m_subscriptions) {
+        if (subscription.id == server->subscriptionId) {
+            return &subscription;
+        }
+    }
+
+    return nullptr;
+}
+
+const QVector<SubscriptionItem> &ServerListModel::subscriptions() const
+{
+    return m_subscriptions;
 }
 
 int ServerListModel::selectedRow() const
 {
-    for (int i = 0; i < m_servers.size(); ++i) {
-        if (m_servers.at(i).selected) {
-            return i;
+    const auto *server = selectedServer();
+    if (!server) {
+        return -1;
+    }
+
+    return visibleRowForServer(server->id);
+}
+
+void ServerListModel::rebuildRows()
+{
+    m_rows.clear();
+    for (int subscriptionIndex = 0; subscriptionIndex < m_subscriptions.size(); ++subscriptionIndex) {
+        m_rows.push_back({true, subscriptionIndex, -1});
+        const auto &subscription = m_subscriptions.at(subscriptionIndex);
+        if (!subscription.expanded) {
+            continue;
+        }
+
+        for (int serverIndex = 0; serverIndex < subscription.servers.size(); ++serverIndex) {
+            m_rows.push_back({false, subscriptionIndex, serverIndex});
+        }
+    }
+}
+
+int ServerListModel::visibleRowForServer(const QString &serverId) const
+{
+    if (serverId.isEmpty()) {
+        return -1;
+    }
+
+    for (int row = 0; row < m_rows.size(); ++row) {
+        const auto &visibleRow = m_rows.at(row);
+        if (visibleRow.isSubscription) {
+            continue;
+        }
+        const auto &server = m_subscriptions
+                                 .at(visibleRow.subscriptionIndex)
+                                 .servers
+                                 .at(visibleRow.serverIndex);
+        if (server.id == serverId) {
+            return row;
         }
     }
 
     return -1;
+}
+
+void ServerListModel::clearSelection()
+{
+    for (auto &subscription : m_subscriptions) {
+        for (auto &server : subscription.servers) {
+            server.selected = false;
+        }
+    }
 }
 
 AppController::AppController(QObject *parent)
@@ -263,19 +484,46 @@ void AppController::navigate(const QString &page)
 
 void AppController::selectServer(int row)
 {
+    if (m_serverModel.isSubscriptionRow(row)) {
+        toggleSubscription(row);
+        return;
+    }
+
     m_serverModel.selectRow(row);
     updateSelectedServerProperties();
+
+    if (const auto *server = m_serverModel.selectedServer()) {
+        QJsonObject command;
+        command["type"] = "select-server";
+        command["server_id"] = server->id;
+        requestService(command, IpcRequestTimeoutMs);
+    }
+
+    saveState();
     appendLog("Выбран сервер: " + m_selectedServerName);
+}
+
+void AppController::toggleSubscription(int row)
+{
+    m_serverModel.toggleSubscription(row);
+    saveState();
 }
 
 void AppController::toggleConnection()
 {
+    const auto *server = m_serverModel.selectedServer();
+    if (!server) {
+        m_statusText = "Выберите сервер";
+        emit statusChanged();
+        return;
+    }
+
     QJsonObject command;
     if (m_connected) {
         command["type"] = "disconnect";
     } else {
         command["type"] = "connect";
-        command["server_id"] = m_selectedServerName;
+        command["server_id"] = server->id;
         command["route_mode"] = routeModeWireValue();
     }
 
@@ -308,13 +556,16 @@ void AppController::toggleConnection()
 void AppController::testPing()
 {
     const auto row = m_serverModel.selectedRow();
+    const auto *server = m_serverModel.selectedServer();
     if (row < 0) {
+        m_statusText = "Раскройте подписку с выбранным сервером";
+        emit statusChanged();
         return;
     }
 
     QJsonObject command;
     command["type"] = "test-ping";
-    command["server_id"] = m_selectedServerName;
+    command["server_id"] = server ? server->id : m_selectedServerName;
     const auto response = requestService(command, IpcRequestTimeoutMs);
 
     m_serverModel.setPing(row, "...");
@@ -368,38 +619,184 @@ void AppController::pasteFromClipboard()
 
 void AppController::addSubscription(const QString &name, const QString &url)
 {
+    const auto normalizedName = name.trimmed().isEmpty() ? "Samhain Security" : name.trimmed();
+    const auto normalizedUrl = url.trimmed();
+    if (normalizedUrl.isEmpty()) {
+        m_statusText = "Введите ссылку подписки";
+        emit statusChanged();
+        return;
+    }
+
     QJsonObject command;
     command["type"] = "add-subscription";
-    command["name"] = name.trimmed();
-    command["url"] = url.trimmed();
+    command["name"] = normalizedName;
+    command["url"] = normalizedUrl;
     const auto response = requestService(command, IpcRequestTimeoutMs);
 
-    m_subscriptionName = name.trimmed().isEmpty() ? "Samhain Security" : name.trimmed();
-    m_subscriptionUrl = url.trimmed();
+    m_subscriptionName = normalizedName;
     m_subscriptionMeta = QDateTime::currentDateTime().toString("dd.MM.yyyy HH:mm")
         + " | Автообновление - 24ч.";
 
     bool appliedServiceSubscription = false;
     if (!response.isEmpty()) {
         const auto document = QJsonDocument::fromJson(response.toUtf8());
-        const auto event = document.object().value("event").toObject();
-        const auto subscription = event.value("subscription").toObject();
-        if (event.value("type").toString() == "subscription-added" && !subscription.isEmpty()) {
-            QJsonObject state;
-            state["route_mode"] = routeModeWireValue();
-            state["subscriptions"] = QJsonArray{subscription};
-            appliedServiceSubscription = applyServiceState(state);
+        const auto root = document.object();
+        const auto event = root.value("event").toObject();
+        if (!root.value("ok").toBool(false) || event.value("type").toString() == "error") {
+            const auto message = event.value("message").toString("Не удалось добавить подписку");
+            m_statusText = message;
+            appendLog("Сервис: " + message);
+        } else if (event.value("type").toString() == "subscription-added") {
+            appliedServiceSubscription = loadStateFromService();
         }
     }
 
     if (!appliedServiceSubscription) {
-        m_serverModel.setServers(buildServersForUrl(m_subscriptionUrl));
+        auto subscription = buildLocalSubscription(
+            "local-" + QString::number(QDateTime::currentMSecsSinceEpoch()),
+            m_subscriptionName,
+            m_subscriptionMeta,
+            buildServersForUrl(normalizedUrl));
+        auto subscriptions = m_serverModel.subscriptions();
+        subscriptions.erase(
+            std::remove_if(
+                subscriptions.begin(),
+                subscriptions.end(),
+                [](const SubscriptionItem &item) {
+                    return item.id == "default-samhain" || item.id == "local-samhain";
+                }),
+            subscriptions.end());
+        const auto preferredServerId = subscription.servers.isEmpty()
+            ? QString()
+            : subscription.servers.first().id;
+        subscriptions.push_back(std::move(subscription));
+        m_serverModel.setSubscriptions(subscriptions, preferredServerId);
     }
 
     updateSelectedServerProperties();
     saveState();
     appendLog("Добавлена подписка: " + m_subscriptionName);
     emit subscriptionChanged();
+}
+
+void AppController::refreshSubscription(int row)
+{
+    const auto subscriptionId = m_serverModel.subscriptionIdAtRow(row);
+    if (subscriptionId.isEmpty()) {
+        return;
+    }
+
+    QJsonObject command;
+    command["type"] = "refresh-subscription";
+    command["subscription_id"] = subscriptionId;
+    const auto response = requestService(command, IpcRequestTimeoutMs);
+    if (response.isEmpty()) {
+        m_statusText = "Сервис недоступен для обновления";
+        emit statusChanged();
+        return;
+    }
+
+    const auto document = QJsonDocument::fromJson(response.toUtf8());
+    const auto root = document.object();
+    const auto event = root.value("event").toObject();
+    if (!root.value("ok").toBool(false) || event.value("type").toString() == "error") {
+        const auto message = event.value("message").toString("Не удалось обновить подписку");
+        m_statusText = message;
+        appendLog("Сервис: " + message);
+    } else {
+        loadStateFromService();
+        m_statusText = "Подписка обновлена";
+        appendLog("Обновлена подписка: " + m_serverModel.subscriptionNameAtRow(row));
+    }
+    updateSelectedServerProperties();
+    emit statusChanged();
+}
+
+void AppController::renameSubscription(int row, const QString &name)
+{
+    const auto subscriptionId = m_serverModel.subscriptionIdAtRow(row);
+    const auto normalizedName = name.trimmed();
+    if (subscriptionId.isEmpty() || normalizedName.isEmpty()) {
+        return;
+    }
+
+    QJsonObject command;
+    command["type"] = "rename-subscription";
+    command["subscription_id"] = subscriptionId;
+    command["name"] = normalizedName;
+    const auto response = requestService(command, IpcRequestTimeoutMs);
+    if (response.isEmpty()) {
+        m_statusText = "Сервис недоступен для переименования";
+        emit statusChanged();
+        return;
+    }
+
+    const auto document = QJsonDocument::fromJson(response.toUtf8());
+    const auto root = document.object();
+    const auto event = root.value("event").toObject();
+    if (!root.value("ok").toBool(false) || event.value("type").toString() == "error") {
+        const auto message = event.value("message").toString("Не удалось переименовать подписку");
+        m_statusText = message;
+        appendLog("Сервис: " + message);
+    } else {
+        loadStateFromService();
+        m_statusText = "Подписка переименована";
+        appendLog("Подписка переименована: " + normalizedName);
+    }
+    updateSelectedServerProperties();
+    emit statusChanged();
+}
+
+void AppController::deleteSubscription(int row)
+{
+    const auto subscriptionId = m_serverModel.subscriptionIdAtRow(row);
+    const auto subscriptionName = m_serverModel.subscriptionNameAtRow(row);
+    if (subscriptionId.isEmpty()) {
+        return;
+    }
+
+    QJsonObject command;
+    command["type"] = "delete-subscription";
+    command["subscription_id"] = subscriptionId;
+    const auto response = requestService(command, IpcRequestTimeoutMs);
+    if (response.isEmpty()) {
+        m_statusText = "Сервис недоступен для удаления";
+        emit statusChanged();
+        return;
+    }
+
+    const auto document = QJsonDocument::fromJson(response.toUtf8());
+    const auto root = document.object();
+    const auto event = root.value("event").toObject();
+    if (!root.value("ok").toBool(false) || event.value("type").toString() == "error") {
+        const auto message = event.value("message").toString("Не удалось удалить подписку");
+        m_statusText = message;
+        appendLog("Сервис: " + message);
+    } else {
+        loadStateFromService();
+        updateSelectedServerProperties();
+        saveState();
+        m_statusText = "Подписка удалена";
+        appendLog("Удалена подписка: " + subscriptionName);
+    }
+    emit statusChanged();
+}
+
+void AppController::copySubscriptionDiagnostics(int row)
+{
+    const auto subscriptionName = m_serverModel.subscriptionNameAtRow(row);
+    if (subscriptionName.isEmpty()) {
+        return;
+    }
+
+    const auto text = QString("Samhain Security\nПодписка: %1\nСерверов: %2\nСтатус: %3")
+        .arg(subscriptionName)
+        .arg(m_serverModel.serverCountAtRow(row))
+        .arg(m_statusText);
+    QGuiApplication::clipboard()->setText(text);
+    m_statusText = "Диагностика скопирована";
+    appendLog("Скопирована диагностика подписки: " + subscriptionName);
+    emit statusChanged();
 }
 
 void AppController::clearLogs()
@@ -436,28 +833,65 @@ void AppController::loadState()
 
     const auto document = QJsonDocument::fromJson(file.readAll());
     const auto object = document.object();
-    m_subscriptionName = object.value("name").toString("Samhain Security");
-    m_subscriptionUrl = object.value("url").toString();
-    m_subscriptionMeta = object.value("meta").toString("27.04.2026 23:22 | Автообновление - 24ч.");
     m_routeModeIndex = object.value("routeMode").toInt(0);
 
-    QVector<ServerItem> servers;
-    for (const auto value : object.value("servers").toArray()) {
-        const auto item = value.toObject();
-        servers.push_back({
-            item.value("name").toString(),
-            item.value("flag").toString(),
-            item.value("protocol").toString(),
-            item.value("endpoint").toString(),
-            item.value("ping").toString("n/a"),
-            item.value("selected").toBool(false),
+    QVector<SubscriptionItem> subscriptions;
+    const auto subscriptionValues = object.value("subscriptions").toArray();
+    for (const auto subscriptionValue : subscriptionValues) {
+        const auto subscriptionObject = subscriptionValue.toObject();
+        QVector<ServerItem> servers;
+        for (const auto value : subscriptionObject.value("servers").toArray()) {
+            const auto item = value.toObject();
+            servers.push_back({
+                item.value("id").toString(),
+                subscriptionObject.value("id").toString(),
+                item.value("name").toString(),
+                item.value("flag").toString(),
+                item.value("protocol").toString(),
+                item.value("endpoint").toString(),
+                item.value("ping").toString("n/a"),
+                item.value("selected").toBool(false),
+            });
+        }
+        subscriptions.push_back({
+            subscriptionObject.value("id").toString(),
+            subscriptionObject.value("name").toString("Samhain Security"),
+            subscriptionObject.value("meta").toString("Локальный профиль"),
+            subscriptionObject.value("expanded").toBool(true),
+            servers,
         });
     }
 
-    if (servers.isEmpty()) {
+    if (subscriptions.isEmpty()) {
+        m_subscriptionName = object.value("name").toString("Samhain Security");
+        m_subscriptionMeta = object.value("meta").toString("27.04.2026 23:22 | Автообновление - 24ч.");
+        QVector<ServerItem> servers;
+        for (const auto value : object.value("servers").toArray()) {
+            const auto item = value.toObject();
+            servers.push_back({
+                item.value("id").toString(),
+                "local-samhain",
+                item.value("name").toString(),
+                item.value("flag").toString(),
+                item.value("protocol").toString(),
+                item.value("endpoint").toString(),
+                item.value("ping").toString("n/a"),
+                item.value("selected").toBool(false),
+            });
+        }
+        if (!servers.isEmpty()) {
+            subscriptions.push_back(buildLocalSubscription(
+                "local-samhain",
+                m_subscriptionName,
+                m_subscriptionMeta,
+                servers));
+        }
+    }
+
+    if (subscriptions.isEmpty()) {
         loadSampleSubscription();
     } else {
-        m_serverModel.setServers(servers);
+        m_serverModel.setSubscriptions(subscriptions, object.value("selectedServerId").toString());
     }
 }
 
@@ -491,43 +925,52 @@ bool AppController::loadStateFromService()
 bool AppController::applyServiceState(const QJsonObject &state)
 {
     const auto subscriptions = state.value("subscriptions").toArray();
-    if (subscriptions.isEmpty()) {
-        return false;
-    }
+    QVector<SubscriptionItem> items;
+    items.reserve(subscriptions.size());
 
-    const auto subscription = subscriptions.first().toObject();
-    const auto serverValues = subscription.value("servers").toArray();
-    if (serverValues.isEmpty()) {
-        return false;
-    }
+    for (const auto subscriptionValue : subscriptions) {
+        const auto subscription = subscriptionValue.toObject();
+        const auto subscriptionId = subscription.value("id").toString();
+        const auto serverValues = subscription.value("servers").toArray();
+        QVector<ServerItem> servers;
+        servers.reserve(serverValues.size());
+        for (const auto value : serverValues) {
+            const auto server = value.toObject();
+            const auto host = server.value("host").toString();
+            const auto portValue = server.value("port");
+            auto endpoint = host;
+            if (!portValue.isNull() && !portValue.isUndefined()) {
+                endpoint += ":" + QString::number(portValue.toInt());
+            }
 
-    QVector<ServerItem> servers;
-    servers.reserve(serverValues.size());
-    for (const auto value : serverValues) {
-        const auto server = value.toObject();
-        const auto host = server.value("host").toString();
-        const auto portValue = server.value("port");
-        auto endpoint = host;
-        if (!portValue.isNull() && !portValue.isUndefined()) {
-            endpoint += ":" + QString::number(portValue.toInt());
+            const auto pingValue = server.value("ping_ms");
+            servers.push_back({
+                server.value("id").toString(),
+                subscriptionId,
+                server.value("name").toString("Samhain Security"),
+                flagForCountry(server.value("country_code").toString()),
+                protocolLabel(server.value("protocol").toString()),
+                endpoint,
+                pingValue.isNull() || pingValue.isUndefined() ? "n/a" : QString::number(pingValue.toInt()) + "ms",
+                false,
+            });
         }
 
-        const auto pingValue = server.value("ping_ms");
-        servers.push_back({
-            server.value("name").toString("Samhain Security"),
-            flagForCountry(server.value("country_code").toString()),
-            protocolLabel(server.value("protocol").toString()),
-            endpoint,
-            pingValue.isNull() || pingValue.isUndefined() ? "n/a" : QString::number(pingValue.toInt()) + "ms",
-            false,
+        items.push_back({
+            subscriptionId,
+            subscription.value("name").toString("Samhain Security"),
+            subscription.value("updated_at").toString("Сервис готов"),
+            true,
+            servers,
         });
     }
 
-    m_subscriptionName = subscription.value("name").toString("Samhain Security");
-    m_subscriptionUrl = subscription.value("url").toString();
-    m_subscriptionMeta = subscription.value("updated_at").toString("Сервис готов");
     m_routeModeIndex = routeModeIndexFromWire(state.value("route_mode").toString("whole-computer"));
-    m_serverModel.setServers(servers);
+    m_serverModel.setSubscriptions(items, state.value("selected_server_id").toString());
+    if (const auto *subscription = m_serverModel.selectedSubscription()) {
+        m_subscriptionName = subscription->name;
+        m_subscriptionMeta = subscription->meta;
+    }
     m_statusText = "Готово";
     emit subscriptionChanged();
     emit routeModeChanged();
@@ -537,25 +980,36 @@ bool AppController::applyServiceState(const QJsonObject &state)
 
 void AppController::saveState() const
 {
-    QJsonArray servers;
-    for (int row = 0; row < m_serverModel.rowCount(); ++row) {
-        const auto modelIndex = m_serverModel.index(row);
-        QJsonObject item;
-        item["name"] = m_serverModel.data(modelIndex, ServerListModel::NameRole).toString();
-        item["flag"] = m_serverModel.data(modelIndex, ServerListModel::FlagRole).toString();
-        item["protocol"] = m_serverModel.data(modelIndex, ServerListModel::ProtocolRole).toString();
-        item["endpoint"] = m_serverModel.data(modelIndex, ServerListModel::EndpointRole).toString();
-        item["ping"] = m_serverModel.data(modelIndex, ServerListModel::PingRole).toString();
-        item["selected"] = m_serverModel.data(modelIndex, ServerListModel::SelectedRole).toBool();
-        servers.push_back(item);
+    QJsonArray subscriptions;
+    for (const auto &subscription : m_serverModel.subscriptions()) {
+        QJsonArray servers;
+        for (const auto &server : subscription.servers) {
+            QJsonObject item;
+            item["id"] = server.id;
+            item["name"] = server.name;
+            item["flag"] = server.flag;
+            item["protocol"] = server.protocol;
+            item["endpoint"] = server.endpoint;
+            item["ping"] = server.ping;
+            item["selected"] = server.selected;
+            servers.push_back(item);
+        }
+
+        QJsonObject subscriptionObject;
+        subscriptionObject["id"] = subscription.id;
+        subscriptionObject["name"] = subscription.name;
+        subscriptionObject["meta"] = subscription.meta;
+        subscriptionObject["expanded"] = subscription.expanded;
+        subscriptionObject["servers"] = servers;
+        subscriptions.push_back(subscriptionObject);
     }
 
     QJsonObject root;
     root["name"] = m_subscriptionName;
-    root["url"] = m_subscriptionUrl;
     root["meta"] = m_subscriptionMeta;
     root["routeMode"] = m_routeModeIndex;
-    root["servers"] = servers;
+    root["selectedServerId"] = m_serverModel.selectedServer() ? m_serverModel.selectedServer()->id : "";
+    root["subscriptions"] = subscriptions;
 
     const auto path = stateFilePath();
     QDir().mkpath(QFileInfo(path).absolutePath());
@@ -567,15 +1021,22 @@ void AppController::saveState() const
 
 void AppController::loadSampleSubscription()
 {
-    m_serverModel.setServers({
-        {"Samhain GB London #1", "🇬🇧", "VLESS / TCP / REALITY", "gb-london-1.samhain", "1277ms", false},
-        {"Samhain GB London #2", "🇬🇧", "VLESS / TCP / REALITY", "gb-london-2.samhain", "1189ms", false},
-        {"Samhain NL Amsterdam #3", "🇳🇱", "VLESS / TCP / REALITY", "nl-amsterdam-3.samhain", "360ms", true},
-        {"Samhain SE Evle #4", "🇸🇪", "Trojan", "se-evle-4.samhain", "248ms", false},
-        {"Samhain SE Evle #5", "🇸🇪", "Shadowsocks", "se-evle-5.samhain", "251ms", false},
-        {"Samhain DE Frankfurt #6", "🇩🇪", "AmneziaWG", "de-frankfurt-6.samhain", "n/a", false},
-        {"Samhain DE Frankfurt #7", "🇩🇪", "Hysteria2", "de-frankfurt-7.samhain", "n/a", false},
-    });
+    auto subscription = buildLocalSubscription(
+        "default-samhain",
+        "Samhain Security",
+        "27.04.2026 23:22 | Автообновление - 24ч.",
+        {
+            {"server-1", "default-samhain", "Samhain GB London #1", "🇬🇧", "VLESS / TCP / REALITY", "gb-london-1.samhain", "1277ms", false},
+            {"server-2", "default-samhain", "Samhain GB London #2", "🇬🇧", "VLESS / TCP / REALITY", "gb-london-2.samhain", "1189ms", false},
+            {"server-3", "default-samhain", "Samhain NL Amsterdam #3", "🇳🇱", "VLESS / TCP / REALITY", "nl-amsterdam-3.samhain", "360ms", true},
+            {"server-4", "default-samhain", "Samhain SE Evle #4", "🇸🇪", "Trojan", "se-evle-4.samhain", "248ms", false},
+            {"server-5", "default-samhain", "Samhain SE Evle #5", "🇸🇪", "Shadowsocks", "se-evle-5.samhain", "251ms", false},
+            {"server-6", "default-samhain", "Samhain DE Frankfurt #6", "🇩🇪", "AmneziaWG", "de-frankfurt-6.samhain", "n/a", false},
+            {"server-7", "default-samhain", "Samhain DE Frankfurt #7", "🇩🇪", "Hysteria2", "de-frankfurt-7.samhain", "n/a", false},
+        });
+    m_serverModel.setSubscriptions({subscription}, "server-3");
+    m_subscriptionName = subscription.name;
+    m_subscriptionMeta = subscription.meta;
 }
 
 QString AppController::requestService(const QJsonObject &command, int timeoutMs) const
@@ -714,6 +1175,28 @@ int AppController::routeModeIndexFromWire(const QString &routeMode) const
     return 0;
 }
 
+SubscriptionItem AppController::buildLocalSubscription(
+    const QString &id,
+    const QString &name,
+    const QString &meta,
+    QVector<ServerItem> servers) const
+{
+    SubscriptionItem subscription;
+    subscription.id = id;
+    subscription.name = name.trimmed().isEmpty() ? "Samhain Security" : name.trimmed();
+    subscription.meta = meta.trimmed().isEmpty() ? "Локальный профиль" : meta.trimmed();
+    subscription.expanded = true;
+    for (int index = 0; index < servers.size(); ++index) {
+        auto &server = servers[index];
+        server.subscriptionId = subscription.id;
+        if (server.id.isEmpty()) {
+            server.id = QString("%1-server-%2").arg(subscription.id).arg(index + 1);
+        }
+    }
+    subscription.servers = std::move(servers);
+    return subscription;
+}
+
 QVector<ServerItem> AppController::buildServersForUrl(const QString &url) const
 {
     const auto lower = url.toLower();
@@ -743,15 +1226,15 @@ QVector<ServerItem> AppController::buildServersForUrl(const QString &url) const
         }
 
         return {
-            {seedName + " импорт #1", "◉", protocol, url.left(42), "n/a", true},
+            {"", "", seedName + " импорт #1", "◉", protocol, url.left(42), "n/a", true},
         };
     }
 
     return {
-        {seedName + " GB London #1", "🇬🇧", "VLESS / TCP / REALITY", "gb-london-1.samhain", "n/a", false},
-        {seedName + " NL Amsterdam #2", "🇳🇱", "VLESS / TCP / REALITY", "nl-amsterdam-2.samhain", "n/a", true},
-        {seedName + " DE Frankfurt #3", "🇩🇪", "AmneziaWG", "de-frankfurt-3.samhain", "n/a", false},
-        {seedName + " SE Evle #4", "🇸🇪", "Trojan", "se-evle-4.samhain", "n/a", false},
+        {"", "", seedName + " GB London #1", "🇬🇧", "VLESS / TCP / REALITY", "gb-london-1.samhain", "n/a", false},
+        {"", "", seedName + " NL Amsterdam #2", "🇳🇱", "VLESS / TCP / REALITY", "nl-amsterdam-2.samhain", "n/a", true},
+        {"", "", seedName + " DE Frankfurt #3", "🇩🇪", "AmneziaWG", "de-frankfurt-3.samhain", "n/a", false},
+        {"", "", seedName + " SE Evle #4", "🇸🇪", "Trojan", "se-evle-4.samhain", "n/a", false},
     };
 }
 
@@ -768,6 +1251,11 @@ void AppController::updateSelectedServerProperties()
 {
     const auto *server = m_serverModel.selectedServer();
     if (!server) {
+        m_selectedServerName = "Сервер не выбран";
+        m_selectedServerFlag = "◉";
+        m_selectedServerProtocol = "";
+        m_selectedServerPing = "";
+        emit selectedServerChanged();
         return;
     }
 
@@ -775,6 +1263,11 @@ void AppController::updateSelectedServerProperties()
     m_selectedServerFlag = server->flag;
     m_selectedServerProtocol = server->protocol;
     m_selectedServerPing = server->ping;
+    if (const auto *subscription = m_serverModel.selectedSubscription()) {
+        m_subscriptionName = subscription->name;
+        m_subscriptionMeta = subscription->meta;
+        emit subscriptionChanged();
+    }
     emit selectedServerChanged();
 }
 
