@@ -228,6 +228,13 @@ public sealed class ProtectionPolicyService
             return BuildPolicyStateResult.Fail(dnsError);
         }
 
+        var appRoutingMode = NormalizeAppRoutingMode(request.AppRoutingMode);
+        var appRoutingTargets = ParseAppRoutingTargets(request.AppRoutingPaths);
+        if (appRoutingMode != "EntireComputer" && !appRoutingTargets.HasTargets)
+        {
+            return BuildPolicyStateResult.Fail("Application routing requires at least one application.");
+        }
+
         var endpointAddresses = await ResolveEndpointAddressesAsync(request.ServerAddress, cancellationToken);
         var endpointRequired = request.KillSwitchEnabled
             && endpointAddresses.Length == 0
@@ -253,6 +260,9 @@ public sealed class ProtectionPolicyService
             DnsLeakProtectionEnabled = request.DnsLeakProtectionEnabled,
             AllowLanTraffic = request.AllowLanTraffic,
             DnsServers = dnsServers,
+            AppRoutingMode = appRoutingMode,
+            AppRoutingProcessPaths = appRoutingTargets.ProcessPaths,
+            AppRoutingProcessNames = appRoutingTargets.ProcessNames,
             EndpointAddresses = endpointAddresses,
             FirewallRuleGroup = RuleGroupName,
             EnforcementMode = request.KillSwitchEnabled ? "firewall" : "audit-only",
@@ -279,6 +289,9 @@ public sealed class ProtectionPolicyService
             $"DNS leak protection: {FormatSwitch(state.DnsLeakProtectionEnabled)}",
             $"Allowed local network: {FormatSwitch(state.AllowLanTraffic)}",
             $"DNS servers: {FormatCollection(state.DnsServers)}",
+            $"Application routing: {FormatAppRoutingMode(state.AppRoutingMode)}",
+            $"Application paths: {FormatCollection(state.AppRoutingProcessPaths)}",
+            $"Application names: {FormatCollection(state.AppRoutingProcessNames)}",
             $"Enforcement mode: {state.EnforcementMode}",
             $"Rule group: {state.FirewallRuleGroup}",
             $"Last health check: {FormatTimestamp(state.LastHealthCheckUtc)}",
@@ -327,6 +340,36 @@ public sealed class ProtectionPolicyService
         {
             yield return "- restore snapshot is available for: "
                 + string.Join(", ", state.FirewallProfiles.Select(profile => $"{profile.Name}={profile.DefaultOutboundAction}"));
+        }
+
+        foreach (var line in BuildAppRoutingFirewallPlan(state))
+        {
+            yield return line;
+        }
+    }
+
+    private static IEnumerable<string> BuildAppRoutingFirewallPlan(ProtectionPolicyState state)
+    {
+        if (state.AppRoutingMode == "EntireComputer")
+        {
+            yield break;
+        }
+
+        yield return $"- application routing mode: {FormatAppRoutingMode(state.AppRoutingMode)}";
+
+        if (state.AppRoutingProcessPaths.Length > 0)
+        {
+            yield return $"- application path targets: {string.Join(", ", state.AppRoutingProcessPaths)}";
+        }
+
+        if (state.AppRoutingProcessNames.Length > 0)
+        {
+            yield return "- application name targets are handled by app-aware engines";
+        }
+
+        if (state.AppRoutingMode == "EntireComputerExceptSelectedApps" && state.AppRoutingProcessPaths.Length > 0)
+        {
+            yield return "- add outbound allow rules for bypass application paths when firewall enforcement is active";
         }
     }
 
@@ -400,6 +443,16 @@ public sealed class ProtectionPolicyService
 
             if ($policy.EnginePath -and (Test-Path -LiteralPath $policy.EnginePath)) {
                 New-NetFirewallRule -DisplayName 'Samhain Security Allow Engine' -Group $policy.FirewallRuleGroup -Direction Outbound -Action Allow -Program $policy.EnginePath | Out-Null
+            }
+
+            $appPaths = To-Array $policy.AppRoutingProcessPaths
+            if ($policy.AppRoutingMode -eq 'EntireComputerExceptSelectedApps' -and $appPaths.Count -gt 0) {
+                foreach ($appPath in $appPaths) {
+                    if ($appPath -and (Test-Path -LiteralPath $appPath)) {
+                        $leaf = Split-Path -Leaf $appPath
+                        New-NetFirewallRule -DisplayName "Samhain Security Allow App Bypass $leaf" -Group $policy.FirewallRuleGroup -Direction Outbound -Action Allow -Program $appPath | Out-Null
+                    }
+                }
             }
 
             if ($policy.TunnelInterfaceAlias -and (Get-NetAdapter -Name $policy.TunnelInterfaceAlias -ErrorAction SilentlyContinue)) {
@@ -661,6 +714,54 @@ public sealed class ProtectionPolicyService
         return true;
     }
 
+    private static AppRoutingTargets ParseAppRoutingTargets(string value)
+    {
+        var processPaths = new List<string>();
+        var processNames = new List<string>();
+
+        foreach (var item in value.Split(
+            ['\r', '\n', ';'],
+            StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+        {
+            var normalized = item.Trim().Trim('"', '\'');
+            if (string.IsNullOrWhiteSpace(normalized))
+            {
+                continue;
+            }
+
+            if (Path.IsPathRooted(normalized)
+                || normalized.Contains(Path.DirectorySeparatorChar, StringComparison.Ordinal)
+                || normalized.Contains(Path.AltDirectorySeparatorChar, StringComparison.Ordinal))
+            {
+                processPaths.Add(Environment.ExpandEnvironmentVariables(normalized));
+            }
+            else
+            {
+                processNames.Add(Path.GetFileName(normalized));
+            }
+        }
+
+        return new AppRoutingTargets(
+            processPaths.Distinct(StringComparer.OrdinalIgnoreCase).ToArray(),
+            processNames.Distinct(StringComparer.OrdinalIgnoreCase).ToArray());
+    }
+
+    private static string NormalizeAppRoutingMode(string mode)
+    {
+        var normalized = mode
+            .Replace(" ", string.Empty, StringComparison.Ordinal)
+            .Replace("-", string.Empty, StringComparison.Ordinal)
+            .Replace("_", string.Empty, StringComparison.Ordinal)
+            .ToLowerInvariant();
+
+        return normalized switch
+        {
+            "selectedappsonly" => "SelectedAppsOnly",
+            "entirecomputerexceptselectedapps" => "EntireComputerExceptSelectedApps",
+            _ => "EntireComputer"
+        };
+    }
+
     private static string FormatSwitch(bool value)
     {
         return value ? "on" : "off";
@@ -686,6 +787,16 @@ public sealed class ProtectionPolicyService
     private static string FormatTimestamp(DateTimeOffset? value)
     {
         return value.HasValue ? value.Value.ToString("O") : "never";
+    }
+
+    private static string FormatAppRoutingMode(string mode)
+    {
+        return mode switch
+        {
+            "SelectedAppsOnly" => "selected applications only",
+            "EntireComputerExceptSelectedApps" => "whole computer except selected applications",
+            _ => "whole computer"
+        };
     }
 
     private async Task WriteAuditAsync(
@@ -765,6 +876,12 @@ public sealed class ProtectionPolicyState
     public bool AllowLanTraffic { get; set; }
 
     public string[] DnsServers { get; set; } = [];
+
+    public string AppRoutingMode { get; set; } = "EntireComputer";
+
+    public string[] AppRoutingProcessPaths { get; set; } = [];
+
+    public string[] AppRoutingProcessNames { get; set; } = [];
 
     public string[] EndpointAddresses { get; set; } = [];
 

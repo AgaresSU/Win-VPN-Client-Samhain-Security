@@ -39,6 +39,12 @@ public sealed class MultiProtocolVpnService
             return new CommandResult(1, string.Empty, validationError);
         }
 
+        var appRoutingError = ValidateAppRoutingSupport(profile);
+        if (!string.IsNullOrWhiteSpace(appRoutingError))
+        {
+            return new CommandResult(1, string.Empty, appRoutingError);
+        }
+
         if (profile.Protocol != VpnProtocolType.WindowsNative)
         {
             var serviceResult = await _serviceClient.ConnectTunnelAsync(profile, tunnelConfig, cancellationToken);
@@ -127,5 +133,24 @@ public sealed class MultiProtocolVpnService
             VpnProtocolType.AmneziaWireGuard => Task.FromResult(_amneziaWireGuardService.GetStatus()),
             _ => Task.FromResult(new CommandResult(1, string.Empty, "Неизвестный протокол"))
         };
+    }
+
+    private static string ValidateAppRoutingSupport(VpnProfile profile)
+    {
+        var mode = profile.GetEffectiveAppRoutingMode();
+        if (mode == AppRoutingMode.EntireComputer)
+        {
+            return string.Empty;
+        }
+
+        var targets = AppRoutingPathParser.Parse(profile.AppRoutingPaths);
+        if (!targets.HasTargets)
+        {
+            return "Укажите приложения для выбранного режима маршрутизации";
+        }
+
+        return profile.Protocol == VpnProtocolType.VlessReality
+            ? string.Empty
+            : "Маршрутизация по приложениям сейчас применяется для VLESS TCP Reality; для этого протокола нужен WFP-модуль";
     }
 }

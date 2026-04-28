@@ -1,6 +1,6 @@
 # Samhain Security
 
-Version: `0.6.2`
+Version: `0.6.3`
 
 Desktop secure tunneling client for Windows built with WPF and .NET 9.
 
@@ -45,6 +45,7 @@ Desktop secure tunneling client for Windows built with WPF and .NET 9.
 - Adds a premium daily shell with server categories, a larger central catalog, and a dedicated connection panel.
 - Highlights the active server category and keeps the catalog title synchronized with category and filter state.
 - Distinguishes three application routing modes: whole computer, selected applications only, and whole computer except selected applications.
+- Applies VLESS application routing through generated `sing-box` process rules and reports the policy through the service protection status.
 - Adds pre-connect validation for VLESS Reality and WireGuard-style configs with clear local errors.
 - Adds optional reconnect after resume or network changes for the last successful profile.
 - Adds tray-first server selection with connect selected, connect best, and current server submenu.
@@ -123,7 +124,7 @@ Portable package:
 Local package helper:
 
 ```powershell
-.\scripts\install-local.ps1 -PackagePath ".\dist\SamhainSecurity-0.6.2-win-x64" -StartService -CreateStartMenuShortcut
+.\scripts\install-local.ps1 -PackagePath ".\dist\SamhainSecurity-0.6.3-win-x64" -StartService -CreateStartMenuShortcut
 ```
 
 Default install root is `%ProgramFiles%\Samhain Security`. The helper stops and replaces the previous service registration, copies the package to the install root, writes `install-manifest.json`, and preserves `%APPDATA%\SamhainSecurity`.
@@ -236,6 +237,8 @@ Version `0.6.0` starts the premium daily shell. The main window now has server c
 Version `0.6.1` polishes category navigation. The active server category is highlighted, the catalog title follows the selected category, and manual search or sorting switches the title to the filtered view.
 
 Version `0.6.2` adds stored application routing modes. Profiles can now remember whole-computer routing, selected-applications-only routing, or whole-computer-except-selected-applications routing, and the selected mode is shown in the daily status panel.
+
+Version `0.6.3` starts real application-aware routing. VLESS TCP Reality now generates `sing-box` process rules for selected app paths or process names, the service pipe carries the policy, and protection status/preview shows the active application routing plan.
 
 ## Versioning
 

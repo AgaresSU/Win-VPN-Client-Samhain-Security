@@ -288,14 +288,66 @@ public sealed class TunnelSupervisorService : IDisposable
                     tag = "direct"
                 }
             },
-            route = new
-            {
-                auto_detect_interface = true,
-                final = "proxy"
-            }
+            route = BuildRoute(request)
         };
 
         return JsonSerializer.Serialize(config, JsonOptions);
+    }
+
+    private static Dictionary<string, object> BuildRoute(PipeRequest request)
+    {
+        var mode = NormalizeAppRoutingMode(request.AppRoutingMode);
+        var targets = ParseAppRoutingTargets(request.AppRoutingPaths);
+        var route = new Dictionary<string, object>
+        {
+            ["auto_detect_interface"] = true,
+            ["final"] = mode == "selectedappsonly" && targets.HasTargets
+                ? "direct"
+                : "proxy"
+        };
+        var rules = BuildAppRoutingRules(mode, targets);
+        if (rules.Count > 0)
+        {
+            route["rules"] = rules;
+        }
+
+        return route;
+    }
+
+    private static List<object> BuildAppRoutingRules(string mode, AppRoutingTargets targets)
+    {
+        var outbound = mode switch
+        {
+            "selectedappsonly" => "proxy",
+            "entirecomputerexceptselectedapps" => "direct",
+            _ => string.Empty
+        };
+
+        if (string.IsNullOrWhiteSpace(outbound) || !targets.HasTargets)
+        {
+            return [];
+        }
+
+        var rules = new List<object>();
+        if (targets.ProcessPaths.Length > 0)
+        {
+            rules.Add(new
+            {
+                process_path = targets.ProcessPaths,
+                outbound
+            });
+        }
+
+        if (targets.ProcessNames.Length > 0)
+        {
+            rules.Add(new
+            {
+                process_name = targets.ProcessNames,
+                outbound
+            });
+        }
+
+        return rules;
     }
 
     private static string ValidateVlessReality(PipeRequest request)
@@ -325,7 +377,61 @@ public sealed class TunnelSupervisorService : IDisposable
             return "Reality public key is required";
         }
 
+        if (NormalizeAppRoutingMode(request.AppRoutingMode) != "entirecomputer"
+            && !ParseAppRoutingTargets(request.AppRoutingPaths).HasTargets)
+        {
+            return "Application routing requires at least one application.";
+        }
+
         return string.Empty;
+    }
+
+    private static AppRoutingTargets ParseAppRoutingTargets(string value)
+    {
+        var processPaths = new List<string>();
+        var processNames = new List<string>();
+
+        foreach (var item in value.Split(
+            ['\r', '\n', ';'],
+            StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+        {
+            var normalized = item.Trim().Trim('"', '\'');
+            if (string.IsNullOrWhiteSpace(normalized))
+            {
+                continue;
+            }
+
+            if (Path.IsPathRooted(normalized)
+                || normalized.Contains(Path.DirectorySeparatorChar, StringComparison.Ordinal)
+                || normalized.Contains(Path.AltDirectorySeparatorChar, StringComparison.Ordinal))
+            {
+                processPaths.Add(Environment.ExpandEnvironmentVariables(normalized));
+            }
+            else
+            {
+                processNames.Add(Path.GetFileName(normalized));
+            }
+        }
+
+        return new AppRoutingTargets(
+            processPaths.Distinct(StringComparer.OrdinalIgnoreCase).ToArray(),
+            processNames.Distinct(StringComparer.OrdinalIgnoreCase).ToArray());
+    }
+
+    private static string NormalizeAppRoutingMode(string mode)
+    {
+        var normalized = mode
+            .Replace(" ", string.Empty, StringComparison.Ordinal)
+            .Replace("-", string.Empty, StringComparison.Ordinal)
+            .Replace("_", string.Empty, StringComparison.Ordinal)
+            .ToLowerInvariant();
+
+        return normalized switch
+        {
+            "selectedappsonly" => "selectedappsonly",
+            "entirecomputerexceptselectedapps" => "entirecomputerexceptselectedapps",
+            _ => "entirecomputer"
+        };
     }
 
     private static async Task<string> WriteTunnelConfigAsync(
@@ -576,4 +682,11 @@ public sealed class TunnelSupervisorService : IDisposable
             // The process may have exited between the check and kill.
         }
     }
+}
+
+public sealed record AppRoutingTargets(string[] ProcessPaths, string[] ProcessNames)
+{
+    public int Count => ProcessPaths.Length + ProcessNames.Length;
+
+    public bool HasTargets => Count > 0;
 }

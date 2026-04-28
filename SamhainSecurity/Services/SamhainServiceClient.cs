@@ -142,7 +142,9 @@ public sealed class SamhainServiceClient
             KillSwitchEnabled = profile.KillSwitchEnabled,
             DnsLeakProtectionEnabled = profile.DnsLeakProtectionEnabled,
             AllowLanTraffic = profile.AllowLanTraffic,
-            DnsServers = profile.DnsServers
+            DnsServers = profile.DnsServers,
+            AppRoutingMode = profile.GetEffectiveAppRoutingMode().ToString(),
+            AppRoutingPaths = profile.AppRoutingPaths
         };
     }
 
@@ -167,7 +169,9 @@ public sealed class SamhainServiceClient
             RealityServerName = profile.RealityServerName,
             RealityPublicKey = profile.RealityPublicKey,
             RealityShortId = profile.RealityShortId,
-            RealityFingerprint = profile.RealityFingerprint
+            RealityFingerprint = profile.RealityFingerprint,
+            AppRoutingMode = profile.GetEffectiveAppRoutingMode().ToString(),
+            AppRoutingPaths = profile.AppRoutingPaths
         };
     }
 
@@ -252,6 +256,10 @@ public sealed class ServicePipeRequest
     public bool AllowLanTraffic { get; set; }
 
     public string DnsServers { get; set; } = string.Empty;
+
+    public string AppRoutingMode { get; set; } = string.Empty;
+
+    public string AppRoutingPaths { get; set; } = string.Empty;
 }
 
 public sealed class ServicePipeResponse

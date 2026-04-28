@@ -1,6 +1,6 @@
 {
   "product": "Samhain Security",
-  "version": "0.6.2",
+  "version": "0.6.3",
   "installRoot": "%ProgramFiles%/Samhain Security",
   "windowsRuntime": "win-x64",
   "appEntry": "app/SamhainSecurity.exe",
@@ -28,6 +28,7 @@
     "introduce the premium daily shell with server categories, large catalog, and right connection panel",
     "highlight the active server category and keep the catalog title synchronized with filters",
     "store application routing mode for whole computer, selected applications only, and whole computer except selected applications",
+    "apply VLESS application routing through sing-box process rules and expose the policy in service status",
     "install local service when elevated",
     "create optional Start Menu shortcut",
     "create optional Desktop shortcut",

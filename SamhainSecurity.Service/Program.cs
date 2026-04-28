@@ -408,6 +408,10 @@ public sealed class PipeRequest
     public bool AllowLanTraffic { get; set; }
 
     public string DnsServers { get; set; } = string.Empty;
+
+    public string AppRoutingMode { get; set; } = string.Empty;
+
+    public string AppRoutingPaths { get; set; } = string.Empty;
 }
 
 public sealed record PipeResponse(int ExitCode, string Output, string Error)

@@ -1,6 +1,6 @@
 # Samhain Security Roadmap
 
-Version baseline: `0.6.2`
+Version baseline: `0.6.3`
 
 ## Product Goal
 
@@ -436,6 +436,12 @@ The default UI should stay close to the simplicity of Happ: a small set of obvio
 - Done: profiles now store one of three application routing modes.
 - Done: the advanced settings screen exposes whole-computer, selected-applications-only, and whole-computer-except-selected-applications routing.
 - Done: the daily status panel shows the selected application routing mode and configured app count.
+
+### 0.6.3
+
+- Done: VLESS TCP Reality configs now include `sing-box` process rules for selected app paths and process names.
+- Done: the service pipe carries application routing mode and targets for tunnel and protection actions.
+- Done: protection preview/status includes the application routing plan and app bypass firewall rules where path-based rules are applicable.
 
 ## Design Direction
 

@@ -1902,9 +1902,7 @@ public partial class MainWindow : Window
 
     private static AppRoutingMode GetProfileAppRoutingMode(VpnProfile profile)
     {
-        return profile.AppRoutingMode == AppRoutingMode.EntireComputer && profile.SplitTunneling
-            ? AppRoutingMode.SelectedAppsOnly
-            : profile.AppRoutingMode;
+        return profile.GetEffectiveAppRoutingMode();
     }
 
     private void UpdateProtocolFields()
@@ -2155,14 +2153,7 @@ public partial class MainWindow : Window
 
     private static int CountAppRoutingPaths(string paths)
     {
-        if (string.IsNullOrWhiteSpace(paths))
-        {
-            return 0;
-        }
-
-        return paths
-            .Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
-            .Count();
+        return AppRoutingPathParser.Parse(paths).Count;
     }
 
     private string BuildDailyAutoModeText()

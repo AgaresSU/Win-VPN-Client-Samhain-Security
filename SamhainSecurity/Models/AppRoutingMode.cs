@@ -15,4 +15,13 @@ public static class AppRoutingModeExtensions
         AppRoutingMode.EntireComputerExceptSelectedApps => "Весь компьютер, кроме выбранных приложений",
         _ => "Весь компьютер"
     };
+
+    public static AppRoutingMode GetEffectiveAppRoutingMode(this VpnProfile profile)
+    {
+        return profile.AppRoutingMode == AppRoutingMode.EntireComputer
+            && profile.SplitTunneling
+            && AppRoutingPathParser.Parse(profile.AppRoutingPaths).HasTargets
+            ? AppRoutingMode.SelectedAppsOnly
+            : profile.AppRoutingMode;
+    }
 }

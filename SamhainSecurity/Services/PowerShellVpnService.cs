@@ -106,7 +106,7 @@ public sealed class PowerShellVpnService
         var name = ToPowerShellLiteral(profile.Name);
         var server = ToPowerShellLiteral(profile.ServerAddress);
         var tunnelType = ToPowerShellLiteral(profile.TunnelType.ToPowerShellValue());
-        var splitTunneling = profile.SplitTunneling ? "$true" : "$false";
+        var splitTunneling = profile.GetEffectiveAppRoutingMode() == AppRoutingMode.SelectedAppsOnly ? "$true" : "$false";
         var psk = ToPowerShellLiteral(l2tpPsk);
 
         return $$"""

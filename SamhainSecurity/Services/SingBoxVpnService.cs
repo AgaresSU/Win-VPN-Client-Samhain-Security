@@ -152,14 +152,66 @@ public sealed class SingBoxVpnService
                     tag = "direct"
                 }
             },
-            route = new
-            {
-                auto_detect_interface = true,
-                final = "proxy"
-            }
+            route = BuildRoute(profile)
         };
 
         return JsonSerializer.Serialize(config, JsonOptions);
+    }
+
+    private static Dictionary<string, object> BuildRoute(VpnProfile profile)
+    {
+        var mode = profile.GetEffectiveAppRoutingMode();
+        var targets = AppRoutingPathParser.Parse(profile.AppRoutingPaths);
+        var route = new Dictionary<string, object>
+        {
+            ["auto_detect_interface"] = true,
+            ["final"] = mode == AppRoutingMode.SelectedAppsOnly && targets.HasTargets
+                ? "direct"
+                : "proxy"
+        };
+        var rules = BuildAppRoutingRules(mode, targets);
+        if (rules.Count > 0)
+        {
+            route["rules"] = rules;
+        }
+
+        return route;
+    }
+
+    private static List<object> BuildAppRoutingRules(AppRoutingMode mode, AppRoutingTargets targets)
+    {
+        var outbound = mode switch
+        {
+            AppRoutingMode.SelectedAppsOnly => "proxy",
+            AppRoutingMode.EntireComputerExceptSelectedApps => "direct",
+            _ => string.Empty
+        };
+
+        if (string.IsNullOrWhiteSpace(outbound) || !targets.HasTargets)
+        {
+            return [];
+        }
+
+        var rules = new List<object>();
+        if (targets.ProcessPaths.Length > 0)
+        {
+            rules.Add(new
+            {
+                process_path = targets.ProcessPaths,
+                outbound
+            });
+        }
+
+        if (targets.ProcessNames.Length > 0)
+        {
+            rules.Add(new
+            {
+                process_name = targets.ProcessNames,
+                outbound
+            });
+        }
+
+        return rules;
     }
 
     private static string Validate(VpnProfile profile)
@@ -187,6 +239,12 @@ public sealed class SingBoxVpnService
         if (string.IsNullOrWhiteSpace(profile.RealityPublicKey))
         {
             return "Введите Reality public key";
+        }
+
+        if (profile.GetEffectiveAppRoutingMode() != AppRoutingMode.EntireComputer
+            && !AppRoutingPathParser.Parse(profile.AppRoutingPaths).HasTargets)
+        {
+            return "Укажите приложения для выбранного режима маршрутизации";
         }
 
         return string.Empty;
