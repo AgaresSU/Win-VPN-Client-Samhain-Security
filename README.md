@@ -1,6 +1,6 @@
 # Samhain Security
 
-Version: `0.5.4`
+Version: `0.5.5`
 
 Desktop secure tunneling client for Windows built with WPF and .NET 9.
 
@@ -37,6 +37,7 @@ Desktop secure tunneling client for Windows built with WPF and .NET 9.
 - Adds runtime config cleanup for temporary VLESS/WireGuard/AmneziaWG files after stop/disconnect and stale startup sweeps.
 - Adds server catalog search, favorites-only filtering, visible counts, and quick sort modes for daily server switching.
 - Adds quick server recommendations for the currently visible list: recommended, favorite, and recent.
+- Adds plain-language reasons for server recommendations with status, delay, last check, favorite, and recent markers.
 - Adds pre-connect validation for VLESS Reality and WireGuard-style configs with clear local errors.
 - Adds optional reconnect after resume or network changes for the last successful profile.
 - Adds tray-first server selection with connect selected, connect best, and current server submenu.
@@ -115,7 +116,7 @@ Portable package:
 Local package helper:
 
 ```powershell
-.\scripts\install-local.ps1 -PackagePath ".\dist\SamhainSecurity-0.5.4-win-x64" -StartService -CreateStartMenuShortcut
+.\scripts\install-local.ps1 -PackagePath ".\dist\SamhainSecurity-0.5.5-win-x64" -StartService -CreateStartMenuShortcut
 ```
 
 Default install root is `%ProgramFiles%\Samhain Security`. The helper stops and replaces the previous service registration, copies the package to the install root, writes `install-manifest.json`, and preserves `%APPDATA%\SamhainSecurity`.
@@ -212,6 +213,8 @@ Version `0.5.2` tightens runtime config handling. Temporary plaintext engine con
 Version `0.5.3` improves daily server selection. The server catalog now supports search, favorites-only filtering, visible/total counts, and sort modes for smart, fast, favorite, recent, and name-based browsing.
 
 Version `0.5.4` adds quick server recommendations above the catalog. The app now surfaces the recommended, favorite, and recent choices from the currently visible server list so daily switching needs fewer clicks.
+
+Version `0.5.5` makes those recommendations explain themselves. Each quick server choice now shows why it was picked, including availability, delay, last check time, favorite state, and last-use time when those signals exist.
 
 ## Versioning
 

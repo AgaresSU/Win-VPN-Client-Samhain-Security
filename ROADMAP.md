@@ -1,6 +1,6 @@
 # Samhain Security Roadmap
 
-Version baseline: `0.5.4`
+Version baseline: `0.5.5`
 
 ## Product Goal
 
@@ -388,6 +388,12 @@ The default UI should stay close to the simplicity of Happ: a small set of obvio
 - Done: quick favorite server choice from the current visible list.
 - Done: quick recent server choice from the current visible list.
 - Done: recommendation buttons keep search and favorites-only filters predictable.
+
+### 0.5.5
+
+- Done: server recommendation cards now explain the selection reason.
+- Done: recommendation reasons include availability, delay, last check time, favorite state, and last-use time.
+- Done: recommendation tooltips mirror the visible reason text for easier inspection.
 
 ## Design Direction
 

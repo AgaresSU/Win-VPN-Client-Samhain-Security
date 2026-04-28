@@ -562,6 +562,12 @@
                                                        FontSize="12"
                                                        TextTrimming="CharacterEllipsis"
                                                        Margin="0,3,0,0" />
+                                            <TextBlock x:Name="RecommendedServerReasonTextBlock"
+                                                       Text="Нет данных"
+                                                       Foreground="{StaticResource MutedTextBrush}"
+                                                       FontSize="12"
+                                                       TextTrimming="CharacterEllipsis"
+                                                       Margin="0,3,0,0" />
                                         </StackPanel>
                                     </Button>
 
@@ -585,6 +591,12 @@
                                                        FontSize="12"
                                                        TextTrimming="CharacterEllipsis"
                                                        Margin="0,3,0,0" />
+                                            <TextBlock x:Name="FavoriteRecommendationReasonTextBlock"
+                                                       Text="Нет данных"
+                                                       Foreground="{StaticResource MutedTextBrush}"
+                                                       FontSize="12"
+                                                       TextTrimming="CharacterEllipsis"
+                                                       Margin="0,3,0,0" />
                                         </StackPanel>
                                     </Button>
 
@@ -604,6 +616,12 @@
                                                        Margin="0,3,0,0" />
                                             <TextBlock x:Name="RecentServerDetailTextBlock"
                                                        Text="После успешного подключения"
+                                                       Foreground="{StaticResource MutedTextBrush}"
+                                                       FontSize="12"
+                                                       TextTrimming="CharacterEllipsis"
+                                                       Margin="0,3,0,0" />
+                                            <TextBlock x:Name="RecentServerReasonTextBlock"
+                                                       Text="Нет данных"
                                                        Foreground="{StaticResource MutedTextBrush}"
                                                        FontSize="12"
                                                        TextTrimming="CharacterEllipsis"

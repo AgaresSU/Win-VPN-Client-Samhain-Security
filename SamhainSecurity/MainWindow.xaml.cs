@@ -2421,18 +2421,21 @@ public partial class MainWindow : Window
             RecommendedServerButton,
             RecommendedServerNameTextBlock,
             RecommendedServerDetailTextBlock,
+            RecommendedServerReasonTextBlock,
             best,
             _serverChoices.Count == 0 ? "Обновите подписку" : "Нет совпадений");
         SetRecommendation(
             FavoriteRecommendationButton,
             FavoriteRecommendationNameTextBlock,
             FavoriteRecommendationDetailTextBlock,
+            FavoriteRecommendationReasonTextBlock,
             favorite,
             _serverChoices.Any(item => item.Profile.IsFavorite) ? "Скрыт фильтром" : "Отметьте сервер");
         SetRecommendation(
             RecentServerButton,
             RecentServerNameTextBlock,
             RecentServerDetailTextBlock,
+            RecentServerReasonTextBlock,
             recent,
             _serverChoices.Any(item => item.Profile.LastConnectedAt is not null) ? "Скрыт фильтром" : "После успешного подключения");
     }
@@ -2441,6 +2444,7 @@ public partial class MainWindow : Window
         System.Windows.Controls.Button button,
         TextBlock nameTextBlock,
         TextBlock detailTextBlock,
+        TextBlock reasonTextBlock,
         ServerListItem? item,
         string emptyDetail)
     {
@@ -2450,13 +2454,65 @@ public partial class MainWindow : Window
         {
             nameTextBlock.Text = "Нет сервера";
             detailTextBlock.Text = emptyDetail;
+            reasonTextBlock.Text = "Нет данных";
+            button.ToolTip = emptyDetail;
             return;
         }
 
+        var reason = BuildRecommendationReason(item.Profile);
         nameTextBlock.Text = item.DisplayName;
-        detailTextBlock.Text = string.IsNullOrWhiteSpace(item.StatusLabel)
-            ? item.Details
-            : $"{item.StatusLabel} · {item.Details}";
+        detailTextBlock.Text = item.Details;
+        reasonTextBlock.Text = reason;
+        button.ToolTip = $"{item.DisplayName}{Environment.NewLine}{item.Details}{Environment.NewLine}{reason}";
+    }
+
+    private static string BuildRecommendationReason(VpnProfile profile)
+    {
+        var markers = new List<string>();
+
+        if (profile.WatchdogFailureCount > 0)
+        {
+            markers.Add($"сбоев {profile.WatchdogFailureCount}");
+        }
+
+        var probeStatus = profile.LastProbeStatus switch
+        {
+            ServerProbeStatus.Connected => "активен",
+            ServerProbeStatus.TcpOk => "доступен",
+            ServerProbeStatus.EndpointResolved => "адрес найден",
+            ServerProbeStatus.Failed => "нет ответа",
+            ServerProbeStatus.Skipped => "нет адреса",
+            _ => string.Empty
+        };
+
+        if (!string.IsNullOrWhiteSpace(probeStatus))
+        {
+            markers.Add(probeStatus);
+        }
+
+        if (profile.LastLatencyMs is >= 0)
+        {
+            markers.Add($"{profile.LastLatencyMs} мс");
+        }
+
+        if (profile.LastProbedAt is not null)
+        {
+            markers.Add($"проверен {profile.LastProbedAt.Value.ToLocalTime():HH:mm}");
+        }
+
+        if (profile.IsFavorite)
+        {
+            markers.Add("избранный");
+        }
+
+        if (profile.LastConnectedAt is not null)
+        {
+            markers.Add($"последний {profile.LastConnectedAt.Value.ToLocalTime():HH:mm}");
+        }
+
+        return markers.Count == 0
+            ? "ожидает проверки"
+            : string.Join(" · ", markers);
     }
 
     private string GetServerSortMode()
