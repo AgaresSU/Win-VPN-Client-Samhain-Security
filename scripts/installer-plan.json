@@ -1,6 +1,6 @@
 {
   "product": "Samhain Security",
-  "version": "0.5.7",
+  "version": "0.5.8",
   "installRoot": "%ProgramFiles%/Samhain Security",
   "windowsRuntime": "win-x64",
   "appEntry": "app/SamhainSecurity.exe",
@@ -23,6 +23,7 @@
     "explain server recommendation reasons with status, delay, and timestamps",
     "show active server filters and provide one-click filter reset",
     "remember server catalog sort and favorites-only preference without persisting search text",
+    "add keyboard and double-click shortcuts for daily server selection",
     "install local service when elevated",
     "create optional Start Menu shortcut",
     "create optional Desktop shortcut",

@@ -1,6 +1,6 @@
 # Samhain Security
 
-Version: `0.5.7`
+Version: `0.5.8`
 
 Desktop secure tunneling client for Windows built with WPF and .NET 9.
 
@@ -40,6 +40,7 @@ Desktop secure tunneling client for Windows built with WPF and .NET 9.
 - Adds plain-language reasons for server recommendations with status, delay, last check, favorite, and recent markers.
 - Adds visible server filter state and a one-click reset for search, favorites-only, and sorting.
 - Remembers server catalog sort and favorites-only preference while keeping search text temporary.
+- Adds daily server shortcuts: Enter in search selects the first visible server, Escape clears search, and double-clicking a server connects it.
 - Adds pre-connect validation for VLESS Reality and WireGuard-style configs with clear local errors.
 - Adds optional reconnect after resume or network changes for the last successful profile.
 - Adds tray-first server selection with connect selected, connect best, and current server submenu.
@@ -118,7 +119,7 @@ Portable package:
 Local package helper:
 
 ```powershell
-.\scripts\install-local.ps1 -PackagePath ".\dist\SamhainSecurity-0.5.7-win-x64" -StartService -CreateStartMenuShortcut
+.\scripts\install-local.ps1 -PackagePath ".\dist\SamhainSecurity-0.5.8-win-x64" -StartService -CreateStartMenuShortcut
 ```
 
 Default install root is `%ProgramFiles%\Samhain Security`. The helper stops and replaces the previous service registration, copies the package to the install root, writes `install-manifest.json`, and preserves `%APPDATA%\SamhainSecurity`.
@@ -221,6 +222,8 @@ Version `0.5.5` makes those recommendations explain themselves. Each quick serve
 Version `0.5.6` makes catalog filtering safer for daily use. The server counter now shows active search, favorites-only, and sort state, and the catalog has a one-click reset back to the default smart view.
 
 Version `0.5.7` remembers daily catalog preferences. Sort mode and the favorites-only switch are saved in app behavior settings, while the search box is intentionally cleared between sessions.
+
+Version `0.5.8` improves daily keyboard flow. Enter in server search selects the first visible result, Escape clears search, Enter in the server table connects the selected row, and double-clicking a row also connects it.
 
 ## Versioning
 

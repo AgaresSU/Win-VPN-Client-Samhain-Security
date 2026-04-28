@@ -644,6 +644,7 @@
                                     <StackPanel Grid.Column="0">
                                         <TextBlock Text="Поиск сервера" Style="{StaticResource LabelTextStyle}" />
                                         <TextBox x:Name="ServerSearchTextBox"
+                                                 KeyDown="ServerSearchTextBox_KeyDown"
                                                  TextChanged="ServerCatalogFilter_Changed" />
                                     </StackPanel>
 
@@ -681,6 +682,8 @@
                                           Margin="0,12,0,0"
                                           BorderBrush="{StaticResource LineBrush}"
                                           BorderThickness="1"
+                                          KeyDown="ServersListView_KeyDown"
+                                          MouseDoubleClick="ServersListView_MouseDoubleClick"
                                           SelectionChanged="ServersListView_SelectionChanged">
                                     <ListView.View>
                                         <GridView>

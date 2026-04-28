@@ -264,6 +264,20 @@ public partial class MainWindow : Window
         ApplyServerChoice(item, $"Сервер: {item.DisplayName}");
     }
 
+    private void ServersListView_MouseDoubleClick(object sender, MouseButtonEventArgs e)
+    {
+        ConnectSelectedServerFromCatalog();
+    }
+
+    private void ServersListView_KeyDown(object sender, System.Windows.Input.KeyEventArgs e)
+    {
+        if (e.Key == Key.Enter)
+        {
+            e.Handled = true;
+            ConnectSelectedServerFromCatalog();
+        }
+    }
+
     private void RecommendedServerButton_Click(object sender, RoutedEventArgs e)
     {
         SelectRecommendedServer(GetBestServerChoice(visibleOnly: true), "Рекомендуем");
@@ -292,6 +306,29 @@ public partial class MainWindow : Window
         {
             _appSettings.ServerCatalogFavoritesOnly = FavoriteServersOnlyCheckBox.IsChecked == true;
             _ = SaveAppSettingsQuietlyAsync();
+        }
+    }
+
+    private void ServerSearchTextBox_KeyDown(object sender, System.Windows.Input.KeyEventArgs e)
+    {
+        if (e.Key == Key.Escape)
+        {
+            e.Handled = true;
+            if (string.IsNullOrWhiteSpace(ServerSearchTextBox.Text))
+            {
+                StatusTextBlock.Text = "Поиск уже пуст";
+                return;
+            }
+
+            ServerSearchTextBox.Clear();
+            StatusTextBlock.Text = "Поиск очищен";
+            return;
+        }
+
+        if (e.Key == Key.Enter)
+        {
+            e.Handled = true;
+            SelectFirstVisibleServerFromSearch();
         }
     }
 
@@ -337,6 +374,20 @@ public partial class MainWindow : Window
         }
     }
 
+    private void SelectFirstVisibleServerFromSearch()
+    {
+        var first = GetVisibleServerChoices().FirstOrDefault();
+        if (first is null)
+        {
+            StatusTextBlock.Text = HasActiveServerCatalogFilter()
+                ? "Нет серверов по фильтрам"
+                : "Нет серверов";
+            return;
+        }
+
+        SelectRecommendedServer(first, "Найден");
+    }
+
     private void SelectRecommendedServer(ServerListItem? item, string label)
     {
         if (item is null)
@@ -349,6 +400,21 @@ public partial class MainWindow : Window
         ServersListView.SelectedItem = item;
         ServersListView.ScrollIntoView(item);
         ApplyServerChoice(item, $"{label}: {item.DisplayName}");
+    }
+
+    private void ConnectSelectedServerFromCatalog()
+    {
+        var selected = ServersListView.SelectedItem as ServerListItem
+            ?? ServerSelectorComboBox.SelectedItem as ServerListItem;
+        if (selected is null)
+        {
+            StatusTextBlock.Text = "Выберите сервер";
+            return;
+        }
+
+        ServerSelectorComboBox.SelectedItem = selected;
+        ApplyServerChoice(selected, $"Сервер: {selected.DisplayName}");
+        ConnectButton_Click(this, new RoutedEventArgs());
     }
 
     private void ApplyServerChoice(ServerListItem item, string statusText)

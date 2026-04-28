@@ -1,6 +1,6 @@
 # Samhain Security Roadmap
 
-Version baseline: `0.5.7`
+Version baseline: `0.5.8`
 
 ## Product Goal
 
@@ -406,6 +406,12 @@ The default UI should stay close to the simplicity of Happ: a small set of obvio
 - Done: server catalog sort mode is saved in app behavior settings.
 - Done: favorites-only catalog preference is saved between sessions.
 - Done: server search text remains temporary and starts clean on launch.
+
+### 0.5.8
+
+- Done: Enter in server search selects the first visible server.
+- Done: Escape in server search clears the search text.
+- Done: Enter or double-click in the server table connects the selected server.
 
 ## Design Direction
 
