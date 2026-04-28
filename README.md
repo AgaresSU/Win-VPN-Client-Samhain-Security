@@ -1,6 +1,6 @@
 # Samhain Security
 
-Version: `0.5.6`
+Version: `0.5.7`
 
 Desktop secure tunneling client for Windows built with WPF and .NET 9.
 
@@ -39,6 +39,7 @@ Desktop secure tunneling client for Windows built with WPF and .NET 9.
 - Adds quick server recommendations for the currently visible list: recommended, favorite, and recent.
 - Adds plain-language reasons for server recommendations with status, delay, last check, favorite, and recent markers.
 - Adds visible server filter state and a one-click reset for search, favorites-only, and sorting.
+- Remembers server catalog sort and favorites-only preference while keeping search text temporary.
 - Adds pre-connect validation for VLESS Reality and WireGuard-style configs with clear local errors.
 - Adds optional reconnect after resume or network changes for the last successful profile.
 - Adds tray-first server selection with connect selected, connect best, and current server submenu.
@@ -117,7 +118,7 @@ Portable package:
 Local package helper:
 
 ```powershell
-.\scripts\install-local.ps1 -PackagePath ".\dist\SamhainSecurity-0.5.6-win-x64" -StartService -CreateStartMenuShortcut
+.\scripts\install-local.ps1 -PackagePath ".\dist\SamhainSecurity-0.5.7-win-x64" -StartService -CreateStartMenuShortcut
 ```
 
 Default install root is `%ProgramFiles%\Samhain Security`. The helper stops and replaces the previous service registration, copies the package to the install root, writes `install-manifest.json`, and preserves `%APPDATA%\SamhainSecurity`.
@@ -218,6 +219,8 @@ Version `0.5.4` adds quick server recommendations above the catalog. The app now
 Version `0.5.5` makes those recommendations explain themselves. Each quick server choice now shows why it was picked, including availability, delay, last check time, favorite state, and last-use time when those signals exist.
 
 Version `0.5.6` makes catalog filtering safer for daily use. The server counter now shows active search, favorites-only, and sort state, and the catalog has a one-click reset back to the default smart view.
+
+Version `0.5.7` remembers daily catalog preferences. Sort mode and the favorites-only switch are saved in app behavior settings, while the search box is intentionally cleared between sessions.
 
 ## Versioning
 

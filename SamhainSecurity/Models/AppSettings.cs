@@ -24,5 +24,9 @@ public sealed class AppSettings
 
     public string LastSubscriptionSourceId { get; set; } = string.Empty;
 
+    public bool ServerCatalogFavoritesOnly { get; set; }
+
+    public string ServerCatalogSortMode { get; set; } = "smart";
+
     public bool AdvancedSettingsExpanded { get; set; }
 }

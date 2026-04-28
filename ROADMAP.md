@@ -1,6 +1,6 @@
 # Samhain Security Roadmap
 
-Version baseline: `0.5.6`
+Version baseline: `0.5.7`
 
 ## Product Goal
 
@@ -400,6 +400,12 @@ The default UI should stay close to the simplicity of Happ: a small set of obvio
 - Done: active server catalog filters are shown in the counter line.
 - Done: one-click reset clears search, favorites-only mode, and non-default sorting.
 - Done: empty filtered lists are easier to understand and recover from.
+
+### 0.5.7
+
+- Done: server catalog sort mode is saved in app behavior settings.
+- Done: favorites-only catalog preference is saved between sessions.
+- Done: server search text remains temporary and starts clean on launch.
 
 ## Design Direction
 

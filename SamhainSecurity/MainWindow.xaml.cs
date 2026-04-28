@@ -91,7 +91,16 @@ public partial class MainWindow : Window
         EngineCatalogListView.ItemsSource = _engineCatalog;
         _serverChoicesView = CollectionViewSource.GetDefaultView(_serverChoices);
         _serverChoicesView.Filter = FilterServerChoice;
-        ServerSortComboBox.SelectedIndex = 0;
+        _isLoadingServerChoices = true;
+        try
+        {
+            ServerSortComboBox.SelectedIndex = 0;
+        }
+        finally
+        {
+            _isLoadingServerChoices = false;
+        }
+
         UpdateServerCatalogSummary();
         UpdateServerRecommendations();
         CommandBindings.Add(new CommandBinding(
@@ -272,7 +281,18 @@ public partial class MainWindow : Window
 
     private void ServerCatalogFilter_Changed(object sender, RoutedEventArgs e)
     {
+        if (_isLoadingAppSettings)
+        {
+            return;
+        }
+
         RefreshServerCatalogView();
+
+        if (ReferenceEquals(sender, FavoriteServersOnlyCheckBox))
+        {
+            _appSettings.ServerCatalogFavoritesOnly = FavoriteServersOnlyCheckBox.IsChecked == true;
+            _ = SaveAppSettingsQuietlyAsync();
+        }
     }
 
     private void ClearServerFiltersButton_Click(object sender, RoutedEventArgs e)
@@ -292,11 +312,18 @@ public partial class MainWindow : Window
 
     private void ServerSortComboBox_SelectionChanged(object sender, System.Windows.Controls.SelectionChangedEventArgs e)
     {
+        if (_isLoadingAppSettings)
+        {
+            return;
+        }
+
         if (_isLoadingServerChoices)
         {
             return;
         }
 
+        _appSettings.ServerCatalogSortMode = GetServerSortMode();
+        _ = SaveAppSettingsQuietlyAsync();
         var selectedProfileId = (ServerSelectorComboBox.SelectedItem as ServerListItem)?.Profile.Id
             ?? (ServersListView.SelectedItem as ServerListItem)?.Profile.Id;
         RenderServerChoices(SubscriptionSelectorComboBox.SelectedItem as SubscriptionSourceListItem, selectedProfileId);
@@ -1930,11 +1957,16 @@ public partial class MainWindow : Window
             AutoRefreshSubscriptionsCheckBox.IsChecked = _appSettings.AutoRefreshSubscriptions;
             ConnectionWatchdogCheckBox.IsChecked = _appSettings.EnableConnectionWatchdog;
             AdvancedSettingsExpander.IsExpanded = _appSettings.AdvancedSettingsExpanded;
+            ServerSearchTextBox.Clear();
+            FavoriteServersOnlyCheckBox.IsChecked = _appSettings.ServerCatalogFavoritesOnly;
+            SelectServerSortMode(NormalizeServerSortMode(_appSettings.ServerCatalogSortMode));
         }
         finally
         {
             _isLoadingAppSettings = false;
         }
+
+        RefreshServerCatalogView();
     }
 
     private async Task AutoConnectLastProfileIfRequestedAsync()
@@ -2541,6 +2573,19 @@ public partial class MainWindow : Window
     private string GetServerSortMode()
     {
         return (ServerSortComboBox.SelectedItem as ComboBoxItem)?.Tag?.ToString() ?? "smart";
+    }
+
+    private static string NormalizeServerSortMode(string? sortMode)
+    {
+        if (string.IsNullOrWhiteSpace(sortMode))
+        {
+            return "smart";
+        }
+
+        var normalized = sortMode.Trim().ToLowerInvariant();
+        return normalized is "latency" or "favorite" or "recent" or "name"
+            ? normalized
+            : "smart";
     }
 
     private string GetServerSortLabel()
