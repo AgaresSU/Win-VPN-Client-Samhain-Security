@@ -1,6 +1,7 @@
 {
   "product": "Samhain Security",
-  "version": "0.4.9",
+  "version": "0.5.0",
+  "installRoot": "%ProgramFiles%/Samhain Security",
   "windowsRuntime": "win-x64",
   "appEntry": "app/SamhainSecurity.exe",
   "serviceEntry": "service/SamhainSecurity.Service.exe",
@@ -12,10 +13,15 @@
   "userData": "%APPDATA%/SamhainSecurity",
   "actions": [
     "copy portable package",
+    "stop and replace an existing service registration before upgrade",
+    "copy package files into install root",
+    "write install-manifest.json",
     "install local service when elevated",
     "create optional Start Menu shortcut",
+    "create optional Desktop shortcut",
     "optionally enable per-user startup",
     "preserve existing profiles and subscriptions",
-    "remove service on uninstall without deleting user data"
+    "remove service on uninstall without deleting user data",
+    "optionally remove install files after service removal"
   ]
 }

@@ -1,6 +1,6 @@
 # Samhain Security Roadmap
 
-Version baseline: `0.4.9`
+Version baseline: `0.5.0`
 
 ## Product Goal
 
@@ -351,6 +351,14 @@ The default UI should stay close to the simplicity of Happ: a small set of obvio
 
 - Done: release-candidate version bump and portable package defaults.
 - Done: installer plan updated for local service, startup, and shortcut flow.
+
+### 0.5.0
+
+- Done: local installer copies package files into `%ProgramFiles%\Samhain Security` by default.
+- Done: upgrade flow stops and replaces the previous service registration before reinstalling.
+- Done: installer writes `install-manifest.json` with version, source package, app path, service path, and shortcut/startup choices.
+- Done: installer supports Start Menu shortcut, Desktop shortcut, startup entry, in-place install, service start, and no-service mode.
+- Done: uninstall helper removes the service, optionally removes shortcuts/startup/install files, and preserves `%APPDATA%\SamhainSecurity` by default.
 
 ## Design Direction
 

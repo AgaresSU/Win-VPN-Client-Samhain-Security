@@ -1,6 +1,6 @@
 # Samhain Security
 
-Version: `0.4.9`
+Version: `0.5.0`
 
 Desktop secure tunneling client for Windows built with WPF and .NET 9.
 
@@ -32,6 +32,7 @@ Desktop secure tunneling client for Windows built with WPF and .NET 9.
 - Adds connection watchdog checks after successful connect and automatic recovery if the active route clearly drops.
 - Adds a connection health summary and a server status reset action for the current list.
 - Adds release-readiness checks, a quick repair action, a server catalog table, local connection history, safer support export, and updated local install helpers.
+- Adds a proper local install/upgrade path with install root copy, service replacement, shortcuts, startup entry, and install manifest.
 - Adds pre-connect validation for VLESS Reality and WireGuard-style configs with clear local errors.
 - Adds optional reconnect after resume or network changes for the last successful profile.
 - Adds tray-first server selection with connect selected, connect best, and current server submenu.
@@ -106,8 +107,10 @@ Portable package:
 Local package helper:
 
 ```powershell
-.\scripts\install-local.ps1 -PackagePath ".\dist\SamhainSecurity-0.4.9-win-x64" -StartService -CreateStartMenuShortcut
+.\scripts\install-local.ps1 -PackagePath ".\dist\SamhainSecurity-0.5.0-win-x64" -StartService -CreateStartMenuShortcut
 ```
+
+Default install root is `%ProgramFiles%\Samhain Security`. The helper stops and replaces the previous service registration, copies the package to the install root, writes `install-manifest.json`, and preserves `%APPDATA%\SamhainSecurity`.
 
 The published executable is `SamhainSecurity.exe` and will be under:
 
@@ -191,6 +194,8 @@ Version `0.3.8` adds connection watchdog mode. After a successful connect, the a
 Version `0.3.9` adds a health summary for the selected profile, tracks watchdog checks/failures, and adds `Сброс` for clearing server health and ranking state in the current list.
 
 Version `0.4.9` is a release-candidate polish pass. It adds in-app environment readiness checks, a safe quick repair path for local folders and the service, a compact server table for switching between subscription servers, local connection history, redacted support bundles, and install helpers for service/start-menu setup.
+
+Version `0.5.0` starts the beta packaging track. The local installer now performs an install-root copy, handles upgrade service replacement, can create Start Menu/Desktop shortcuts, can enable startup, writes an install manifest, and uninstalls without deleting user data unless install-file removal is explicitly requested.
 
 ## Versioning
 

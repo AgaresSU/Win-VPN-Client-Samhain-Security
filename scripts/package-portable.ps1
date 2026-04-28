@@ -1,5 +1,5 @@
 param(
-    [string]$Version = "0.4.9",
+    [string]$Version = "0.5.0",
     [string]$Runtime = "win-x64",
     [string]$Configuration = "Release",
     [bool]$SelfContained = $false,
@@ -66,7 +66,7 @@ Optional service commands from an elevated terminal:
 
 Local install helper:
   scripts\install-local.ps1 -PackagePath . -StartService -CreateStartMenuShortcut
-  scripts\uninstall-local.ps1 -PackagePath . -RemoveShortcut
+  scripts\uninstall-local.ps1 -RemoveShortcut -DisableStartup
 
 External engines:
   Put sing-box.exe under engines\sing-box\
