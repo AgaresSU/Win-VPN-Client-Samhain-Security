@@ -279,6 +279,57 @@ public partial class MainWindow : Window
         }
     }
 
+    private void ServerCategoryButton_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is not System.Windows.Controls.Button { Tag: string category })
+        {
+            return;
+        }
+
+        ApplyServerCategory(category);
+    }
+
+    private void ApplyServerCategory(string category)
+    {
+        var normalizedCategory = category.Trim().ToLowerInvariant();
+        ServerSearchTextBox.Clear();
+        FavoriteServersOnlyCheckBox.IsChecked = false;
+
+        var statusText = "Показаны все серверы";
+        switch (normalizedCategory)
+        {
+            case "favorite":
+                FavoriteServersOnlyCheckBox.IsChecked = true;
+                SelectServerSortMode("favorite");
+                statusText = "Показаны избранные серверы";
+                break;
+            case "fast":
+                SelectServerSortMode("latency");
+                statusText = "Показаны быстрые серверы";
+                break;
+            case "recent":
+                SelectServerSortMode("recent");
+                statusText = "Показаны последние серверы";
+                break;
+            case "vless":
+                SelectServerSortMode("smart");
+                ServerSearchTextBox.Text = "VLESS";
+                statusText = "Показаны VLESS серверы";
+                break;
+            case "awg":
+                SelectServerSortMode("smart");
+                ServerSearchTextBox.Text = "AmneziaWG";
+                statusText = "Показаны AWG серверы";
+                break;
+            default:
+                SelectServerSortMode("smart");
+                break;
+        }
+
+        RefreshServerCatalogView();
+        StatusTextBlock.Text = statusText;
+    }
+
     private void ServersListView_PreviewMouseRightButtonDown(object sender, MouseButtonEventArgs e)
     {
         if (FindVisualParent<System.Windows.Controls.ListViewItem>(e.OriginalSource as DependencyObject) is not { } row)
@@ -3843,6 +3894,12 @@ public partial class MainWindow : Window
 
         public string Endpoint => BuildServerEndpoint(Profile);
 
+        public string BadgeText => BuildBadgeText(DisplayName);
+
+        public string FavoriteMark => Profile.IsFavorite ? "★" : "☆";
+
+        public string ActionMark => "›";
+
         public string MenuLabel => BuildMenuLabel(Profile);
 
         public string StatusLabel => BuildStatusLabel(Profile);
@@ -3850,6 +3907,17 @@ public partial class MainWindow : Window
         public string SearchText => $"{DisplayName} {Details} {ProtocolLabel} {Endpoint} {MenuLabel} {StatusLabel}";
 
         public string TrayLabel => $"{DisplayName} ({BuildTrayDetails(Profile)})";
+
+        private static string BuildBadgeText(string value)
+        {
+            var letters = new string(value
+                .Where(char.IsLetterOrDigit)
+                .Take(2)
+                .ToArray());
+            return string.IsNullOrWhiteSpace(letters)
+                ? "SS"
+                : letters.ToUpperInvariant();
+        }
 
         private static string BuildMenuLabel(VpnProfile profile)
         {

@@ -1,6 +1,6 @@
 # Samhain Security Roadmap
 
-Version baseline: `0.5.9`
+Version baseline: `0.6.0`
 
 ## Product Goal
 
@@ -418,6 +418,12 @@ The default UI should stay close to the simplicity of Happ: a small set of obvio
 - Done: right-clicking a server row selects it before opening row actions.
 - Done: row actions can connect, add or remove favorite state, or copy the visible address.
 - Done: the existing favorite button and row menu share the same save-and-refresh path.
+
+### 0.6.0
+
+- Done: first premium daily shell pass with left server categories, central catalog, and right connection panel.
+- Done: category buttons switch between all, favorite, fast, recent, VLESS, and AWG server views.
+- Done: the main connect action is promoted into a large dedicated control while technical settings stay below.
 
 ## Design Direction
 

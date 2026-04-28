@@ -1,6 +1,6 @@
 {
   "product": "Samhain Security",
-  "version": "0.5.9",
+  "version": "0.6.0",
   "installRoot": "%ProgramFiles%/Samhain Security",
   "windowsRuntime": "win-x64",
   "appEntry": "app/SamhainSecurity.exe",
@@ -25,6 +25,7 @@
     "remember server catalog sort and favorites-only preference without persisting search text",
     "add keyboard and double-click shortcuts for daily server selection",
     "add right-click server row actions for connect, favorite toggle, and address copy",
+    "introduce the premium daily shell with server categories, large catalog, and right connection panel",
     "install local service when elevated",
     "create optional Start Menu shortcut",
     "create optional Desktop shortcut",
