@@ -1,6 +1,6 @@
 # Architecture
 
-Version: `0.7.2`
+Version: `0.7.3`
 
 ## Components
 
@@ -43,4 +43,4 @@ Ctrl+V / Add subscription
   -> show speed, traffic, session time
 ```
 
-The `0.7.2` build implements the shell, state model, mock connection, versioned IPC envelopes, and a Windows named-pipe service endpoint. Real engine operations begin after service-owned state and subscription ingestion are hardened.
+The `0.7.3` build implements the shell, state model, mock connection, versioned IPC envelopes, a Windows named-pipe service endpoint, real subscription ingestion, and DPAPI-protected service storage. Real engine operations begin after compact subscription UI and probe flows are hardened.

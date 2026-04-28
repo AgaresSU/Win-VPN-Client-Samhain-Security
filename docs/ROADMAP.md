@@ -1,6 +1,6 @@
 # Roadmap
 
-Current version: `0.7.2`
+Current version: `0.7.3`
 
 This roadmap is the working contract for Samhain Security. Future implementation should follow this order unless a blocker is found and documented in the same commit.
 
@@ -88,6 +88,8 @@ Status: shipped in `v0.7.2` with the first named-pipe endpoint and desktop fallb
 - Keep `Ctrl+V` import and add-dialog import as equal first-class flows.
 
 Done when the supplied Samhain links can be imported, saved, refreshed, and rendered as grouped servers.
+
+Status: shipped in `v0.7.3` for direct links, landing pages, default API profile, and AWG JSON profiles.
 
 ### 0.7.4 - Compact Subscription UI
 
@@ -240,13 +242,13 @@ Done when Samhain Security is ready for normal users.
 
 ## Immediate Next Build Order
 
-1. `0.7.3`: real subscription ingestion.
-2. `0.7.4`: compact subscription UI.
-3. `0.7.5`: real ping and health probes.
-4. `0.7.6`: engine manager.
-5. `0.7.7`: first real proxy connection path.
-6. `0.7.8`: whole-computer TUN path.
-7. `0.7.9`: WireGuard and AmneziaWG path.
-8. `0.8.0`: selected/excluded app routing.
-9. `0.8.1`: protection layer.
-10. `0.8.2`: tray, autostart, and link handling.
+1. `0.7.4`: compact subscription UI.
+2. `0.7.5`: real ping and health probes.
+3. `0.7.6`: engine manager.
+4. `0.7.7`: first real proxy connection path.
+5. `0.7.8`: whole-computer TUN path.
+6. `0.7.9`: WireGuard and AmneziaWG path.
+7. `0.8.0`: selected/excluded app routing.
+8. `0.8.1`: protection layer.
+9. `0.8.2`: tray, autostart, and link handling.
+10. `0.8.3`: statistics, logs, and support export.

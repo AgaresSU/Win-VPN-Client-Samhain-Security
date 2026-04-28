@@ -155,6 +155,14 @@ pub fn parse_subscription_payload(payload: &str) -> ParseReport {
         }
     }
 
+    if report.servers.is_empty() {
+        report = parse_candidates(payload);
+    }
+
+    if report.servers.is_empty() {
+        report = parse_json_profiles(payload);
+    }
+
     report
 }
 
@@ -215,6 +223,158 @@ fn parse_lines(payload: &str) -> ParseReport {
         servers,
         rejected_lines,
     }
+}
+
+fn parse_candidates(payload: &str) -> ParseReport {
+    let normalized = payload
+        .replace("&amp;", "&")
+        .replace("\\u0026", "&")
+        .replace("\\/", "/")
+        .replace("%3A%2F%2F", "://");
+    let mut candidates = Vec::new();
+    let mut current = String::new();
+
+    for ch in normalized.chars() {
+        if ch.is_whitespace() || "\"'<>`()[]{}".contains(ch) {
+            push_candidate(&mut candidates, &mut current);
+        } else {
+            current.push(ch);
+        }
+    }
+    push_candidate(&mut candidates, &mut current);
+
+    let mut servers = Vec::new();
+    let mut rejected_lines = Vec::new();
+    for candidate in candidates {
+        if let Some(server) = parse_server_url(&candidate, servers.len() + 1) {
+            servers.push(server);
+        } else if looks_like_supported_scheme(&candidate) {
+            rejected_lines.push(candidate);
+        }
+    }
+
+    ParseReport {
+        servers,
+        rejected_lines,
+    }
+}
+
+fn parse_json_profiles(payload: &str) -> ParseReport {
+    let Ok(value) = serde_json::from_str::<serde_json::Value>(payload) else {
+        return ParseReport {
+            servers: Vec::new(),
+            rejected_lines: Vec::new(),
+        };
+    };
+
+    let mut servers = Vec::new();
+    if let Some(items) = value.get("items").and_then(|items| items.as_array()) {
+        for item in items {
+            if let Some(server) = parse_awg_json_item(item, servers.len() + 1) {
+                servers.push(server);
+            }
+        }
+    }
+
+    ParseReport {
+        servers,
+        rejected_lines: Vec::new(),
+    }
+}
+
+fn parse_awg_json_item(item: &serde_json::Value, index: usize) -> Option<Server> {
+    let config_text = item
+        .get("config_text")
+        .and_then(|value| value.as_str())
+        .unwrap_or_default();
+    if config_text.is_empty() {
+        return None;
+    }
+
+    let protocol = item
+        .get("protocol")
+        .and_then(|value| value.as_str())
+        .map(Protocol::from_scheme)
+        .filter(|protocol| *protocol != Protocol::Unknown)
+        .unwrap_or(Protocol::AmneziaWg);
+
+    let title = item
+        .get("title")
+        .and_then(|value| value.as_str())
+        .filter(|value| !value.trim().is_empty())
+        .map(str::to_string)
+        .unwrap_or_else(|| build_server_name(protocol, "", index));
+    let endpoint = extract_config_value(config_text, "Endpoint");
+    let endpoint_host = endpoint
+        .as_deref()
+        .and_then(|value| value.rsplit_once(':').map(|(host, _)| host.to_string()))
+        .or_else(|| item.get("host").and_then(|value| value.as_str()).map(str::to_string))
+        .unwrap_or_default();
+    let endpoint_port = endpoint
+        .as_deref()
+        .and_then(|value| value.rsplit_once(':'))
+        .and_then(|(_, port)| port.parse::<u16>().ok());
+
+    Some(Server {
+        id: item
+            .get("id")
+            .and_then(|value| value.as_i64())
+            .map(|id| format!("server-{id}"))
+            .unwrap_or_else(|| format!("server-{index}")),
+        name: title.clone(),
+        host: endpoint_host,
+        port: endpoint_port,
+        protocol,
+        country_code: guess_country_code(&title),
+        ping_ms: None,
+        raw_url: config_text.to_string(),
+    })
+}
+
+fn extract_config_value(config: &str, key: &str) -> Option<String> {
+    for line in config.lines() {
+        let trimmed = line.trim();
+        let Some((line_key, value)) = trimmed.split_once('=') else {
+            continue;
+        };
+        if line_key.trim().eq_ignore_ascii_case(key) {
+            return Some(value.trim().to_string());
+        }
+    }
+
+    None
+}
+
+fn push_candidate(candidates: &mut Vec<String>, current: &mut String) {
+    let candidate = current
+        .trim()
+        .trim_matches(|ch: char| ch == ',' || ch == ';')
+        .to_string();
+    if looks_like_supported_scheme(&candidate) {
+        candidates.push(candidate);
+    }
+    current.clear();
+}
+
+fn looks_like_supported_scheme(value: &str) -> bool {
+    let lower = value.to_ascii_lowercase();
+    [
+        "vless://",
+        "trojan://",
+        "ss://",
+        "shadowsocks://",
+        "hysteria2://",
+        "hy2://",
+        "tuic://",
+        "wg://",
+        "wireguard://",
+        "awg://",
+        "amneziawg://",
+        "sing-box://",
+        "singbox://",
+    ]
+    .iter()
+    .any(|scheme| lower.starts_with(scheme))
 }
 
 fn build_server_name(protocol: Protocol, host: &str, index: usize) -> String {
@@ -290,5 +450,36 @@ mod tests {
 
         assert!(subscription.servers.iter().any(|s| s.protocol == Protocol::VlessReality));
         assert!(subscription.servers.iter().any(|s| s.protocol == Protocol::AmneziaWg));
+    }
+
+    #[test]
+    fn extracts_links_from_html_like_payload() {
+        let report = parse_subscription_payload(
+            r#"<a href="vless://id@nl.example:443?type=tcp&amp;security=reality#NL">NL</a>
+            <script>const link = "trojan://pass@de.example:443#DE";</script>"#,
+        );
+
+        assert_eq!(report.servers.len(), 2);
+        assert_eq!(report.servers[0].protocol, Protocol::VlessReality);
+        assert_eq!(report.servers[1].protocol, Protocol::Trojan);
+    }
+
+    #[test]
+    fn parses_awg_json_items() {
+        let payload = r#"{
+            "items": [{
+                "id": 61,
+                "title": "DE Frankfurt AWG",
+                "host": "176.124.204.42",
+                "protocol": "amneziawg",
+                "config_text": "[Interface]\nPrivateKey = secret\n[Peer]\nEndpoint = 176.124.204.42:51820"
+            }]
+        }"#;
+        let report = parse_subscription_payload(payload);
+
+        assert_eq!(report.servers.len(), 1);
+        assert_eq!(report.servers[0].protocol, Protocol::AmneziaWg);
+        assert_eq!(report.servers[0].port, Some(51820));
+        assert_eq!(report.servers[0].country_code.as_deref(), Some("DE"));
     }
 }

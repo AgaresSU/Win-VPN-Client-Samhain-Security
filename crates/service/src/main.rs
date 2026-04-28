@@ -1,9 +1,19 @@
-use anyhow::{Result, anyhow};
-use samhain_core::{RouteMode, Subscription, parse_server_url, parse_subscription_payload, sample_subscription};
+use anyhow::{Context, Result, anyhow};
+use samhain_core::{
+    RouteMode, Server, Subscription, parse_server_url, parse_subscription_payload,
+    sample_subscription,
+};
 use samhain_ipc::{
     ClientCommand, IPC_PROTOCOL_VERSION, RequestEnvelope, ResponseEnvelope, ServiceEvent,
     ServiceState, decode_request, encode_event, encode_response,
 };
+use serde::{Deserialize, Serialize};
+use std::fs;
+use std::path::PathBuf;
+use std::sync::{Mutex, OnceLock};
+use std::time::{Duration, SystemTime, UNIX_EPOCH};
+
+static STORE: OnceLock<Mutex<ServiceStore>> = OnceLock::new();
 
 fn main() -> Result<()> {
     let mut args = std::env::args().skip(1);
@@ -80,24 +90,23 @@ fn handle_command(command: ClientCommand) -> ServiceEvent {
         ClientCommand::Ping => ServiceEvent::Pong,
         ClientCommand::GetState => ServiceEvent::State(current_state(true)),
         ClientCommand::AddSubscription { name, url } => {
-            ServiceEvent::SubscriptionAdded {
-                subscription: build_subscription(name, url),
-            }
-        }
-        ClientCommand::SelectServer { server_id } => {
-            let server = sample_subscription()
-                .servers
-                .into_iter()
-                .find(|server| server.id == server_id)
-                .or_else(|| sample_subscription().servers.into_iter().next());
-
-            match server {
-                Some(server) => ServiceEvent::ServerSelected { server },
-                None => ServiceEvent::Error {
-                    message: "No server is available.".to_string(),
+            match service_store()
+                .lock()
+                .map_err(|_| anyhow!("Service store lock is poisoned."))
+                .and_then(|mut store| store.import_subscription(name, url))
+            {
+                Ok(subscription) => ServiceEvent::SubscriptionAdded { subscription },
+                Err(error) => ServiceEvent::Error {
+                    message: format!("Не удалось импортировать подписку: {error}"),
                 },
             }
         }
+        ClientCommand::SelectServer { server_id } => match find_server(&server_id) {
+            Some(server) => ServiceEvent::ServerSelected { server },
+            None => ServiceEvent::Error {
+                message: "No server is available.".to_string(),
+            },
+        },
         ClientCommand::Connect {
             server_id,
             route_mode: _,
@@ -114,46 +123,451 @@ fn handle_command(command: ClientCommand) -> ServiceEvent {
 }
 
 fn current_state(running: bool) -> ServiceState {
-    ServiceState {
-        version: env!("CARGO_PKG_VERSION").to_string(),
-        running,
-        connected_server_id: None,
-        route_mode: RouteMode::WholeComputer,
-        subscriptions: vec![sample_subscription()],
+    match service_store().lock() {
+        Ok(store) => store.service_state(running),
+        Err(_) => ServiceState {
+            version: env!("CARGO_PKG_VERSION").to_string(),
+            running,
+            connected_server_id: None,
+            route_mode: RouteMode::WholeComputer,
+            subscriptions: vec![sample_subscription()],
+        },
     }
 }
 
-fn build_subscription(name: String, url: String) -> Subscription {
-    let mut report = parse_subscription_payload(&url);
-    if report.servers.is_empty() {
-        if let Some(server) = parse_server_url(&url, 1) {
-            report.servers.push(server);
+fn find_server(server_id: &str) -> Option<Server> {
+    let store = service_store().lock().ok()?;
+    store
+        .state
+        .subscriptions
+        .iter()
+        .flat_map(|subscription| subscription.servers.iter())
+        .find(|server| server.id == server_id || server.name == server_id)
+        .cloned()
+        .or_else(|| {
+            store
+                .state
+                .subscriptions
+                .iter()
+                .flat_map(|subscription| subscription.servers.iter())
+                .next()
+                .cloned()
+        })
+}
+
+fn service_store() -> &'static Mutex<ServiceStore> {
+    STORE.get_or_init(|| Mutex::new(ServiceStore::load().unwrap_or_else(|_| ServiceStore::fallback())))
+}
+
+#[derive(Debug)]
+struct ServiceStore {
+    path: PathBuf,
+    state: StoredState,
+}
+
+impl ServiceStore {
+    fn load() -> Result<Self> {
+        let path = storage_path();
+        let state = match fs::read_to_string(&path) {
+            Ok(payload) => serde_json::from_str(&payload)
+                .with_context(|| format!("Could not parse {}", path.display()))?,
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => StoredState::seeded(),
+            Err(error) => {
+                return Err(anyhow!("Could not read {}: {error}", path.display()));
+            }
+        };
+
+        Ok(Self { path, state })
+    }
+
+    fn fallback() -> Self {
+        Self {
+            path: storage_path(),
+            state: StoredState::seeded(),
         }
     }
 
-    if report.servers.is_empty() {
-        report.servers = sample_subscription().servers;
+    fn service_state(&self, running: bool) -> ServiceState {
+        ServiceState {
+            version: env!("CARGO_PKG_VERSION").to_string(),
+            running,
+            connected_server_id: self.state.connected_server_id.clone(),
+            route_mode: self.state.route_mode,
+            subscriptions: self
+                .state
+                .subscriptions
+                .iter()
+                .map(StoredSubscription::to_public)
+                .collect(),
+        }
     }
 
-    Subscription {
-        id: stable_subscription_id(&name, &url),
-        name: if name.trim().is_empty() {
+    fn import_subscription(&mut self, name: String, url: String) -> Result<Subscription> {
+        let mut servers = Vec::new();
+        for payload in fetch_subscription_payloads(&url)? {
+            let report = parse_subscription_payload(&payload);
+            if !report.servers.is_empty() {
+                servers = report.servers;
+                break;
+            }
+        }
+
+        if servers.is_empty() {
+            if let Some(server) = parse_server_url(&url, 1) {
+                servers.push(server);
+            }
+        }
+
+        if servers.is_empty() {
+            return Err(anyhow!("в подписке не найдено поддерживаемых серверов"));
+        }
+
+        let subscription = StoredSubscription::from_import(name, url, servers)?;
+        let public = subscription.to_public();
+        self.state
+            .subscriptions
+            .retain(|existing| existing.id != subscription.id);
+        self.state.subscriptions.push(subscription);
+        self.save()?;
+
+        Ok(public)
+    }
+
+    fn save(&self) -> Result<()> {
+        if let Some(parent) = self.path.parent() {
+            fs::create_dir_all(parent)
+                .with_context(|| format!("Could not create {}", parent.display()))?;
+        }
+
+        let payload = serde_json::to_string_pretty(&self.state)?;
+        fs::write(&self.path, payload)
+            .with_context(|| format!("Could not write {}", self.path.display()))
+    }
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+struct StoredState {
+    schema_version: u32,
+    route_mode: RouteMode,
+    connected_server_id: Option<String>,
+    subscriptions: Vec<StoredSubscription>,
+}
+
+impl StoredState {
+    fn seeded() -> Self {
+        Self {
+            schema_version: 1,
+            route_mode: RouteMode::WholeComputer,
+            connected_server_id: None,
+            subscriptions: vec![StoredSubscription::from_public(sample_subscription())],
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+struct StoredSubscription {
+    id: String,
+    name: String,
+    protected_url: String,
+    servers: Vec<Server>,
+    #[serde(default)]
+    protected_server_urls: Vec<ProtectedServerUrl>,
+    updated_at: Option<String>,
+}
+
+impl StoredSubscription {
+    fn from_public(subscription: Subscription) -> Self {
+        let protected_url = secret::protect_string(&subscription.url)
+            .unwrap_or_else(|_| format!("unprotected:{}", subscription.url));
+        let id = subscription.id;
+        let mut servers = Vec::with_capacity(subscription.servers.len());
+        let mut protected_server_urls = Vec::with_capacity(subscription.servers.len());
+        for mut server in subscription.servers {
+            if let Ok(protected_raw_url) = secret::protect_string(&server.raw_url) {
+                protected_server_urls.push(ProtectedServerUrl {
+                    server_id: server.id.clone(),
+                    protected_raw_url,
+                });
+            }
+            server.raw_url = format!("protected://server/{id}/{}", server.id);
+            servers.push(server);
+        }
+
+        Self {
+            id,
+            name: subscription.name,
+            protected_url,
+            servers,
+            protected_server_urls,
+            updated_at: subscription.updated_at,
+        }
+    }
+
+    fn from_import(name: String, url: String, servers: Vec<Server>) -> Result<Self> {
+        let normalized_name = if name.trim().is_empty() {
             "Samhain Security".to_string()
         } else {
             name.trim().to_string()
-        },
-        url,
-        servers: report.servers,
-        updated_at: Some("Получено через сервис IPC".to_string()),
+        };
+
+        let id = stable_subscription_id(&normalized_name, &url);
+        let (servers, protected_server_urls) = protect_server_urls(&id, servers)?;
+
+        Ok(Self {
+            id,
+            name: normalized_name,
+            protected_url: secret::protect_string(&url)?,
+            servers,
+            protected_server_urls,
+            updated_at: Some(now_label()),
+        })
     }
+
+    fn to_public(&self) -> Subscription {
+        Subscription {
+            id: self.id.clone(),
+            name: self.name.clone(),
+            url: format!("protected://subscription/{}", self.id),
+            servers: self.servers.clone(),
+            updated_at: self.updated_at.clone(),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+struct ProtectedServerUrl {
+    server_id: String,
+    protected_raw_url: String,
+}
+
+fn protect_server_urls(
+    subscription_id: &str,
+    servers: Vec<Server>,
+) -> Result<(Vec<Server>, Vec<ProtectedServerUrl>)> {
+    let mut public_servers = Vec::with_capacity(servers.len());
+    let mut protected_urls = Vec::with_capacity(servers.len());
+
+    for mut server in servers {
+        protected_urls.push(ProtectedServerUrl {
+            server_id: server.id.clone(),
+            protected_raw_url: secret::protect_string(&server.raw_url)?,
+        });
+        server.raw_url = format!("protected://server/{subscription_id}/{}", server.id);
+        public_servers.push(server);
+    }
+
+    Ok((public_servers, protected_urls))
+}
+
+fn fetch_subscription_payloads(url: &str) -> Result<Vec<String>> {
+    let trimmed = url.trim();
+    let lower = trimmed.to_ascii_lowercase();
+    if !(lower.starts_with("http://") || lower.starts_with("https://")) {
+        return Ok(vec![trimmed.to_string()]);
+    }
+
+    let mut payloads = Vec::new();
+    payloads.push(fetch_http_text(trimmed)?);
+
+    for candidate in discover_subscription_api_urls(trimmed) {
+        if let Ok(payload) = fetch_http_text(&candidate) {
+            payloads.push(payload);
+        }
+    }
+
+    Ok(payloads)
+}
+
+fn fetch_http_text(url: &str) -> Result<String> {
+    let agent = ureq::AgentBuilder::new()
+        .timeout(Duration::from_secs(15))
+        .build();
+    let response = agent
+        .get(url)
+        .set(
+            "User-Agent",
+            &format!("SamhainSecurity/{}", env!("CARGO_PKG_VERSION")),
+        )
+        .call()
+        .map_err(|error| anyhow!("HTTP request failed: {error}"))?;
+
+    response
+        .into_string()
+        .map_err(|error| anyhow!("Could not read subscription response: {error}"))
+}
+
+fn discover_subscription_api_urls(source_url: &str) -> Vec<String> {
+    let Ok(parsed) = url::Url::parse(source_url) else {
+        return Vec::new();
+    };
+
+    let Some(token) = parsed
+        .query_pairs()
+        .find(|(key, _)| key == "token")
+        .map(|(_, value)| value.to_string())
+    else {
+        return Vec::new();
+    };
+
+    let mut origin = format!(
+        "{}://{}",
+        parsed.scheme(),
+        parsed.host_str().unwrap_or_default()
+    );
+    if let Some(port) = parsed.port() {
+        origin.push(':');
+        origin.push_str(&port.to_string());
+    }
+
+    let mut urls = vec![
+        format!("{origin}/api/sub/{token}"),
+        format!("{origin}/api/sub/{token}/singbox"),
+        format!("{origin}/api/sub/{token}/awg"),
+    ];
+
+    if parsed.path().contains("subscription-awg") {
+        urls.rotate_left(2);
+    }
+
+    urls
+}
+
+fn storage_path() -> PathBuf {
+    std::env::var_os("APPDATA")
+        .map(PathBuf::from)
+        .unwrap_or_else(std::env::temp_dir)
+        .join("SamhainSecurity")
+        .join("service-subscriptions.json")
 }
 
 fn stable_subscription_id(name: &str, url: &str) -> String {
     let checksum = name
         .bytes()
         .chain(url.bytes())
-        .fold(0u32, |acc, byte| acc.wrapping_mul(31).wrapping_add(byte as u32));
+        .fold(0u32, |acc, byte| {
+            acc.wrapping_mul(31).wrapping_add(byte as u32)
+        });
     format!("subscription-{checksum:08x}")
+}
+
+fn now_label() -> String {
+    let seconds = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|value| value.as_secs())
+        .unwrap_or_default();
+    format!("Обновлено через сервис: {seconds}")
+}
+
+mod secret {
+    use anyhow::{Result, anyhow};
+    use base64::Engine;
+    use base64::engine::general_purpose::STANDARD;
+
+    #[cfg(windows)]
+    pub fn protect_string(value: &str) -> Result<String> {
+        use std::ptr::{null, null_mut};
+        use std::slice;
+        use windows_sys::Win32::Foundation::{GetLastError, LocalFree};
+        use windows_sys::Win32::Security::Cryptography::{
+            CRYPT_INTEGER_BLOB, CRYPTPROTECT_UI_FORBIDDEN, CryptProtectData,
+        };
+
+        let bytes = value.as_bytes();
+        let input = CRYPT_INTEGER_BLOB {
+            cbData: bytes.len() as u32,
+            pbData: bytes.as_ptr() as *mut u8,
+        };
+        let mut output = CRYPT_INTEGER_BLOB {
+            cbData: 0,
+            pbData: null_mut(),
+        };
+
+        let ok = unsafe {
+            CryptProtectData(
+                &input,
+                null(),
+                null(),
+                null(),
+                null(),
+                CRYPTPROTECT_UI_FORBIDDEN,
+                &mut output,
+            )
+        };
+
+        if ok == 0 {
+            return Err(anyhow!("CryptProtectData failed: {}", unsafe {
+                GetLastError()
+            }));
+        }
+
+        let protected = unsafe { slice::from_raw_parts(output.pbData, output.cbData as usize) };
+        let encoded = STANDARD.encode(protected);
+        unsafe {
+            LocalFree(output.pbData.cast());
+        }
+
+        Ok(format!("dpapi:{encoded}"))
+    }
+
+    #[cfg(windows)]
+    #[allow(dead_code)]
+    pub fn unprotect_string(value: &str) -> Result<String> {
+        use std::ptr::{null, null_mut};
+        use std::slice;
+        use windows_sys::Win32::Foundation::{GetLastError, LocalFree};
+        use windows_sys::Win32::Security::Cryptography::{
+            CRYPT_INTEGER_BLOB, CRYPTPROTECT_UI_FORBIDDEN, CryptUnprotectData,
+        };
+
+        let encoded = value.strip_prefix("dpapi:").unwrap_or(value);
+        let bytes = STANDARD.decode(encoded)?;
+        let input = CRYPT_INTEGER_BLOB {
+            cbData: bytes.len() as u32,
+            pbData: bytes.as_ptr() as *mut u8,
+        };
+        let mut output = CRYPT_INTEGER_BLOB {
+            cbData: 0,
+            pbData: null_mut(),
+        };
+
+        let ok = unsafe {
+            CryptUnprotectData(
+                &input,
+                null_mut(),
+                null(),
+                null(),
+                null(),
+                CRYPTPROTECT_UI_FORBIDDEN,
+                &mut output,
+            )
+        };
+
+        if ok == 0 {
+            return Err(anyhow!("CryptUnprotectData failed: {}", unsafe {
+                GetLastError()
+            }));
+        }
+
+        let unprotected = unsafe { slice::from_raw_parts(output.pbData, output.cbData as usize) };
+        let text = String::from_utf8(unprotected.to_vec())?;
+        unsafe {
+            LocalFree(output.pbData.cast());
+        }
+
+        Ok(text)
+    }
+
+    #[cfg(not(windows))]
+    pub fn protect_string(value: &str) -> Result<String> {
+        Ok(format!("b64:{}", STANDARD.encode(value.as_bytes())))
+    }
+
+    #[cfg(not(windows))]
+    #[allow(dead_code)]
+    pub fn unprotect_string(value: &str) -> Result<String> {
+        let encoded = value.strip_prefix("b64:").unwrap_or(value);
+        Ok(String::from_utf8(STANDARD.decode(encoded)?)?)
+    }
 }
 
 #[cfg(windows)]
@@ -307,5 +721,14 @@ mod tests {
         assert!(!response.ok);
         assert_eq!(response.request_id, "req-version");
         assert!(matches!(response.event, ServiceEvent::Error { .. }));
+    }
+
+    #[test]
+    fn protects_secret_round_trip() {
+        let protected = secret::protect_string("vless://secret@example").expect("protect");
+        assert_ne!(protected, "vless://secret@example");
+
+        let unprotected = secret::unprotect_string(&protected).expect("unprotect");
+        assert_eq!(unprotected, "vless://secret@example");
     }
 }
