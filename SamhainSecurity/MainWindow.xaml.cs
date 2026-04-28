@@ -2,6 +2,7 @@ using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Diagnostics;
 using System.Drawing;
+using System.IO;
 using System.Net.NetworkInformation;
 using System.Reflection;
 using System.Runtime.InteropServices;
@@ -59,6 +60,7 @@ public partial class MainWindow : Window
         Interval = TimeSpan.FromSeconds(60)
     };
     private Forms.NotifyIcon? _notifyIcon;
+    private Icon? _trayIcon;
     private bool _allowExit;
     private bool _isBusy;
     private bool _isLoadingProfile;
@@ -235,6 +237,7 @@ public partial class MainWindow : Window
         UnsubscribeReconnectMonitors();
         _connectionWatchdogTimer.Stop();
         _notifyIcon?.Dispose();
+        _trayIcon?.Dispose();
         base.OnClosing(e);
     }
 
@@ -428,7 +431,7 @@ public partial class MainWindow : Window
             "vless" => "VLESS серверы",
             "awg" => "AWG серверы",
             "custom" => "Серверы по фильтру",
-            _ => "Все серверы"
+            _ => "Серверы"
         };
     }
 
@@ -3677,15 +3680,44 @@ public partial class MainWindow : Window
 
     private void InitializeTrayIcon()
     {
+        _trayIcon = LoadTrayIcon();
         _notifyIcon = new Forms.NotifyIcon
         {
-            Icon = SystemIcons.Shield,
+            Icon = _trayIcon,
             Text = "Samhain Security",
             Visible = true,
             ContextMenuStrip = BuildTrayMenu()
         };
 
         _notifyIcon.DoubleClick += (_, _) => ShowFromTray();
+    }
+
+    private static Icon LoadTrayIcon()
+    {
+        var candidates = new[]
+        {
+            Path.Combine(AppContext.BaseDirectory, "Assets", "SamhainSecurityTray.ico"),
+            Path.Combine(AppContext.BaseDirectory, "Assets", "SamhainSecurity.ico"),
+            Path.Combine(AppContext.BaseDirectory, "SamhainSecurityTray.ico"),
+            Path.Combine(AppContext.BaseDirectory, "SamhainSecurity.ico")
+        };
+
+        foreach (var candidate in candidates)
+        {
+            try
+            {
+                if (File.Exists(candidate))
+                {
+                    return new Icon(candidate);
+                }
+            }
+            catch (Exception)
+            {
+                // Keep startup resilient if a packaged icon is damaged or unavailable.
+            }
+        }
+
+        return (Icon)SystemIcons.Shield.Clone();
     }
 
     private void InitializeReconnectMonitors()
@@ -3994,6 +4026,7 @@ public partial class MainWindow : Window
     {
         _allowExit = true;
         _notifyIcon?.Dispose();
+        _trayIcon?.Dispose();
         System.Windows.Application.Current.Shutdown();
     }
 

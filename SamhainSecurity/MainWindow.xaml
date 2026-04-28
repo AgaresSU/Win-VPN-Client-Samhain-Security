@@ -5,6 +5,7 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         mc:Ignorable="d"
         Title="Samhain Security"
+        Icon="Assets/SamhainSecurity.ico"
         Height="820"
         Width="1320"
         MinHeight="720"
@@ -323,19 +324,41 @@
             <Setter Property="Foreground" Value="{StaticResource NavTextBrush}" />
         </Style>
 
-        <Style x:Key="PowerButtonStyle" TargetType="Button" BasedOn="{StaticResource PrimaryButtonStyle}">
-            <Setter Property="Width" Value="132" />
-            <Setter Property="Height" Value="132" />
-            <Setter Property="MinHeight" Value="132" />
+        <Style x:Key="RailButtonStyle" TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
+            <Setter Property="Width" Value="64" />
+            <Setter Property="Height" Value="56" />
+            <Setter Property="MinHeight" Value="56" />
             <Setter Property="Padding" Value="0" />
-            <Setter Property="FontSize" Value="46" />
+            <Setter Property="Margin" Value="0,3" />
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderBrush" Value="Transparent" />
+            <Setter Property="Foreground" Value="{StaticResource NavTextBrush}" />
+            <Setter Property="FontSize" Value="24" />
+            <Setter Property="FontWeight" Value="Normal" />
+            <Setter Property="HorizontalContentAlignment" Value="Center" />
+            <Setter Property="VerticalContentAlignment" Value="Center" />
+        </Style>
+
+        <Style x:Key="ModeChipTextStyle" TargetType="TextBlock">
+            <Setter Property="Foreground" Value="{StaticResource TextBrush}" />
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="HorizontalAlignment" Value="Center" />
+        </Style>
+
+        <Style x:Key="PowerButtonStyle" TargetType="Button" BasedOn="{StaticResource PrimaryButtonStyle}">
+            <Setter Property="Width" Value="164" />
+            <Setter Property="Height" Value="164" />
+            <Setter Property="MinHeight" Value="164" />
+            <Setter Property="Padding" Value="0" />
+            <Setter Property="FontSize" Value="52" />
             <Setter Property="FontWeight" Value="SemiBold" />
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="Button">
                         <Border x:Name="PowerChrome"
                                 Background="{TemplateBinding Background}"
-                                CornerRadius="66"
+                                CornerRadius="82"
                                 BorderBrush="{StaticResource LineHotBrush}"
                                 BorderThickness="2">
                             <ContentPresenter HorizontalAlignment="Center"
@@ -539,6 +562,46 @@
             </Setter>
         </Style>
 
+        <Style x:Key="ServerRowListViewItemStyle" TargetType="ListViewItem">
+            <Setter Property="Foreground" Value="{StaticResource TextBrush}" />
+            <Setter Property="Background" Value="#202225" />
+            <Setter Property="Padding" Value="12,10" />
+            <Setter Property="Margin" Value="0,0,0,1" />
+            <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+            <Setter Property="MinHeight" Value="72" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ListViewItem">
+                        <Border x:Name="ServerRowChrome"
+                                Background="{TemplateBinding Background}"
+                                BorderBrush="{StaticResource LineBrush}"
+                                BorderThickness="0,0,0,1"
+                                Padding="{TemplateBinding Padding}">
+                            <ContentPresenter Content="{TemplateBinding Content}"
+                                              ContentTemplate="{TemplateBinding ContentTemplate}"
+                                              ContentStringFormat="{TemplateBinding ContentStringFormat}"
+                                              HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                              VerticalAlignment="{TemplateBinding VerticalContentAlignment}" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="ServerRowChrome" Property="Background" Value="#2A2427" />
+                            </Trigger>
+                            <Trigger Property="IsSelected" Value="True">
+                                <Setter TargetName="ServerRowChrome" Property="Background" Value="#3A3132" />
+                                <Setter TargetName="ServerRowChrome" Property="BorderBrush" Value="{StaticResource AccentBrush}" />
+                                <Setter TargetName="ServerRowChrome" Property="BorderThickness" Value="4,0,0,1" />
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter Property="Foreground" Value="#81787B" />
+                                <Setter TargetName="ServerRowChrome" Property="Background" Value="{StaticResource ControlDisabledBrush}" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
         <Style TargetType="ListView">
             <Setter Property="Background" Value="{StaticResource PanelBrush}" />
             <Setter Property="Foreground" Value="{StaticResource TextBrush}" />
@@ -586,109 +649,89 @@
 
     <Grid>
         <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="260" />
+            <ColumnDefinition Width="86" />
             <ColumnDefinition Width="*" />
-            <ColumnDefinition Width="320" />
+            <ColumnDefinition Width="430" />
         </Grid.ColumnDefinitions>
 
         <Border Grid.Column="0" Background="{StaticResource SidebarBrush}">
-            <DockPanel Margin="20">
-                <StackPanel DockPanel.Dock="Top" Margin="0,0,0,18">
-                    <TextBlock Text="Samhain Security"
-                               Foreground="{StaticResource TextBrush}"
-                               FontSize="24"
-                               FontWeight="SemiBold" />
+            <DockPanel Margin="0">
+                <StackPanel DockPanel.Dock="Top" Margin="0,12,0,0" HorizontalAlignment="Center">
+                    <Image Source="Assets/SamhainSecurity.png"
+                           Width="42"
+                           Height="42"
+                           Stretch="UniformToFill"
+                           ToolTip="Samhain Security" />
                     <TextBlock x:Name="VersionTextBlock"
                                Text="0.0.1"
                                Foreground="{StaticResource MutedTextBrush}"
-                               FontSize="13"
-                               Margin="1,4,0,0" />
-                </StackPanel>
+                               FontSize="11"
+                               HorizontalAlignment="Center"
+                               Margin="0,6,0,12" />
 
-                <StackPanel DockPanel.Dock="Bottom" Margin="0,16,0,0">
                     <Button x:Name="NewProfileButton"
-                            Content="Новый профиль"
-                            Click="NewProfileButton_Click"
-                            Margin="0,0,0,8" />
-                    <Button x:Name="DeleteProfileButton"
-                            Content="Удалить"
-                            Style="{StaticResource DangerButtonStyle}"
-                            Click="DeleteProfileButton_Click" />
-                </StackPanel>
+                            Content="+"
+                            ToolTip="Добавить конфигурацию"
+                            Style="{StaticResource RailButtonStyle}"
+                            Click="NewProfileButton_Click" />
 
-                <StackPanel>
-                    <TextBlock Text="Серверы"
-                               Foreground="{StaticResource MutedTextBrush}"
-                               FontSize="12"
-                               FontWeight="SemiBold"
-                               Margin="0,0,0,8" />
                     <Button x:Name="AllServersCategoryButton"
-                            Content="Все серверы"
+                            Content="◎"
                             Tag="all"
-                            Style="{StaticResource NavButtonStyle}"
+                            ToolTip="Все серверы"
+                            Style="{StaticResource RailButtonStyle}"
                             Click="ServerCategoryButton_Click" />
                     <Button x:Name="FavoriteServersCategoryButton"
-                            Content="Избранные"
+                            Content="★"
                             Tag="favorite"
-                            Style="{StaticResource NavButtonStyle}"
+                            ToolTip="Избранные"
+                            Style="{StaticResource RailButtonStyle}"
                             Click="ServerCategoryButton_Click" />
                     <Button x:Name="FastServersCategoryButton"
-                            Content="Быстрые"
+                            Content="↯"
                             Tag="fast"
-                            Style="{StaticResource NavButtonStyle}"
+                            ToolTip="Быстрые"
+                            Style="{StaticResource RailButtonStyle}"
                             Click="ServerCategoryButton_Click" />
                     <Button x:Name="RecentServersCategoryButton"
-                            Content="Последние"
+                            Content="↺"
                             Tag="recent"
-                            Style="{StaticResource NavButtonStyle}"
+                            ToolTip="Последние"
+                            Style="{StaticResource RailButtonStyle}"
                             Click="ServerCategoryButton_Click" />
                     <Button x:Name="VlessServersCategoryButton"
-                            Content="VLESS"
+                            Content="V"
                             Tag="vless"
-                            Style="{StaticResource NavButtonStyle}"
+                            ToolTip="VLESS Reality"
+                            Style="{StaticResource RailButtonStyle}"
                             Click="ServerCategoryButton_Click" />
                     <Button x:Name="AwgServersCategoryButton"
-                            Content="AWG"
+                            Content="A"
                             Tag="awg"
-                            Style="{StaticResource NavButtonStyle}"
+                            ToolTip="AmneziaWG"
+                            Style="{StaticResource RailButtonStyle}"
                             Click="ServerCategoryButton_Click" />
-
-                    <TextBlock Text="Профили"
-                               Foreground="{StaticResource MutedTextBrush}"
-                               FontSize="12"
-                               FontWeight="SemiBold"
-                               Margin="0,18,0,8" />
-                    <ListBox x:Name="ProfilesListBox"
-                             Background="Transparent"
-                             BorderThickness="0"
-                             Foreground="{StaticResource TextBrush}"
-                             SelectionChanged="ProfilesListBox_SelectionChanged"
-                             ScrollViewer.HorizontalScrollBarVisibility="Disabled">
-                        <ListBox.ItemContainerStyle>
-                            <Style TargetType="ListBoxItem" BasedOn="{StaticResource DarkListBoxItemStyle}">
-                                <Setter Property="Margin" Value="0,0,0,8" />
-                                <Setter Property="Padding" Value="12" />
-                                <Setter Property="HorizontalContentAlignment" Value="Stretch" />
-                            </Style>
-                        </ListBox.ItemContainerStyle>
-                        <ListBox.ItemTemplate>
-                            <DataTemplate>
-                                <StackPanel>
-                                    <TextBlock Text="{Binding Name}"
-                                               Foreground="{StaticResource TextBrush}"
-                                               FontWeight="SemiBold"
-                                               FontSize="14"
-                                               TextTrimming="CharacterEllipsis" />
-                                    <TextBlock Text="{Binding ServerAddress}"
-                                               Foreground="{StaticResource MutedTextBrush}"
-                                               FontSize="12"
-                                               Margin="0,4,0,0"
-                                               TextTrimming="CharacterEllipsis" />
-                                </StackPanel>
-                            </DataTemplate>
-                        </ListBox.ItemTemplate>
-                    </ListBox>
                 </StackPanel>
+
+                <StackPanel DockPanel.Dock="Bottom" Margin="0,0,0,14" HorizontalAlignment="Center">
+                    <Button x:Name="DeleteProfileButton"
+                            Content="×"
+                            ToolTip="Удалить выбранную конфигурацию"
+                            Style="{StaticResource RailButtonStyle}"
+                            Foreground="{StaticResource ErrorTextBrush}"
+                            Click="DeleteProfileButton_Click" />
+                    <TextBlock Text="i"
+                               Foreground="{StaticResource MutedTextBrush}"
+                               FontWeight="SemiBold"
+                               FontSize="18"
+                               HorizontalAlignment="Center"
+                               Margin="0,10,0,0"
+                               ToolTip="О программе и справка" />
+                </StackPanel>
+
+                <ListBox x:Name="ProfilesListBox"
+                         Visibility="Collapsed"
+                         SelectionChanged="ProfilesListBox_SelectionChanged" />
             </DockPanel>
         </Border>
 
@@ -1084,6 +1127,8 @@
                                           Foreground="{StaticResource TextBrush}"
                                           BorderBrush="{StaticResource LineBrush}"
                                           BorderThickness="1"
+                                          ItemContainerStyle="{StaticResource ServerRowListViewItemStyle}"
+                                          ScrollViewer.HorizontalScrollBarVisibility="Disabled"
                                           KeyDown="ServersListView_KeyDown"
                                           MouseDoubleClick="ServersListView_MouseDoubleClick"
                                           PreviewMouseRightButtonDown="ServersListView_PreviewMouseRightButtonDown"
@@ -1099,56 +1144,83 @@
                                                       Click="ServerContextCopyEndpointMenuItem_Click" />
                                         </ContextMenu>
                                     </ListView.ContextMenu>
-                                    <ListView.View>
-                                        <GridView>
-                                            <GridViewColumn Header="Сервер" Width="320">
-                                                <GridViewColumn.CellTemplate>
-                                                    <DataTemplate>
-                                                        <DockPanel Margin="0,4">
-                                                            <Border DockPanel.Dock="Left"
-                                                                    Width="34"
-                                                                    Height="34"
-                                                                    CornerRadius="17"
-                                                                    Background="{StaticResource AccentSoftBrush}"
-                                                                    Margin="0,0,10,0">
-                                                                <TextBlock Text="{Binding BadgeText}"
-                                                                           Foreground="{StaticResource AccentBrush}"
-                                                                           FontWeight="SemiBold"
-                                                                           FontSize="12"
-                                                                           HorizontalAlignment="Center"
-                                                                           VerticalAlignment="Center" />
-                                                            </Border>
-                                                            <StackPanel>
-                                                                <TextBlock Text="{Binding DisplayName}"
-                                                                           FontWeight="SemiBold"
-                                                                           TextTrimming="CharacterEllipsis" />
-                                                                <TextBlock Text="{Binding MenuLabel}"
-                                                                           Foreground="{StaticResource MutedTextBrush}"
-                                                                           FontSize="12"
-                                                                           TextTrimming="CharacterEllipsis"
-                                                                           Margin="0,3,0,0" />
-                                                            </StackPanel>
-                                                        </DockPanel>
-                                                    </DataTemplate>
-                                                </GridViewColumn.CellTemplate>
-                                            </GridViewColumn>
-                                            <GridViewColumn Header="Протокол"
-                                                            Width="112"
-                                                            DisplayMemberBinding="{Binding ProtocolLabel}" />
-                                            <GridViewColumn Header="Статус"
-                                                            Width="96"
-                                                            DisplayMemberBinding="{Binding StatusLabel}" />
-                                            <GridViewColumn Header="Адрес"
-                                                            Width="230"
-                                                            DisplayMemberBinding="{Binding Endpoint}" />
-                                            <GridViewColumn Header="★"
-                                                            Width="44"
-                                                            DisplayMemberBinding="{Binding FavoriteMark}" />
-                                            <GridViewColumn Header=""
-                                                            Width="34"
-                                                            DisplayMemberBinding="{Binding ActionMark}" />
-                                        </GridView>
-                                    </ListView.View>
+                                    <ListView.ItemTemplate>
+                                        <DataTemplate>
+                                            <Grid ToolTip="{Binding Endpoint}">
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="44" />
+                                                    <ColumnDefinition Width="*" />
+                                                    <ColumnDefinition Width="98" />
+                                                    <ColumnDefinition Width="34" />
+                                                </Grid.ColumnDefinitions>
+
+                                                <Border Grid.Column="0"
+                                                        Width="32"
+                                                        Height="32"
+                                                        CornerRadius="16"
+                                                        Background="{StaticResource AccentSoftBrush}"
+                                                        HorizontalAlignment="Left"
+                                                        VerticalAlignment="Center">
+                                                    <TextBlock Text="{Binding BadgeText}"
+                                                               Foreground="{StaticResource AccentBrush}"
+                                                               FontWeight="SemiBold"
+                                                               FontSize="12"
+                                                               HorizontalAlignment="Center"
+                                                               VerticalAlignment="Center" />
+                                                </Border>
+
+                                                <StackPanel Grid.Column="1"
+                                                            VerticalAlignment="Center"
+                                                            Margin="0,0,14,0">
+                                                    <TextBlock Text="{Binding DisplayName}"
+                                                               FontSize="15"
+                                                               FontWeight="SemiBold"
+                                                               TextTrimming="CharacterEllipsis" />
+                                                    <Grid Margin="0,4,0,0">
+                                                        <Grid.ColumnDefinitions>
+                                                            <ColumnDefinition Width="Auto" />
+                                                            <ColumnDefinition Width="Auto" />
+                                                            <ColumnDefinition Width="*" />
+                                                        </Grid.ColumnDefinitions>
+                                                        <TextBlock Text="{Binding ProtocolLabel}"
+                                                                   Foreground="{StaticResource MutedTextBrush}"
+                                                                   FontSize="12" />
+                                                        <TextBlock Grid.Column="1"
+                                                                   Text=" / "
+                                                                   Foreground="{StaticResource MutedTextBrush}"
+                                                                   FontSize="12" />
+                                                        <TextBlock Grid.Column="2"
+                                                                   Text="{Binding MenuLabel}"
+                                                                   Foreground="{StaticResource MutedTextBrush}"
+                                                                   FontSize="12"
+                                                                   TextTrimming="CharacterEllipsis" />
+                                                    </Grid>
+                                                </StackPanel>
+
+                                                <StackPanel Grid.Column="2"
+                                                            HorizontalAlignment="Right"
+                                                            VerticalAlignment="Center">
+                                                    <TextBlock Text="{Binding StatusLabel}"
+                                                               Foreground="{StaticResource TextBrush}"
+                                                               FontSize="13"
+                                                               HorizontalAlignment="Right" />
+                                                </StackPanel>
+
+                                                <StackPanel Grid.Column="3"
+                                                            VerticalAlignment="Center"
+                                                            HorizontalAlignment="Right">
+                                                    <TextBlock Text="{Binding FavoriteMark}"
+                                                               Foreground="{StaticResource AccentBrush}"
+                                                               FontSize="16"
+                                                               HorizontalAlignment="Center" />
+                                                    <TextBlock Text="{Binding ActionMark}"
+                                                               Foreground="{StaticResource MutedTextBrush}"
+                                                               FontSize="16"
+                                                               HorizontalAlignment="Center" />
+                                                </StackPanel>
+                                            </Grid>
+                                        </DataTemplate>
+                                    </ListView.ItemTemplate>
                                 </ListView>
 
                                 <TextBlock x:Name="ServerCatalogSummaryTextBlock"
@@ -1730,39 +1802,70 @@
                 Padding="24">
             <ScrollViewer VerticalScrollBarVisibility="Auto">
                 <StackPanel>
-                    <TextBlock Text="Samhain Security"
-                               FontSize="23"
-                               FontWeight="SemiBold"
-                               TextAlignment="Center"
-                               Margin="0,8,0,4" />
+                    <Grid Height="410" Margin="-24,-24,-24,24" ClipToBounds="True">
+                        <Border Background="#151820" />
+                        <Path Data="M 0 80 C 90 10 245 20 430 0 L 430 410 L 0 410 Z"
+                              Fill="#11141A"
+                              Opacity="0.86" />
+                        <Path Data="M 0 410 C 120 340 200 300 430 308 L 430 410 Z"
+                              Fill="#201018"
+                              Opacity="0.62" />
 
-                    <Border x:Name="DailyConnectionBadge"
-                            Background="{StaticResource WarningBrush}"
-                            Padding="10,6"
-                            HorizontalAlignment="Center"
-                            MinWidth="120"
-                            Margin="0,0,0,34">
-                        <TextBlock x:Name="DailyConnectionStateTextBlock"
-                                   Text="Ожидание"
-                                   Foreground="{StaticResource WarningTextBrush}"
-                                   FontWeight="SemiBold"
-                                   FontSize="13"
-                                   TextAlignment="Center" />
-                    </Border>
+                        <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
+                            <TextBlock Text="Samhain Security"
+                                       FontSize="24"
+                                       FontWeight="SemiBold"
+                                       TextAlignment="Center"
+                                       Margin="0,0,0,8" />
 
-                    <Button x:Name="ConnectButton"
-                            Content="⏻"
-                            Style="{StaticResource PowerButtonStyle}"
-                            HorizontalAlignment="Center"
-                            Click="ConnectButton_Click"
-                            ToolTip="Подключить" />
+                            <Border x:Name="DailyConnectionBadge"
+                                    Background="{StaticResource WarningBrush}"
+                                    Padding="14,7"
+                                    HorizontalAlignment="Center"
+                                    MinWidth="128"
+                                    Margin="0,0,0,18">
+                                <TextBlock x:Name="DailyConnectionStateTextBlock"
+                                           Text="Ожидание"
+                                           Foreground="{StaticResource WarningTextBrush}"
+                                           FontWeight="SemiBold"
+                                           FontSize="13"
+                                           TextAlignment="Center" />
+                            </Border>
 
-                    <Button x:Name="DisconnectButton"
-                            Content="Отключить"
-                            Width="132"
-                            Margin="0,12,0,30"
-                            HorizontalAlignment="Center"
-                            Click="DisconnectButton_Click" />
+                            <Grid Width="250" Height="250" Margin="0,0,0,16">
+                                <Ellipse Stroke="#2B1730"
+                                         StrokeThickness="2"
+                                         Opacity="0.95" />
+                                <Ellipse Width="196"
+                                         Height="196"
+                                         Stroke="#374052"
+                                         StrokeThickness="26"
+                                         Opacity="0.84"
+                                         HorizontalAlignment="Center"
+                                         VerticalAlignment="Center" />
+                                <Ellipse Width="148"
+                                         Height="148"
+                                         Fill="#1A1E29"
+                                         Stroke="#475169"
+                                         StrokeThickness="3"
+                                         HorizontalAlignment="Center"
+                                         VerticalAlignment="Center" />
+                                <Button x:Name="ConnectButton"
+                                        Content="⏻"
+                                        Style="{StaticResource PowerButtonStyle}"
+                                        HorizontalAlignment="Center"
+                                        VerticalAlignment="Center"
+                                        Click="ConnectButton_Click"
+                                        ToolTip="Подключить" />
+                            </Grid>
+
+                            <Button x:Name="DisconnectButton"
+                                    Content="Отключить"
+                                    Width="164"
+                                    HorizontalAlignment="Center"
+                                    Click="DisconnectButton_Click" />
+                        </StackPanel>
+                    </Grid>
 
                     <TextBlock Text="Выбрано"
                                Style="{StaticResource DailyLabelTextStyle}"
@@ -1780,7 +1883,25 @@
                                FontSize="13"
                                TextAlignment="Center"
                                TextWrapping="Wrap"
-                               Margin="0,0,0,24" />
+                               Margin="0,0,0,14" />
+
+                    <StackPanel Orientation="Horizontal"
+                                HorizontalAlignment="Center"
+                                Margin="0,0,0,24">
+                        <Border Background="{StaticResource AccentSoftBrush}"
+                                BorderBrush="{StaticResource AccentMutedBrush}"
+                                BorderThickness="1"
+                                Padding="12,5"
+                                Margin="0,0,8,0">
+                            <TextBlock Text="Proxy" Style="{StaticResource ModeChipTextStyle}" />
+                        </Border>
+                        <Border Background="{StaticResource AccentSoftBrush}"
+                                BorderBrush="{StaticResource AccentMutedBrush}"
+                                BorderThickness="1"
+                                Padding="12,5">
+                            <TextBlock Text="TUN" Style="{StaticResource ModeChipTextStyle}" />
+                        </Border>
+                    </StackPanel>
 
                     <Border Background="{StaticResource PanelBrush}"
                             BorderBrush="{StaticResource LineBrush}"

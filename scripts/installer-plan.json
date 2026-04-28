@@ -1,6 +1,6 @@
 {
   "product": "Samhain Security",
-  "version": "0.6.4",
+  "version": "0.6.5",
   "installRoot": "%ProgramFiles%/Samhain Security",
   "windowsRuntime": "win-x64",
   "appEntry": "app/SamhainSecurity.exe",
@@ -30,6 +30,7 @@
     "store application routing mode for whole computer, selected applications only, and whole computer except selected applications",
     "apply VLESS application routing through sing-box process rules and expose the policy in service status",
     "replace bright default Windows control chrome with a dark red graphite cyberpunk theme",
+    "use compact icon navigation, card-style server rows, and supplied Samhain Security icons",
     "install local service when elevated",
     "create optional Start Menu shortcut",
     "create optional Desktop shortcut",

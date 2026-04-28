@@ -1,6 +1,6 @@
 # Samhain Security
 
-Version: `0.6.4`
+Version: `0.6.5`
 
 Desktop secure tunneling client for Windows built with WPF and .NET 9.
 
@@ -47,6 +47,8 @@ Desktop secure tunneling client for Windows built with WPF and .NET 9.
 - Distinguishes three application routing modes: whole computer, selected applications only, and whole computer except selected applications.
 - Applies VLESS application routing through generated `sing-box` process rules and reports the policy through the service protection status.
 - Replaces bright default Windows control chrome with a dark red graphite cyberpunk theme and muted text contrast.
+- Adds a Happ-inspired daily shell pass with a compact icon rail, card-style server rows, and a larger connection stage.
+- Uses the Samhain Security shield asset for the application and tray icons.
 - Adds pre-connect validation for VLESS Reality and WireGuard-style configs with clear local errors.
 - Adds optional reconnect after resume or network changes for the last successful profile.
 - Adds tray-first server selection with connect selected, connect best, and current server submenu.
@@ -125,7 +127,7 @@ Portable package:
 Local package helper:
 
 ```powershell
-.\scripts\install-local.ps1 -PackagePath ".\dist\SamhainSecurity-0.6.4-win-x64" -StartService -CreateStartMenuShortcut
+.\scripts\install-local.ps1 -PackagePath ".\dist\SamhainSecurity-0.6.5-win-x64" -StartService -CreateStartMenuShortcut
 ```
 
 Default install root is `%ProgramFiles%\Samhain Security`. The helper stops and replaces the previous service registration, copies the package to the install root, writes `install-manifest.json`, and preserves `%APPDATA%\SamhainSecurity`.
@@ -242,6 +244,8 @@ Version `0.6.2` adds stored application routing modes. Profiles can now remember
 Version `0.6.3` starts real application-aware routing. VLESS TCP Reality now generates `sing-box` process rules for selected app paths or process names, the service pipe carries the policy, and protection status/preview shows the active application routing plan.
 
 Version `0.6.4` retunes the desktop visual system. The main shell now uses a dark red graphite cyberpunk palette, dark templates for default controls, subdued disabled states, dark list/table headers, dark scrollbars, and a dark native window caption where Windows supports it.
+
+Version `0.6.5` starts the Happ-inspired daily layout pass. The shell now uses a narrow icon rail, card-style server rows, a larger connection stage with Proxy/TUN chips, and the supplied Samhain Security shield for app and tray icons.
 
 ## Versioning
 

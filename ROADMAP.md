@@ -1,6 +1,6 @@
 # Samhain Security Roadmap
 
-Version baseline: `0.6.4`
+Version baseline: `0.6.5`
 
 ## Product Goal
 
@@ -448,6 +448,12 @@ The default UI should stay close to the simplicity of Happ: a small set of obvio
 - Done: switched the app shell to a dark red graphite cyberpunk palette.
 - Done: replaced bright default WPF control states for buttons, inputs, selectors, lists, table headers, checkboxes, and scrollbars.
 - Done: enabled dark native window caption colors on supported Windows builds.
+
+### 0.6.5
+
+- Done: moved the daily shell toward a Happ-style composition with a compact icon rail and a wider right connection stage.
+- Done: replaced the server table with card-like server rows that keep protocol, status, favorite state, and address available without bright table chrome.
+- Done: packaged the supplied Samhain Security shield asset as the application and tray icon.
 
 ## Design Direction
 
