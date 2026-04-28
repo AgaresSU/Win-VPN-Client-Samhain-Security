@@ -66,6 +66,8 @@ pub enum ClientCommand {
     Connect { server_id: String, route_mode: RouteMode },
     Disconnect,
     TestPing { server_id: String },
+    TestPings { server_ids: Vec<String> },
+    CancelPingProbes,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -81,8 +83,20 @@ pub enum ServiceEvent {
     Connecting { server_id: String },
     Connected { server_id: String },
     Disconnected,
-    PingResult { server_id: String, ping_ms: Option<u32> },
+    PingResult(PingProbeResult),
+    PingBatchResult { results: Vec<PingProbeResult> },
+    PingProbesCanceled { canceled: usize },
     Error { message: String },
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PingProbeResult {
+    pub server_id: String,
+    pub ping_ms: Option<u32>,
+    pub status: String,
+    pub checked_at: String,
+    pub source: String,
+    pub stale: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -92,6 +106,8 @@ pub struct ServiceState {
     pub selected_server_id: Option<String>,
     pub connected_server_id: Option<String>,
     pub route_mode: RouteMode,
+    pub probe_queue_active: bool,
+    pub probe_results: Vec<PingProbeResult>,
     pub subscriptions: Vec<Subscription>,
 }
 
@@ -103,6 +119,8 @@ impl Default for ServiceState {
             selected_server_id: None,
             connected_server_id: None,
             route_mode: RouteMode::WholeComputer,
+            probe_queue_active: false,
+            probe_results: Vec::new(),
             subscriptions: Vec::new(),
         }
     }

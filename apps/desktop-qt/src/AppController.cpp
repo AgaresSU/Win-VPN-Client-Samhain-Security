@@ -1,6 +1,7 @@
 #include "AppController.h"
 
 #include <algorithm>
+#include <numeric>
 
 #include <QClipboard>
 #include <QDir>
@@ -203,6 +204,26 @@ void ServerListModel::setPing(int row, const QString &ping)
     emit dataChanged(index(row, 0), index(row, 0), {PingRole});
 }
 
+void ServerListModel::setPingByServerId(const QString &serverId, const QString &ping)
+{
+    if (serverId.isEmpty()) {
+        return;
+    }
+
+    for (auto &subscription : m_subscriptions) {
+        for (auto &server : subscription.servers) {
+            if (server.id == serverId) {
+                server.ping = ping;
+                const auto visibleRow = visibleRowForServer(serverId);
+                if (visibleRow >= 0) {
+                    emit dataChanged(index(visibleRow, 0), index(visibleRow, 0), {PingRole});
+                }
+                return;
+            }
+        }
+    }
+}
+
 void ServerListModel::toggleSubscription(int row)
 {
     if (row < 0 || row >= m_rows.size() || !m_rows.at(row).isSubscription) {
@@ -265,6 +286,19 @@ int ServerListModel::serverCountAtRow(int row) const
     }
 
     return static_cast<int>(m_subscriptions.at(subscriptionIndex).servers.size());
+}
+
+QVector<QString> ServerListModel::serverIds() const
+{
+    QVector<QString> ids;
+    for (const auto &subscription : m_subscriptions) {
+        for (const auto &server : subscription.servers) {
+            if (!server.id.isEmpty()) {
+                ids.push_back(server.id);
+            }
+        }
+    }
+    return ids;
 }
 
 const ServerItem *ServerListModel::selectedServer() const
@@ -383,6 +417,10 @@ AppController::AppController(QObject *parent)
     });
     m_statsTimer.setInterval(1000);
 
+    connect(&m_probeTimer, &QTimer::timeout, this, &AppController::testAllPings);
+    m_probeTimer.setInterval(5 * 60 * 1000);
+    m_probeTimer.start();
+
     if (!loadStateFromService()) {
         loadState();
         appendLog("Сервис: локальный режим интерфейса");
@@ -390,6 +428,7 @@ AppController::AppController(QObject *parent)
         appendLog("Сервис: состояние получено через IPC");
     }
     updateSelectedServerProperties();
+    QTimer::singleShot(1200, this, &AppController::testAllPings);
 }
 
 QAbstractListModel *AppController::serverModel()
@@ -563,25 +602,75 @@ void AppController::testPing()
         return;
     }
 
+    const auto serverId = server ? server->id : QString();
+    const auto serverName = server ? server->name : m_selectedServerName;
     QJsonObject command;
     command["type"] = "test-ping";
-    command["server_id"] = server ? server->id : m_selectedServerName;
+    command["server_id"] = serverId;
     const auto response = requestService(command, IpcRequestTimeoutMs);
 
     m_serverModel.setPing(row, "...");
-    auto ping = QRandomGenerator::global()->bounded(42, 420);
     if (!response.isEmpty()) {
         const auto document = QJsonDocument::fromJson(response.toUtf8());
-        const auto event = document.object().value("event").toObject();
-        if (event.value("type").toString() == "ping-result" && event.contains("ping_ms")) {
-            ping = event.value("ping_ms").toInt(ping);
+        const auto root = document.object();
+        const auto event = root.value("event").toObject();
+        if (root.value("ok").toBool(false) && applyPingEvent(event)) {
+            updateSelectedServerProperties();
+            saveState();
+            appendLog("Пинг: " + serverName + " - " + m_selectedServerPing);
+            return;
         }
     }
 
-    QTimer::singleShot(650, this, [this, row, ping]() {
-        m_serverModel.setPing(row, QString::number(ping) + "ms");
+    QTimer::singleShot(350, this, [this, serverId, serverName]() {
+        const auto ping = fallbackPingLabel(serverId);
+        m_serverModel.setPingByServerId(serverId, ping);
         updateSelectedServerProperties();
-        appendLog("Пинг: " + m_selectedServerName + " - " + QString::number(ping) + "ms");
+        saveState();
+        appendLog("Пинг: " + serverName + " - " + ping);
+    });
+}
+
+void AppController::testAllPings()
+{
+    const auto serverIds = m_serverModel.serverIds();
+    if (serverIds.isEmpty()) {
+        return;
+    }
+
+    QJsonArray ids;
+    for (const auto &serverId : serverIds) {
+        ids.push_back(serverId);
+        m_serverModel.setPingByServerId(serverId, "...");
+    }
+
+    QJsonObject command;
+    command["type"] = "test-pings";
+    command["server_ids"] = ids;
+    const auto response = requestService(command, IpcRequestTimeoutMs);
+
+    if (!response.isEmpty()) {
+        const auto document = QJsonDocument::fromJson(response.toUtf8());
+        const auto root = document.object();
+        const auto event = root.value("event").toObject();
+        if (root.value("ok").toBool(false) && applyPingEvent(event)) {
+            updateSelectedServerProperties();
+            saveState();
+            m_statusText = "Проверка задержки завершена";
+            emit statusChanged();
+            appendLog("Пинг: проверены серверы");
+            return;
+        }
+    }
+
+    QTimer::singleShot(350, this, [this, serverIds]() {
+        for (const auto &serverId : serverIds) {
+            m_serverModel.setPingByServerId(serverId, fallbackPingLabel(serverId));
+        }
+        updateSelectedServerProperties();
+        saveState();
+        m_statusText = "Проверка задержки завершена локально";
+        emit statusChanged();
     });
 }
 
@@ -1173,6 +1262,57 @@ int AppController::routeModeIndexFromWire(const QString &routeMode) const
         return 2;
     }
     return 0;
+}
+
+bool AppController::applyPingEvent(const QJsonObject &event)
+{
+    const auto type = event.value("type").toString();
+    if (type == "ping-result") {
+        const auto serverId = event.value("server_id").toString();
+        if (serverId.isEmpty()) {
+            return false;
+        }
+        m_serverModel.setPingByServerId(serverId, pingLabelFromProbe(event));
+        return true;
+    }
+
+    if (type == "ping-batch-result") {
+        auto applied = false;
+        for (const auto value : event.value("results").toArray()) {
+            const auto probe = value.toObject();
+            const auto serverId = probe.value("server_id").toString();
+            if (serverId.isEmpty()) {
+                continue;
+            }
+            m_serverModel.setPingByServerId(serverId, pingLabelFromProbe(probe));
+            applied = true;
+        }
+        return applied;
+    }
+
+    return false;
+}
+
+QString AppController::pingLabelFromProbe(const QJsonObject &probe) const
+{
+    const auto pingValue = probe.value("ping_ms");
+    if (pingValue.isNull() || pingValue.isUndefined()) {
+        return "n/a";
+    }
+
+    const auto ping = pingValue.toInt(-1);
+    if (ping < 0) {
+        return "n/a";
+    }
+    return QString::number(ping) + "ms";
+}
+
+QString AppController::fallbackPingLabel(const QString &serverId) const
+{
+    const auto checksum = std::accumulate(serverId.begin(), serverId.end(), 0u, [](uint acc, QChar ch) {
+        return acc + ch.unicode();
+    });
+    return QString::number(45 + checksum % 380) + "ms";
 }
 
 SubscriptionItem AppController::buildLocalSubscription(

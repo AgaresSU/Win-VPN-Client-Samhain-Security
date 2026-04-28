@@ -4,16 +4,18 @@ use samhain_core::{
     sample_subscription,
 };
 use samhain_ipc::{
-    ClientCommand, IPC_PROTOCOL_VERSION, RequestEnvelope, ResponseEnvelope, ServiceEvent,
-    ServiceState, decode_request, encode_event, encode_response,
+    ClientCommand, IPC_PROTOCOL_VERSION, PingProbeResult, RequestEnvelope, ResponseEnvelope,
+    ServiceEvent, ServiceState, decode_request, encode_event, encode_response,
 };
 use serde::{Deserialize, Serialize};
 use std::fs;
+use std::net::{IpAddr, SocketAddr, TcpStream};
 use std::path::PathBuf;
 use std::sync::{Mutex, OnceLock};
-use std::time::{Duration, SystemTime, UNIX_EPOCH};
+use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 static STORE: OnceLock<Mutex<ServiceStore>> = OnceLock::new();
+const PROBE_TIMEOUT: Duration = Duration::from_millis(260);
 
 fn main() -> Result<()> {
     let mut args = std::env::args().skip(1);
@@ -151,13 +153,36 @@ fn handle_command(command: ClientCommand) -> ServiceEvent {
             route_mode: _,
         } => ServiceEvent::Connecting { server_id },
         ClientCommand::Disconnect => ServiceEvent::Disconnected,
-        ClientCommand::TestPing { server_id } => {
-            let checksum = server_id.bytes().fold(0u32, |acc, byte| acc + byte as u32);
-            ServiceEvent::PingResult {
-                server_id,
-                ping_ms: Some(40 + checksum % 380),
-            }
-        }
+        ClientCommand::TestPing { server_id } => match service_store()
+            .lock()
+            .map_err(|_| anyhow!("Service store lock is poisoned."))
+            .and_then(|mut store| store.test_ping(&server_id))
+        {
+            Ok(result) => ServiceEvent::PingResult(result),
+            Err(error) => ServiceEvent::Error {
+                message: format!("Не удалось проверить задержку: {error}"),
+            },
+        },
+        ClientCommand::TestPings { server_ids } => match service_store()
+            .lock()
+            .map_err(|_| anyhow!("Service store lock is poisoned."))
+            .and_then(|mut store| store.test_pings(server_ids))
+        {
+            Ok(results) => ServiceEvent::PingBatchResult { results },
+            Err(error) => ServiceEvent::Error {
+                message: format!("Не удалось проверить задержку: {error}"),
+            },
+        },
+        ClientCommand::CancelPingProbes => match service_store()
+            .lock()
+            .map_err(|_| anyhow!("Service store lock is poisoned."))
+            .map(|mut store| store.cancel_ping_probes())
+        {
+            Ok(canceled) => ServiceEvent::PingProbesCanceled { canceled },
+            Err(error) => ServiceEvent::Error {
+                message: format!("Не удалось отменить проверку: {error}"),
+            },
+        },
     }
 }
 
@@ -170,6 +195,8 @@ fn current_state(running: bool) -> ServiceState {
             selected_server_id: None,
             connected_server_id: None,
             route_mode: RouteMode::WholeComputer,
+            probe_queue_active: false,
+            probe_results: Vec::new(),
             subscriptions: vec![sample_subscription()],
         },
     }
@@ -229,6 +256,8 @@ impl ServiceStore {
             selected_server_id: self.state.selected_server_id.clone(),
             connected_server_id: self.state.connected_server_id.clone(),
             route_mode: self.state.route_mode,
+            probe_queue_active: self.state.probe_queue_active,
+            probe_results: self.state.probe_results.clone(),
             subscriptions: self
                 .state
                 .subscriptions
@@ -268,6 +297,53 @@ impl ServiceStore {
         self.save()?;
 
         Ok(public)
+    }
+
+    fn test_ping(&mut self, server_id: &str) -> Result<PingProbeResult> {
+        self.state.probe_queue_active = true;
+        let server = self
+            .find_server(server_id)
+            .ok_or_else(|| anyhow!("сервер не найден"))?;
+        let result = probe_server(&server);
+        self.upsert_probe_result(result.clone());
+        self.state.probe_queue_active = false;
+        self.save()?;
+        Ok(result)
+    }
+
+    fn test_pings(&mut self, server_ids: Vec<String>) -> Result<Vec<PingProbeResult>> {
+        self.state.probe_queue_active = true;
+        let servers = if server_ids.is_empty() {
+            self.all_servers()
+        } else {
+            server_ids
+                .iter()
+                .filter_map(|server_id| self.find_server(server_id))
+                .collect()
+        };
+
+        if servers.is_empty() {
+            self.state.probe_queue_active = false;
+            self.save()?;
+            return Ok(Vec::new());
+        }
+
+        let mut results = Vec::with_capacity(servers.len());
+        for server in servers {
+            let result = probe_server(&server);
+            self.upsert_probe_result(result.clone());
+            results.push(result);
+        }
+        self.state.probe_queue_active = false;
+        self.save()?;
+        Ok(results)
+    }
+
+    fn cancel_ping_probes(&mut self) -> usize {
+        let canceled = usize::from(self.state.probe_queue_active);
+        self.state.probe_queue_active = false;
+        let _ = self.save();
+        canceled
     }
 
     fn refresh_subscription(&mut self, subscription_id: &str) -> Result<Subscription> {
@@ -378,6 +454,38 @@ impl ServiceStore {
         fs::write(&self.path, payload)
             .with_context(|| format!("Could not write {}", self.path.display()))
     }
+
+    fn find_server(&self, server_id: &str) -> Option<Server> {
+        self.state
+            .subscriptions
+            .iter()
+            .flat_map(|subscription| subscription.servers.iter())
+            .find(|server| server.id == server_id || server.name == server_id)
+            .cloned()
+    }
+
+    fn all_servers(&self) -> Vec<Server> {
+        self.state
+            .subscriptions
+            .iter()
+            .flat_map(|subscription| subscription.servers.iter().cloned())
+            .collect()
+    }
+
+    fn upsert_probe_result(&mut self, result: PingProbeResult) {
+        for subscription in &mut self.state.subscriptions {
+            for server in &mut subscription.servers {
+                if server.id == result.server_id {
+                    server.ping_ms = result.ping_ms;
+                }
+            }
+        }
+
+        self.state
+            .probe_results
+            .retain(|existing| existing.server_id != result.server_id);
+        self.state.probe_results.push(result);
+    }
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -387,6 +495,10 @@ struct StoredState {
     #[serde(default)]
     selected_server_id: Option<String>,
     connected_server_id: Option<String>,
+    #[serde(default)]
+    probe_queue_active: bool,
+    #[serde(default)]
+    probe_results: Vec<PingProbeResult>,
     subscriptions: Vec<StoredSubscription>,
 }
 
@@ -397,6 +509,8 @@ impl StoredState {
             route_mode: RouteMode::WholeComputer,
             selected_server_id: None,
             connected_server_id: None,
+            probe_queue_active: false,
+            probe_results: Vec::new(),
             subscriptions: vec![StoredSubscription::from_public(sample_subscription())],
         }
     }
@@ -485,7 +599,13 @@ fn protect_server_urls(
     let mut public_servers = Vec::with_capacity(servers.len());
     let mut protected_urls = Vec::with_capacity(servers.len());
 
-    for mut server in servers {
+    for (index, mut server) in servers.into_iter().enumerate() {
+        let local_id = if server.id.trim().is_empty() {
+            format!("server-{}", index + 1)
+        } else {
+            server.id.clone()
+        };
+        server.id = format!("{subscription_id}-{local_id}");
         protected_urls.push(ProtectedServerUrl {
             server_id: server.id.clone(),
             protected_raw_url: secret::protect_string(&server.raw_url)?,
@@ -594,6 +714,71 @@ fn now_label() -> String {
         .map(|value| value.as_secs())
         .unwrap_or_default();
     format!("Обновлено через сервис: {seconds}")
+}
+
+fn now_probe_label() -> String {
+    let seconds = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|value| value.as_secs())
+        .unwrap_or_default();
+    format!("Проверено через сервис: {seconds}")
+}
+
+fn probe_server(server: &Server) -> PingProbeResult {
+    let checked_at = now_probe_label();
+    let Some(port) = server.port else {
+        return PingProbeResult {
+            server_id: server.id.clone(),
+            ping_ms: None,
+            status: "no-port".to_string(),
+            checked_at,
+            source: "engine-unavailable".to_string(),
+            stale: false,
+        };
+    };
+
+    let Ok(ip) = server.host.parse::<IpAddr>() else {
+        return PingProbeResult {
+            server_id: server.id.clone(),
+            ping_ms: server.ping_ms,
+            status: "unresolved".to_string(),
+            checked_at,
+            source: "stored".to_string(),
+            stale: server.ping_ms.is_some(),
+        };
+    };
+
+    let endpoint = SocketAddr::new(ip, port);
+    let started = Instant::now();
+    match TcpStream::connect_timeout(&endpoint, PROBE_TIMEOUT) {
+        Ok(stream) => {
+            drop(stream);
+            PingProbeResult {
+                server_id: server.id.clone(),
+                ping_ms: Some(started.elapsed().as_millis().max(1) as u32),
+                status: "ok".to_string(),
+                checked_at,
+                source: "tcp-connect".to_string(),
+                stale: false,
+            }
+        }
+        Err(error) => {
+            let status = match error.kind() {
+                std::io::ErrorKind::TimedOut => "timeout",
+                std::io::ErrorKind::ConnectionRefused => "closed",
+                std::io::ErrorKind::NetworkUnreachable => "network-unreachable",
+                _ => "failed",
+            };
+            PingProbeResult {
+                server_id: server.id.clone(),
+                ping_ms: None,
+                status: status.to_string(),
+                checked_at,
+                source: "tcp-connect".to_string(),
+                stale: false,
+            }
+        }
+    }
 }
 
 mod secret {

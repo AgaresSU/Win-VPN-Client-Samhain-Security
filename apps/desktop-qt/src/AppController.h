@@ -56,11 +56,13 @@ public:
     void setServers(QVector<ServerItem> servers);
     void selectRow(int row);
     void setPing(int row, const QString &ping);
+    void setPingByServerId(const QString &serverId, const QString &ping);
     void toggleSubscription(int row);
     bool isSubscriptionRow(int row) const;
     QString subscriptionIdAtRow(int row) const;
     QString subscriptionNameAtRow(int row) const;
     int serverCountAtRow(int row) const;
+    QVector<QString> serverIds() const;
     const ServerItem *selectedServer() const;
     const SubscriptionItem *selectedSubscription() const;
     const QVector<SubscriptionItem> &subscriptions() const;
@@ -125,6 +127,7 @@ public:
     Q_INVOKABLE void toggleSubscription(int row);
     Q_INVOKABLE void toggleConnection();
     Q_INVOKABLE void testPing();
+    Q_INVOKABLE void testAllPings();
     Q_INVOKABLE void pasteFromClipboard();
     Q_INVOKABLE void addSubscription(const QString &name, const QString &url);
     Q_INVOKABLE void refreshSubscription(int row);
@@ -164,6 +167,9 @@ private:
     QString flagForCountry(const QString &countryCode) const;
     QString routeModeWireValue() const;
     int routeModeIndexFromWire(const QString &routeMode) const;
+    bool applyPingEvent(const QJsonObject &event);
+    QString pingLabelFromProbe(const QJsonObject &probe) const;
+    QString fallbackPingLabel(const QString &serverId) const;
     void appendLog(const QString &message);
     void updateSelectedServerProperties();
     QString stateFilePath() const;
@@ -185,6 +191,7 @@ private:
     QString m_sessionTime = "00:00:00";
     QStringList m_logs;
     QTimer m_statsTimer;
+    QTimer m_probeTimer;
     QDateTime m_connectedAt;
     double m_downTotalMb = 0.0;
     double m_upTotalMb = 0.0;

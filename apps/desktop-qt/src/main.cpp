@@ -10,7 +10,7 @@ int main(int argc, char *argv[])
     QGuiApplication app(argc, argv);
     app.setApplicationName("Samhain Security");
     app.setOrganizationName("Samhain Security");
-    app.setApplicationVersion("0.7.4");
+    app.setApplicationVersion("0.7.5");
     app.setWindowIcon(QIcon(":/qt/qml/SamhainSecurityNative/resources/app-icon.png"));
 
     AppController controller;

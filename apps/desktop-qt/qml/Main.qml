@@ -494,7 +494,7 @@ ApplicationWindow {
                         border.width: 2
                     }
                 }
-                ButtonIcon { label: "↻"; onClicked: appController.testPing() }
+                ButtonIcon { label: "↻"; onClicked: appController.testAllPings() }
                 ButtonIcon { label: "⋯"; onClicked: addDialog.open() }
             }
 
@@ -723,7 +723,7 @@ ApplicationWindow {
             spacing: 18
             PageTitle { text: "О программе" }
             MetricRow { title: "Программа"; value: "Samhain Security Native" }
-            MetricRow { title: "Версия"; value: "0.7.4" }
+            MetricRow { title: "Версия"; value: "0.7.5" }
             MetricRow { title: "Интерфейс"; value: "Qt 6 / QML" }
             MetricRow { title: "Ядро"; value: "Rust workspace" }
             MetricRow { title: "Статус"; value: appController.statusText }

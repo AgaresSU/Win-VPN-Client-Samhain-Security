@@ -1,6 +1,6 @@
 # Samhain Security Native
 
-Version: `0.7.4`
+Version: `0.7.5`
 
 Native Windows secure tunneling client prototype built from a clean base.
 
@@ -31,6 +31,7 @@ Implemented in `0.7.0`:
 - DPAPI-protected storage for subscription URLs and raw server configs.
 - Service-backed subscription groups with expand/collapse, update, rename, delete, and safe diagnostics copy actions.
 - Persisted selected server and compact grouped server rendering in the desktop shell.
+- Service-backed latency probes with single-server and batch checks, stored probe timestamps, compact row results, and local fallback.
 - Package script for a local Windows distributable.
 
 Not implemented yet:
@@ -56,5 +57,5 @@ Not implemented yet:
 The package is written to:
 
 ```text
-dist\SamhainSecurityNative-0.7.4-win-x64
+dist\SamhainSecurityNative-0.7.5-win-x64
 ```
