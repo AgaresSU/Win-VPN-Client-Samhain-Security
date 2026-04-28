@@ -6,6 +6,19 @@ public static class EnginePathResolver
 {
     private static readonly string BaseDirectory = AppContext.BaseDirectory;
 
+    public static string GetPortableEngineRoot()
+    {
+        var baseDirectory = new DirectoryInfo(BaseDirectory.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar));
+        return baseDirectory.Name is "app" or "service"
+            ? Path.GetFullPath(Path.Combine(BaseDirectory, "..", "engines"))
+            : Path.GetFullPath(Path.Combine(BaseDirectory, "engines"));
+    }
+
+    public static string GetPortableEngineFolder(string folderName)
+    {
+        return Path.Combine(GetPortableEngineRoot(), folderName);
+    }
+
     public static string Resolve(string? configuredPath, params string[] candidatePaths)
     {
         if (!string.IsNullOrWhiteSpace(configuredPath))
@@ -126,6 +139,7 @@ public static class EnginePathResolver
 
     private static readonly string[] SingBoxCandidatePaths =
     [
+        @"..\engines\sing-box\sing-box.exe",
         @".\engines\sing-box\sing-box.exe",
         @"%ProgramFiles%\sing-box\sing-box.exe",
         @"%ProgramFiles(x86)%\sing-box\sing-box.exe",
@@ -134,6 +148,8 @@ public static class EnginePathResolver
 
     private static readonly string[] WireGuardCandidatePaths =
     [
+        @"..\engines\wireguard\wireguard.exe",
+        @".\engines\wireguard\wireguard.exe",
         @"%ProgramFiles%\WireGuard\wireguard.exe",
         @"%ProgramFiles(x86)%\WireGuard\wireguard.exe",
         "wireguard.exe"
@@ -141,6 +157,7 @@ public static class EnginePathResolver
 
     private static readonly string[] AmneziaWireGuardCandidatePaths =
     [
+        @"..\engines\amneziawg\awg-quick.exe",
         @".\engines\amneziawg\awg-quick.exe",
         @"%ProgramFiles%\AmneziaWG\awg-quick.exe",
         @"%ProgramFiles(x86)%\AmneziaWG\awg-quick.exe",

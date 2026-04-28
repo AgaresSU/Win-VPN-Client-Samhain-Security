@@ -758,6 +758,78 @@
                                   Expanded="AdvancedSettingsExpander_Changed"
                                   Collapsed="AdvancedSettingsExpander_Changed">
                             <StackPanel Margin="0,14,0,0">
+                        <Border Background="#FFFFFF"
+                                BorderBrush="{StaticResource LineBrush}"
+                                BorderThickness="1"
+                                Padding="14"
+                                Margin="0,0,0,16">
+                            <StackPanel>
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="8" />
+                                        <ColumnDefinition Width="108" />
+                                        <ColumnDefinition Width="8" />
+                                        <ColumnDefinition Width="118" />
+                                        <ColumnDefinition Width="8" />
+                                        <ColumnDefinition Width="118" />
+                                    </Grid.ColumnDefinitions>
+
+                                    <StackPanel Grid.Column="0">
+                                        <TextBlock Text="Движки"
+                                                   FontSize="16"
+                                                   FontWeight="SemiBold" />
+                                        <TextBlock x:Name="EngineManagerStatusTextBlock"
+                                                   Text="Проверка не запускалась"
+                                                   Foreground="{StaticResource MutedTextBrush}"
+                                                   FontSize="12"
+                                                   Margin="0,4,0,0"
+                                                   TextWrapping="Wrap" />
+                                    </StackPanel>
+
+                                    <Button x:Name="CheckEnginesButton"
+                                            Grid.Column="2"
+                                            Content="Проверить"
+                                            VerticalAlignment="Center"
+                                            Click="CheckEnginesButton_Click" />
+                                    <Button x:Name="UseEngineButton"
+                                            Grid.Column="4"
+                                            Content="Использовать"
+                                            VerticalAlignment="Center"
+                                            Click="UseEngineButton_Click" />
+                                    <Button x:Name="OpenEnginesFolderButton"
+                                            Grid.Column="6"
+                                            Content="Папка"
+                                            VerticalAlignment="Center"
+                                            Click="OpenEnginesFolderButton_Click" />
+                                </Grid>
+
+                                <ListView x:Name="EngineCatalogListView"
+                                          Height="128"
+                                          Margin="0,12,0,0"
+                                          BorderBrush="{StaticResource LineBrush}"
+                                          BorderThickness="1"
+                                          SelectionChanged="EngineCatalogListView_SelectionChanged">
+                                    <ListView.View>
+                                        <GridView>
+                                            <GridViewColumn Header="Движок"
+                                                            Width="120"
+                                                            DisplayMemberBinding="{Binding Name}" />
+                                            <GridViewColumn Header="Статус"
+                                                            Width="90"
+                                                            DisplayMemberBinding="{Binding Status}" />
+                                            <GridViewColumn Header="Версия"
+                                                            Width="160"
+                                                            DisplayMemberBinding="{Binding Version}" />
+                                            <GridViewColumn Header="Путь"
+                                                            Width="360"
+                                                            DisplayMemberBinding="{Binding Path}" />
+                                        </GridView>
+                                    </ListView.View>
+                                </ListView>
+                            </StackPanel>
+                        </Border>
+
                         <Grid x:Name="EnginePathPanel" Margin="0,16,0,0">
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="*" />

@@ -1,5 +1,6 @@
 using System.Collections.ObjectModel;
 using System.ComponentModel;
+using System.Diagnostics;
 using System.Drawing;
 using System.Net.NetworkInformation;
 using System.Reflection;
@@ -25,6 +26,7 @@ public partial class MainWindow : Window
     private readonly ObservableCollection<VpnProfile> _profiles = [];
     private readonly ObservableCollection<SubscriptionSourceListItem> _subscriptionSources = [];
     private readonly ObservableCollection<ServerListItem> _serverChoices = [];
+    private readonly ObservableCollection<EngineCatalogEntry> _engineCatalog = [];
     private readonly ProfileStore _profileStore = new();
     private readonly AppSettingsStore _appSettingsStore = new();
     private readonly StartupRegistrationService _startupRegistrationService = new();
@@ -35,6 +37,7 @@ public partial class MainWindow : Window
     private readonly ServerProbeService _serverProbeService = new();
     private readonly EnvironmentDiagnosticsService _diagnosticsService = new();
     private readonly EngineAvailabilityService _engineAvailabilityService = new();
+    private readonly EngineCatalogService _engineCatalogService = new();
     private readonly ServiceControlService _serviceControlService = new();
     private readonly SamhainServiceClient _serviceClient = new();
     private readonly ConnectionStateStore _connectionStateStore = new();
@@ -83,6 +86,7 @@ public partial class MainWindow : Window
         SubscriptionSelectorComboBox.ItemsSource = _subscriptionSources;
         ServerSelectorComboBox.ItemsSource = _serverChoices;
         ServersListView.ItemsSource = _serverChoices;
+        EngineCatalogListView.ItemsSource = _engineCatalog;
         CommandBindings.Add(new CommandBinding(
             ApplicationCommands.Paste,
             PasteCommand_Executed,
@@ -141,6 +145,7 @@ public partial class MainWindow : Window
 
         await RefreshDailyServiceStateAsync();
         await RefreshHistorySummaryAsync();
+        await RefreshEngineCatalogAsync(showStatus: false);
         _ = RefreshReleaseReadinessAsync(isAutomatic: true);
         _ = RefreshDueSubscriptionsQuietlyAsync();
         _ = ProbeServerChoicesInBackgroundAsync("проверка при запуске");
@@ -396,6 +401,7 @@ public partial class MainWindow : Window
         }
 
         UpdateProtocolFields();
+        _ = RefreshEngineCatalogAsync(showStatus: false);
     }
 
     private void EnginePathTextBox_TextChanged(object sender, System.Windows.Controls.TextChangedEventArgs e)
@@ -802,7 +808,63 @@ public partial class MainWindow : Window
         if (dialog.ShowDialog(this) == true)
         {
             EnginePathTextBox.Text = dialog.FileName;
+            _ = RefreshEngineCatalogAsync(showStatus: true);
         }
+    }
+
+    private async void CheckEnginesButton_Click(object sender, RoutedEventArgs e)
+    {
+        await RunUiActionAsync(async () =>
+        {
+            await RefreshEngineCatalogAsync(showStatus: true);
+        }, "Проверка движков...");
+    }
+
+    private void UseEngineButton_Click(object sender, RoutedEventArgs e)
+    {
+        if (EngineCatalogListView.SelectedItem is not EngineCatalogEntry entry)
+        {
+            StatusTextBlock.Text = "Выберите движок";
+            return;
+        }
+
+        ProtocolComboBox.SelectedValue = entry.Protocol;
+        if (entry.IsAvailable)
+        {
+            EnginePathTextBox.Text = entry.Path;
+            StatusTextBlock.Text = $"Движок выбран: {entry.Name}";
+            EngineManagerStatusTextBlock.Text = $"{entry.Name}: {entry.Status}";
+            UpdateEngineStatusBadge();
+            return;
+        }
+
+        EnginePathTextBox.Text = string.Empty;
+        StatusTextBlock.Text = entry.Hint;
+        EngineManagerStatusTextBlock.Text = entry.Hint;
+    }
+
+    private void OpenEnginesFolderButton_Click(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            _engineCatalogService.EnsurePortableFolders();
+            Process.Start(new ProcessStartInfo
+            {
+                FileName = _engineCatalogService.PortableEngineRoot,
+                UseShellExecute = true
+            });
+            StatusTextBlock.Text = "Папка движков открыта";
+        }
+        catch (Exception ex)
+        {
+            StatusTextBlock.Text = "Не удалось открыть папку";
+            AppendLog(ex.Message);
+        }
+    }
+
+    private void EngineCatalogListView_SelectionChanged(object sender, System.Windows.Controls.SelectionChangedEventArgs e)
+    {
+        UseEngineButton.IsEnabled = !_isBusy && EngineCatalogListView.SelectedItem is EngineCatalogEntry;
     }
 
     private void RunAsAdminButton_Click(object sender, RoutedEventArgs e)
@@ -1392,6 +1454,7 @@ public partial class MainWindow : Window
 
         UpdateProtocolFields();
         UpdateDailyStatusPanel(profile);
+        _ = RefreshEngineCatalogAsync(showStatus: false);
     }
 
     private void ClearEditor()
@@ -1428,6 +1491,7 @@ public partial class MainWindow : Window
         }
 
         UpdateProtocolFields();
+        _ = RefreshEngineCatalogAsync(showStatus: false);
     }
 
     private void UpdateProtocolFields()
@@ -1495,6 +1559,35 @@ public partial class MainWindow : Window
 
         EngineStatusBadge.Background = (System.Windows.Media.Brush)FindResource("SuccessBrush");
         EngineStatusTextBlock.Foreground = (System.Windows.Media.Brush)FindResource("SuccessTextBrush");
+    }
+
+    private async Task RefreshEngineCatalogAsync(bool showStatus)
+    {
+        var protocol = ProtocolComboBox.SelectedValue is VpnProtocolType selectedProtocol
+            ? selectedProtocol
+            : VpnProtocolType.WindowsNative;
+        var entries = await _engineCatalogService.BuildCatalogAsync(protocol, EnginePathTextBox.Text);
+        var selectedProtocolBeforeRefresh = (EngineCatalogListView.SelectedItem as EngineCatalogEntry)?.Protocol;
+
+        _engineCatalog.Clear();
+        foreach (var entry in entries)
+        {
+            _engineCatalog.Add(entry);
+        }
+
+        var selected = selectedProtocolBeforeRefresh is not null
+            ? _engineCatalog.FirstOrDefault(entry => entry.Protocol == selectedProtocolBeforeRefresh)
+            : _engineCatalog.FirstOrDefault(entry => entry.Protocol == protocol);
+        EngineCatalogListView.SelectedItem = selected ?? _engineCatalog.FirstOrDefault();
+
+        var readyCount = _engineCatalog.Count(entry => entry.IsAvailable);
+        EngineManagerStatusTextBlock.Text = $"Готово: {readyCount}/{_engineCatalog.Count}; portable: {_engineCatalogService.PortableEngineRoot}";
+        UseEngineButton.IsEnabled = !_isBusy && EngineCatalogListView.SelectedItem is EngineCatalogEntry;
+
+        if (showStatus)
+        {
+            StatusTextBlock.Text = EngineManagerStatusTextBlock.Text;
+        }
     }
 
     private void UpdateDailyStatusPanel(VpnProfile? profile = null, string? connectionState = null)
@@ -1912,6 +2005,10 @@ public partial class MainWindow : Window
         BestServerButton.IsEnabled = !isBusy;
         ProbeServersButton.IsEnabled = !isBusy;
         ResetServerHealthButton.IsEnabled = !isBusy && _serverChoices.Count > 0;
+        CheckEnginesButton.IsEnabled = !isBusy;
+        OpenEnginesFolderButton.IsEnabled = !isBusy;
+        EngineCatalogListView.IsEnabled = !isBusy;
+        UseEngineButton.IsEnabled = !isBusy && EngineCatalogListView.SelectedItem is EngineCatalogEntry;
         DiagnosticsButton.IsEnabled = !isBusy;
         ExportDiagnosticsButton.IsEnabled = !isBusy;
         CheckReadinessButton.IsEnabled = !isBusy;

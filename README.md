@@ -1,6 +1,6 @@
 # Samhain Security
 
-Version: `0.5.0`
+Version: `0.5.1`
 
 Desktop secure tunneling client for Windows built with WPF and .NET 9.
 
@@ -33,6 +33,7 @@ Desktop secure tunneling client for Windows built with WPF and .NET 9.
 - Adds a connection health summary and a server status reset action for the current list.
 - Adds release-readiness checks, a quick repair action, a server catalog table, local connection history, safer support export, and updated local install helpers.
 - Adds a proper local install/upgrade path with install root copy, service replacement, shortcuts, startup entry, and install manifest.
+- Adds an engine manager for sing-box, WireGuard, and AmneziaWG with portable folder creation, version checks, and one-click path selection.
 - Adds pre-connect validation for VLESS Reality and WireGuard-style configs with clear local errors.
 - Adds optional reconnect after resume or network changes for the last successful profile.
 - Adds tray-first server selection with connect selected, connect best, and current server submenu.
@@ -57,12 +58,15 @@ VLESS Reality requires `sing-box.exe`. Put it in one of these places or select i
 
 ```text
 .\engines\sing-box\sing-box.exe
+..\engines\sing-box\sing-box.exe
 %ProgramFiles%\sing-box\sing-box.exe
 ```
 
 WireGuard requires the official WireGuard for Windows app:
 
 ```text
+.\engines\wireguard\wireguard.exe
+..\engines\wireguard\wireguard.exe
 %ProgramFiles%\WireGuard\wireguard.exe
 ```
 
@@ -70,12 +74,13 @@ AmneziaWG requires an `awg-quick.exe`-compatible command line tool. Put it in on
 
 ```text
 .\engines\amneziawg\awg-quick.exe
+..\engines\amneziawg\awg-quick.exe
 %ProgramFiles%\AmneziaWG\awg-quick.exe
 ```
 
 VLESS/WG/AWG TUN or tunnel service operations may require administrator permissions.
 
-Relative engine paths are resolved from the app executable directory first, so portable layouts such as `.\engines\sing-box\sing-box.exe` work after publishing.
+Relative engine paths are resolved from the app executable directory and the package root, so portable layouts such as `.\engines\sing-box\sing-box.exe` and `..\engines\sing-box\sing-box.exe` work after publishing.
 
 The repository includes placeholder engine folders under `engines\`. They are copied to the desktop and service publish outputs so a portable package can place binaries next to the owning executable.
 
@@ -107,7 +112,7 @@ Portable package:
 Local package helper:
 
 ```powershell
-.\scripts\install-local.ps1 -PackagePath ".\dist\SamhainSecurity-0.5.0-win-x64" -StartService -CreateStartMenuShortcut
+.\scripts\install-local.ps1 -PackagePath ".\dist\SamhainSecurity-0.5.1-win-x64" -StartService -CreateStartMenuShortcut
 ```
 
 Default install root is `%ProgramFiles%\Samhain Security`. The helper stops and replaces the previous service registration, copies the package to the install root, writes `install-manifest.json`, and preserves `%APPDATA%\SamhainSecurity`.
@@ -196,6 +201,8 @@ Version `0.3.9` adds a health summary for the selected profile, tracks watchdog 
 Version `0.4.9` is a release-candidate polish pass. It adds in-app environment readiness checks, a safe quick repair path for local folders and the service, a compact server table for switching between subscription servers, local connection history, redacted support bundles, and install helpers for service/start-menu setup.
 
 Version `0.5.0` starts the beta packaging track. The local installer now performs an install-root copy, handles upgrade service replacement, can create Start Menu/Desktop shortcuts, can enable startup, writes an install manifest, and uninstalls without deleting user data unless install-file removal is explicitly requested.
+
+Version `0.5.1` adds the first engine manager pass. The advanced panel now shows sing-box, WireGuard, and AmneziaWG status/version/path, creates portable engine folders, opens the folder for manual drop-in, and can apply a detected engine path to the selected profile.
 
 ## Versioning
 

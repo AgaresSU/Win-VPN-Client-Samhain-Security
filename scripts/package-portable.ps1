@@ -1,5 +1,5 @@
 param(
-    [string]$Version = "0.5.0",
+    [string]$Version = "0.5.1",
     [string]$Runtime = "win-x64",
     [string]$Configuration = "Release",
     [bool]$SelfContained = $false,
@@ -71,6 +71,7 @@ Local install helper:
 External engines:
   Put sing-box.exe under engines\sing-box\
   Put awg-quick.exe under engines\amneziawg\
+  Put portable wireguard.exe under engines\wireguard\ when needed.
   Official WireGuard for Windows is detected from Program Files.
 
 Local user data is stored under APPDATA\SamhainSecurity.

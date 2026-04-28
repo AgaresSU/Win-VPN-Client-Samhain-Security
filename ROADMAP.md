@@ -1,6 +1,6 @@
 # Samhain Security Roadmap
 
-Version baseline: `0.5.0`
+Version baseline: `0.5.1`
 
 ## Product Goal
 
@@ -359,6 +359,14 @@ The default UI should stay close to the simplicity of Happ: a small set of obvio
 - Done: installer writes `install-manifest.json` with version, source package, app path, service path, and shortcut/startup choices.
 - Done: installer supports Start Menu shortcut, Desktop shortcut, startup entry, in-place install, service start, and no-service mode.
 - Done: uninstall helper removes the service, optionally removes shortcuts/startup/install files, and preserves `%APPDATA%\SamhainSecurity` by default.
+
+### 0.5.1
+
+- Done: engine manager catalog for sing-box, WireGuard, and AmneziaWG.
+- Done: portable engine root and per-engine folders are created from the app.
+- Done: engine versions and resolved paths are shown in the advanced panel.
+- Done: detected engine paths can be applied to the current profile.
+- Done: root package `engines\...` folders are detected in addition to app-local engine folders.
 
 ## Design Direction
 
