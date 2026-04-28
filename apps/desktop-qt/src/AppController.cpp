@@ -12,6 +12,7 @@
 #include <QRandomGenerator>
 #include <QStandardPaths>
 #include <QTime>
+#include <QUrl>
 
 #ifdef Q_OS_WIN
 #ifndef NOMINMAX
@@ -547,6 +548,38 @@ QString AppController::tunDetail() const
     return m_tunDetail;
 }
 
+QString AppController::routeAppCountLabel() const
+{
+    if (m_routeModeIndex == 0) {
+        return "Не требуется";
+    }
+    const auto count = m_routeApplications.size();
+    if (count == 0) {
+        return "0 выбрано";
+    }
+    return QString::number(count) + (count == 1 ? " приложение" : " приложений");
+}
+
+QString AppController::routePolicyStatus() const
+{
+    return m_routePolicyStatus;
+}
+
+QString AppController::routePolicyDetail() const
+{
+    return m_routePolicyDetail;
+}
+
+QStringList AppController::routeApplications() const
+{
+    QStringList lines;
+    lines.reserve(m_routeApplications.size());
+    for (const auto &application : m_routeApplications) {
+        lines.push_back(application.name + " · " + application.path);
+    }
+    return lines;
+}
+
 QStringList AppController::logs() const
 {
     return m_logs;
@@ -630,6 +663,7 @@ void AppController::toggleConnection()
             }
             refreshProxyStatus();
             refreshTunStatus();
+            refreshAppRoutingPolicy();
             appendLog("Сервис: состояние движка обновлено");
         }
     } else {
@@ -657,6 +691,7 @@ void AppController::toggleConnection()
     emit connectionChanged();
     emit proxyChanged();
     emit tunChanged();
+    emit appRoutingChanged();
 }
 
 void AppController::testPing()
@@ -1078,12 +1113,124 @@ void AppController::stopEngine()
     applyEngineStatusEvent(event);
     refreshProxyStatus();
     refreshTunStatus();
+    refreshAppRoutingPolicy();
     m_connected = false;
     m_statsTimer.stop();
     m_statusText = m_engineDetail;
     emit connectionChanged();
     emit statusChanged();
     emit engineChanged();
+}
+
+void AppController::refreshAppRoutingPolicy()
+{
+    QJsonObject command;
+    command["type"] = "get-app-routing-policy";
+    const auto response = requestService(command, IpcEngineTimeoutMs);
+    if (response.isEmpty()) {
+        m_routePolicyStatus = "Сервис недоступен";
+        m_routePolicyDetail = "Политика приложений не получена";
+        emit appRoutingChanged();
+        return;
+    }
+
+    const auto document = QJsonDocument::fromJson(response.toUtf8());
+    const auto root = document.object();
+    const auto event = root.value("event").toObject();
+    if (!root.value("ok").toBool(false) || !applyAppRoutingPolicyEvent(event)) {
+        m_routePolicyStatus = "Неизвестно";
+        m_routePolicyDetail = event.value("message").toString("Политика приложений не получена");
+    }
+    emit appRoutingChanged();
+}
+
+void AppController::restoreAppRoutingPolicy()
+{
+    QJsonObject command;
+    command["type"] = "restore-app-routing-policy";
+    const auto response = requestService(command, IpcEngineTimeoutMs);
+    if (response.isEmpty()) {
+        m_routePolicyStatus = "Сервис недоступен";
+        m_routePolicyDetail = "Восстановление недоступно";
+        emit appRoutingChanged();
+        return;
+    }
+
+    const auto document = QJsonDocument::fromJson(response.toUtf8());
+    const auto root = document.object();
+    const auto event = root.value("event").toObject();
+    if (!root.value("ok").toBool(false) || !applyAppRoutingPolicyEvent(event)) {
+        m_routePolicyStatus = "Ошибка";
+        m_routePolicyDetail = event.value("message").toString("Политика приложений не восстановлена");
+    } else {
+        appendLog("Политика приложений: выполнено восстановление");
+    }
+    emit appRoutingChanged();
+}
+
+void AppController::addRouteApplication(const QString &path)
+{
+    const auto localPath = QUrl(path).isLocalFile() ? QUrl(path).toLocalFile() : path;
+    if (localPath.trimmed().isEmpty()) {
+        m_statusText = "Укажите путь приложения";
+        emit statusChanged();
+        return;
+    }
+
+    QJsonObject command;
+    command["type"] = "add-route-application";
+    command["path"] = localPath;
+    const auto response = requestService(command, IpcEngineTimeoutMs);
+    if (response.isEmpty()) {
+        m_statusText = "Сервис недоступен";
+        emit statusChanged();
+        return;
+    }
+
+    const auto document = QJsonDocument::fromJson(response.toUtf8());
+    const auto root = document.object();
+    const auto event = root.value("event").toObject();
+    if (!root.value("ok").toBool(false) || !applyAppRoutingPolicyEvent(event)) {
+        m_statusText = event.value("message").toString("Приложение не добавлено");
+        emit statusChanged();
+        return;
+    }
+
+    appendLog("Добавлено приложение: " + localPath);
+    saveState();
+    emit appRoutingChanged();
+    emit statusChanged();
+}
+
+void AppController::removeRouteApplication(int index)
+{
+    if (index < 0 || index >= m_routeApplications.size()) {
+        return;
+    }
+
+    QJsonObject command;
+    command["type"] = "remove-route-application";
+    command["application_id"] = m_routeApplications.at(index).id;
+    const auto response = requestService(command, IpcEngineTimeoutMs);
+    if (response.isEmpty()) {
+        m_statusText = "Сервис недоступен";
+        emit statusChanged();
+        return;
+    }
+
+    const auto document = QJsonDocument::fromJson(response.toUtf8());
+    const auto root = document.object();
+    const auto event = root.value("event").toObject();
+    if (!root.value("ok").toBool(false) || !applyAppRoutingPolicyEvent(event)) {
+        m_statusText = event.value("message").toString("Приложение не удалено");
+        emit statusChanged();
+        return;
+    }
+
+    appendLog("Приложение удалено из политики");
+    saveState();
+    emit appRoutingChanged();
+    emit statusChanged();
 }
 
 void AppController::refreshProxyStatus()
@@ -1186,8 +1333,10 @@ void AppController::setRouteModeIndex(int routeModeIndex)
 
     m_routeModeIndex = routeModeIndex;
     saveState();
+    syncAppRoutingPolicy();
     appendLog("Режим маршрутизации изменён");
     emit routeModeChanged();
+    emit appRoutingChanged();
 }
 
 void AppController::loadState()
@@ -1201,6 +1350,16 @@ void AppController::loadState()
     const auto document = QJsonDocument::fromJson(file.readAll());
     const auto object = document.object();
     m_routeModeIndex = object.value("routeMode").toInt(0);
+    m_routeApplications.clear();
+    for (const auto value : object.value("routeApplications").toArray()) {
+        const auto item = value.toObject();
+        m_routeApplications.push_back({
+            item.value("id").toString(),
+            item.value("name").toString(),
+            item.value("path").toString(),
+            item.value("enabled").toBool(true),
+        });
+    }
 
     QVector<SubscriptionItem> subscriptions;
     const auto subscriptionValues = object.value("subscriptions").toArray();
@@ -1337,6 +1496,7 @@ bool AppController::applyServiceState(const QJsonObject &state)
     applyEngineCatalogArray(state.value("engine_catalog").toArray());
     applyProxyStateObject(state.value("proxy_state").toObject());
     applyTunStateObject(state.value("tun_state").toObject());
+    applyAppRoutingPolicyObject(state.value("app_routing_policy").toObject());
     m_connected = !state.value("connected_server_id").toString().isEmpty()
         && m_engineStatus == "Запущен";
     m_serverModel.setSubscriptions(items, state.value("selected_server_id").toString());
@@ -1351,6 +1511,7 @@ bool AppController::applyServiceState(const QJsonObject &state)
     emit engineChanged();
     emit proxyChanged();
     emit tunChanged();
+    emit appRoutingChanged();
     emit statusChanged();
     return true;
 }
@@ -1386,6 +1547,7 @@ void AppController::saveState() const
     root["meta"] = m_subscriptionMeta;
     root["routeMode"] = m_routeModeIndex;
     root["selectedServerId"] = m_serverModel.selectedServer() ? m_serverModel.selectedServer()->id : "";
+    root["routeApplications"] = routeApplicationArray();
     root["subscriptions"] = subscriptions;
 
     const auto path = stateFilePath();
@@ -1582,6 +1744,16 @@ bool AppController::applyTunStatusEvent(const QJsonObject &event)
     return false;
 }
 
+bool AppController::applyAppRoutingPolicyEvent(const QJsonObject &event)
+{
+    const auto type = event.value("type").toString();
+    if (type == "app-routing-policy") {
+        applyAppRoutingPolicyObject(event.value("state").toObject());
+        return true;
+    }
+    return false;
+}
+
 void AppController::applyEngineStateObject(const QJsonObject &state)
 {
     const auto status = state.value("status").toString("stopped");
@@ -1663,6 +1835,72 @@ void AppController::applyTunStateObject(const QJsonObject &state)
     m_tunDetail = detail.join(" · ");
 }
 
+void AppController::applyAppRoutingPolicyObject(const QJsonObject &state)
+{
+    const auto status = state.value("status").toString("inactive");
+    const auto supported = state.value("supported").toBool(true);
+    const auto message = state.value("message").toString();
+    const auto mode = state.value("route_mode").toString(routeModeWireValue());
+    m_routeModeIndex = routeModeIndexFromWire(mode);
+
+    m_routeApplications.clear();
+    const auto applications = state.value("applications").toArray();
+    m_routeApplications.reserve(applications.size());
+    for (const auto value : applications) {
+        const auto application = value.toObject();
+        m_routeApplications.push_back({
+            application.value("id").toString(),
+            application.value("name").toString("application.exe"),
+            application.value("path").toString(),
+            application.value("enabled").toBool(true),
+        });
+    }
+
+    m_routePolicyStatus = routePolicyStatusLabel(status, supported);
+    QStringList detail;
+    detail.push_back(routeAppCountLabel());
+    if (!supported && m_routeModeIndex != 0) {
+        detail.push_back("Требуется WFP-слой для прозрачного режима");
+    }
+    if (!message.isEmpty()) {
+        detail.push_back(message);
+    }
+    m_routePolicyDetail = detail.join(" · ");
+}
+
+void AppController::syncAppRoutingPolicy()
+{
+    QJsonObject command;
+    command["type"] = "set-app-routing-policy";
+    command["route_mode"] = routeModeWireValue();
+    command["applications"] = routeApplicationArray();
+    const auto response = requestService(command, IpcEngineTimeoutMs);
+    if (response.isEmpty()) {
+        return;
+    }
+
+    const auto document = QJsonDocument::fromJson(response.toUtf8());
+    const auto root = document.object();
+    const auto event = root.value("event").toObject();
+    if (root.value("ok").toBool(false)) {
+        applyAppRoutingPolicyEvent(event);
+    }
+}
+
+QJsonArray AppController::routeApplicationArray() const
+{
+    QJsonArray applications;
+    for (const auto &application : m_routeApplications) {
+        QJsonObject item;
+        item["id"] = application.id;
+        item["name"] = application.name;
+        item["path"] = application.path;
+        item["enabled"] = application.enabled;
+        applications.push_back(item);
+    }
+    return applications;
+}
+
 void AppController::applyEngineCatalogArray(const QJsonArray &catalog)
 {
     QStringList lines;
@@ -1723,6 +1961,29 @@ QString AppController::tunStatusLabel(const QString &status, bool enabled) const
         return "Ошибка";
     }
     return "Не активен";
+}
+
+QString AppController::routePolicyStatusLabel(const QString &status, bool supported) const
+{
+    if (status == "needs-apps") {
+        return "Нужны приложения";
+    }
+    if (status == "dry-run") {
+        return "Проверена";
+    }
+    if (status == "configured") {
+        return supported ? "Готова" : "Ограничена";
+    }
+    if (status == "limited") {
+        return supported ? "Активна" : "Ограничена";
+    }
+    if (status == "restored") {
+        return "Восстановлена";
+    }
+    if (status == "inactive") {
+        return "Не активна";
+    }
+    return "Неизвестно";
 }
 
 bool AppController::applyPingEvent(const QJsonObject &event)

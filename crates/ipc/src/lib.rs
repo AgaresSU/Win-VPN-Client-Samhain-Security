@@ -62,6 +62,7 @@ pub enum ClientCommand {
     GetEngineStatus,
     GetProxyStatus,
     GetTunStatus,
+    GetAppRoutingPolicy,
     AddSubscription { name: String, url: String },
     RefreshSubscription { subscription_id: String },
     RenameSubscription { subscription_id: String, name: String },
@@ -75,6 +76,13 @@ pub enum ClientCommand {
     RestartEngine { server_id: String, route_mode: RouteMode },
     RestoreProxyPolicy,
     RestoreTunPolicy,
+    SetAppRoutingPolicy {
+        route_mode: RouteMode,
+        applications: Vec<RouteApplication>,
+    },
+    AddRouteApplication { path: String },
+    RemoveRouteApplication { application_id: String },
+    RestoreAppRoutingPolicy,
     TestPing { server_id: String },
     TestPings { server_ids: Vec<String> },
     CancelPingProbes,
@@ -98,6 +106,7 @@ pub enum ServiceEvent {
     EngineConfigPreview { preview: EngineConfigPreview },
     ProxyStatus { state: ProxyLifecycleState },
     TunStatus { state: TunLifecycleState },
+    AppRoutingPolicy { state: AppRoutingPolicyState },
     PingResult(PingProbeResult),
     PingBatchResult { results: Vec<PingProbeResult> },
     PingProbesCanceled { canceled: usize },
@@ -238,6 +247,41 @@ impl Default for TunLifecycleState {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RouteApplication {
+    pub id: String,
+    pub name: String,
+    pub path: String,
+    pub enabled: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AppRoutingPolicyState {
+    pub status: String,
+    pub route_mode: RouteMode,
+    pub supported: bool,
+    pub applications: Vec<RouteApplication>,
+    pub rule_names: Vec<String>,
+    pub applied_at: Option<String>,
+    pub restored_at: Option<String>,
+    pub message: String,
+}
+
+impl Default for AppRoutingPolicyState {
+    fn default() -> Self {
+        Self {
+            status: "inactive".to_string(),
+            route_mode: RouteMode::WholeComputer,
+            supported: true,
+            applications: Vec::new(),
+            rule_names: Vec::new(),
+            applied_at: None,
+            restored_at: None,
+            message: "App routing policy is inactive.".to_string(),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PingProbeResult {
     pub server_id: String,
     pub ping_ms: Option<u32>,
@@ -258,6 +302,7 @@ pub struct ServiceState {
     pub engine_catalog: Vec<EngineCatalogEntry>,
     pub proxy_state: ProxyLifecycleState,
     pub tun_state: TunLifecycleState,
+    pub app_routing_policy: AppRoutingPolicyState,
     pub probe_queue_active: bool,
     pub probe_results: Vec<PingProbeResult>,
     pub subscriptions: Vec<Subscription>,
@@ -275,6 +320,7 @@ impl Default for ServiceState {
             engine_catalog: Vec::new(),
             proxy_state: ProxyLifecycleState::default(),
             tun_state: TunLifecycleState::default(),
+            app_routing_policy: AppRoutingPolicyState::default(),
             probe_queue_active: false,
             probe_results: Vec::new(),
             subscriptions: Vec::new(),

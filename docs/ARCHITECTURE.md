@@ -1,6 +1,6 @@
 # Architecture
 
-Version: `0.7.9`
+Version: `0.8.0`
 
 ## Components
 
@@ -43,4 +43,4 @@ Ctrl+V / Add subscription
   -> show speed, traffic, session time
 ```
 
-The `0.7.9` build implements the shell, state model, versioned IPC envelopes, a Windows named-pipe service endpoint, real subscription ingestion, DPAPI-protected service storage, compact service-backed subscription groups, service-owned latency probes, Engine Manager V1, the first proxy path, the whole-computer TUN path foundation, and the WireGuard/AmneziaWG adapter path. Adapter profiles are generated as `.conf` files, required interface/peer fields are validated, secrets are redacted in previews, lifecycle commands are owned by the service, and stop rollback removes the generated profile after the adapter is stopped.
+The `0.8.0` build implements the shell, state model, versioned IPC envelopes, a Windows named-pipe service endpoint, real subscription ingestion, DPAPI-protected service storage, compact service-backed subscription groups, service-owned latency probes, Engine Manager V1, the first proxy path, the whole-computer TUN path foundation, the WireGuard/AmneziaWG adapter path, and the app-routing policy foundation. The desktop can now manage selected/excluded application lists through the service. The service persists the list, exposes policy state over IPC, validates exe paths, applies/rolls back policy state during engine lifecycle, and marks transparent per-app routing as limited until the WFP enforcement layer is added.

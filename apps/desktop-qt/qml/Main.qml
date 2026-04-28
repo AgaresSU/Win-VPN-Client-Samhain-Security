@@ -1,5 +1,6 @@
 import QtQuick
 import QtQuick.Controls
+import QtQuick.Dialogs
 import QtQuick.Layouts
 
 ApplicationWindow {
@@ -202,6 +203,164 @@ ApplicationWindow {
                     }
                     background: Rectangle { color: root.accent; radius: 8 }
                     contentItem: Text { text: parent.text; color: "white"; font.bold: true; horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter }
+                }
+            }
+        }
+    }
+
+    FileDialog {
+        id: appFileDialog
+        title: "Выбрать приложение"
+        nameFilters: ["Приложения (*.exe)"]
+        onAccepted: appPathInput.text = selectedFile.toString()
+    }
+
+    Dialog {
+        id: appRoutingDialog
+        modal: true
+        x: Math.round((root.width - width) / 2)
+        y: Math.round((root.height - height) / 2)
+        width: 680
+        height: 560
+        padding: 0
+        closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutside
+
+        background: Rectangle {
+            color: "#262626"
+            radius: 18
+            border.color: "#34343A"
+        }
+
+        contentItem: ColumnLayout {
+            spacing: 16
+            anchors.fill: parent
+            anchors.margins: 34
+
+            RowLayout {
+                Layout.fillWidth: true
+                Text {
+                    text: "Приложения"
+                    color: root.text
+                    font.pixelSize: 28
+                    font.bold: true
+                    Layout.fillWidth: true
+                }
+                Button {
+                    text: "×"
+                    width: 42
+                    height: 42
+                    onClicked: appRoutingDialog.close()
+                    background: Rectangle { color: "transparent" }
+                    contentItem: Text {
+                        text: parent.text
+                        color: root.muted
+                        font.pixelSize: 34
+                        horizontalAlignment: Text.AlignHCenter
+                        verticalAlignment: Text.AlignVCenter
+                    }
+                }
+            }
+
+            Text {
+                Layout.fillWidth: true
+                text: appController.routePolicyDetail
+                color: root.muted
+                font.pixelSize: 14
+                wrapMode: Text.WordWrap
+            }
+
+            Rectangle {
+                Layout.fillWidth: true
+                Layout.fillHeight: true
+                color: "#202020"
+                radius: 8
+                border.color: "#38383D"
+
+                ListView {
+                    anchors.fill: parent
+                    anchors.margins: 8
+                    clip: true
+                    model: appController.routeApplications
+                    delegate: Rectangle {
+                        width: ListView.view.width
+                        height: 56
+                        color: index % 2 === 0 ? "#242424" : "#202020"
+                        RowLayout {
+                            anchors.fill: parent
+                            anchors.leftMargin: 12
+                            anchors.rightMargin: 8
+                            Text {
+                                text: modelData
+                                color: root.text
+                                font.pixelSize: 14
+                                elide: Text.ElideMiddle
+                                Layout.fillWidth: true
+                            }
+                            Button {
+                                text: "Удалить"
+                                Layout.preferredWidth: 104
+                                height: 38
+                                onClicked: appController.removeRouteApplication(index)
+                                background: Rectangle { color: "#3A2224"; radius: 7 }
+                                contentItem: Text { text: parent.text; color: "#FF8C91"; horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter }
+                            }
+                        }
+                    }
+                }
+            }
+
+            RowLayout {
+                Layout.fillWidth: true
+                TextField {
+                    id: appPathInput
+                    Layout.fillWidth: true
+                    height: 46
+                    color: root.text
+                    placeholderText: "C:\\Program Files\\App\\app.exe"
+                    placeholderTextColor: "#77777F"
+                    background: Rectangle {
+                        color: "#3A3A3A"
+                        radius: 8
+                        border.color: appPathInput.activeFocus ? root.accent : "#4A4A4A"
+                    }
+                }
+                Button {
+                    text: "Выбрать"
+                    Layout.preferredWidth: 112
+                    height: 46
+                    onClicked: appFileDialog.open()
+                    background: Rectangle { color: "#333333"; radius: 8 }
+                    contentItem: Text { text: parent.text; color: root.text; horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter }
+                }
+                Button {
+                    text: "Добавить"
+                    Layout.preferredWidth: 112
+                    height: 46
+                    onClicked: {
+                        appController.addRouteApplication(appPathInput.text)
+                        appPathInput.text = ""
+                    }
+                    background: Rectangle { color: root.accent; radius: 8 }
+                    contentItem: Text { text: parent.text; color: "white"; font.bold: true; horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter }
+                }
+            }
+
+            RowLayout {
+                Layout.fillWidth: true
+                Text {
+                    text: appController.routePolicyStatus
+                    color: root.muted
+                    font.pixelSize: 14
+                    Layout.fillWidth: true
+                    elide: Text.ElideRight
+                }
+                Button {
+                    text: "Восстановить"
+                    Layout.preferredWidth: 136
+                    height: 42
+                    onClicked: appController.restoreAppRoutingPolicy()
+                    background: Rectangle { color: "#333333"; radius: 8 }
+                    contentItem: Text { text: parent.text; color: root.text; horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter }
                 }
             }
         }
@@ -651,10 +810,17 @@ ApplicationWindow {
                 }
                 SettingsCard {
                     title: "Приложения"
-                    Text { text: appController.routeModeIndex === 0 ? "Не требуется" : "0 выбрано"; color: root.muted; font.pixelSize: 16 }
+                    Text {
+                        text: appController.routeAppCountLabel + " · " + appController.routePolicyStatus
+                        color: root.muted
+                        font.pixelSize: 16
+                        elide: Text.ElideRight
+                        Layout.fillWidth: true
+                    }
                     Button {
                         text: "Изменить"
                         Layout.preferredWidth: 120
+                        onClicked: appRoutingDialog.open()
                         background: Rectangle { color: "#333333"; radius: 8 }
                         contentItem: Text { text: parent.text; color: root.text; horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter }
                     }
@@ -720,7 +886,7 @@ ApplicationWindow {
             spacing: 18
             PageTitle { text: "О программе" }
             MetricRow { title: "Программа"; value: "Samhain Security Native" }
-            MetricRow { title: "Версия"; value: "0.7.9" }
+            MetricRow { title: "Версия"; value: "0.8.0" }
             MetricRow { title: "Интерфейс"; value: "Qt 6 / QML" }
             MetricRow { title: "Ядро"; value: "Rust workspace" }
             MetricRow { title: "Статус"; value: appController.statusText }

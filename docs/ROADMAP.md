@@ -1,6 +1,6 @@
 # Roadmap
 
-Current version: `0.7.9`
+Current version: `0.8.0`
 
 This roadmap is the working contract for Samhain Security. Future implementation should follow this order unless a blocker is found and documented in the same commit.
 
@@ -173,6 +173,8 @@ Status: shipped in `v0.7.9` with WireGuard/AmneziaWG `.conf` generation, require
 
 Done when all three modes have clear behavior, service-owned policy, and rollback on failure.
 
+Status: shipped in `v0.8.0` with selected/excluded application storage, service-owned policy IPC, compact UI editor, exe path validation, lifecycle rollback, and honest limited-support status for transparent per-app routing. The next enforcement step is a dedicated WFP layer; unsupported combinations are not presented as fully supported.
+
 ### 0.8.1 - Protection Layer
 
 - Add kill switch.
@@ -254,12 +256,11 @@ Done when Samhain Security is ready for normal users.
 
 ## Immediate Next Build Order
 
-1. `0.8.0`: selected/excluded app routing.
-2. `0.8.1`: protection layer.
-3. `0.8.2`: tray, autostart, and link handling.
-4. `0.8.3`: statistics, logs, and support export.
-5. `0.8.4`: UX polish.
-6. `0.8.5`: installer and local operations.
-7. `0.9.0`: beta hardening.
-8. `0.9.5`: release candidate hardening.
-9. `1.0.0`: stable packaging and release.
+1. `0.8.1`: protection layer.
+2. `0.8.2`: tray, autostart, and link handling.
+3. `0.8.3`: statistics, logs, and support export.
+4. `0.8.4`: UX polish.
+5. `0.8.5`: installer and local operations.
+6. `0.9.0`: beta hardening.
+7. `0.9.5`: release candidate hardening.
+8. `1.0.0`: stable packaging and release.

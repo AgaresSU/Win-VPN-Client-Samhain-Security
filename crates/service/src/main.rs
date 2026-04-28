@@ -4,10 +4,10 @@ use samhain_core::{
     sample_subscription,
 };
 use samhain_ipc::{
-    ClientCommand, EngineCatalogEntry, EngineConfigPreview, EngineKind, EngineLifecycleState,
-    EngineLogEntry, IPC_PROTOCOL_VERSION, PingProbeResult, ProxyLifecycleState, RequestEnvelope,
-    ResponseEnvelope, ServiceEvent, ServiceState, TunLifecycleState, decode_request, encode_event,
-    encode_response,
+    AppRoutingPolicyState, ClientCommand, EngineCatalogEntry, EngineConfigPreview, EngineKind,
+    EngineLifecycleState, EngineLogEntry, IPC_PROTOCOL_VERSION, PingProbeResult,
+    ProxyLifecycleState, RequestEnvelope, ResponseEnvelope, RouteApplication, ServiceEvent,
+    ServiceState, TunLifecycleState, decode_request, encode_event, encode_response,
 };
 use serde::{Deserialize, Serialize};
 use std::fs;
@@ -27,6 +27,7 @@ const TUN_INTERFACE_NAME: &str = "samhain-tun";
 const TUN_ADDRESS: &str = "172.19.0.1/30";
 const TUN_DNS: &[&str] = &["1.1.1.1", "8.8.8.8"];
 const ADAPTER_DRY_RUN_ENV: &str = "SAMHAIN_ADAPTER_DRY_RUN";
+const APP_ROUTING_DRY_RUN_ENV: &str = "SAMHAIN_APP_ROUTING_DRY_RUN";
 
 fn main() -> Result<()> {
     let mut args = std::env::args().skip(1);
@@ -145,6 +146,16 @@ fn handle_command(command: ClientCommand) -> ServiceEvent {
             Ok(state) => ServiceEvent::TunStatus { state },
             Err(error) => ServiceEvent::Error {
                 message: format!("Не удалось получить состояние TUN: {error}"),
+            },
+        },
+        ClientCommand::GetAppRoutingPolicy => match service_store()
+            .lock()
+            .map_err(|_| anyhow!("Service store lock is poisoned."))
+            .map(|mut store| store.app_routing_policy())
+        {
+            Ok(state) => ServiceEvent::AppRoutingPolicy { state },
+            Err(error) => ServiceEvent::Error {
+                message: format!("Не удалось получить политику приложений: {error}"),
             },
         },
         ClientCommand::AddSubscription { name, url } => {
@@ -293,6 +304,49 @@ fn handle_command(command: ClientCommand) -> ServiceEvent {
                 message: format!("Не удалось восстановить TUN: {error}"),
             },
         },
+        ClientCommand::SetAppRoutingPolicy {
+            route_mode,
+            applications,
+        } => match service_store()
+            .lock()
+            .map_err(|_| anyhow!("Service store lock is poisoned."))
+            .and_then(|mut store| store.set_app_routing_policy(route_mode, applications))
+        {
+            Ok(state) => ServiceEvent::AppRoutingPolicy { state },
+            Err(error) => ServiceEvent::Error {
+                message: format!("Не удалось сохранить политику приложений: {error}"),
+            },
+        },
+        ClientCommand::AddRouteApplication { path } => match service_store()
+            .lock()
+            .map_err(|_| anyhow!("Service store lock is poisoned."))
+            .and_then(|mut store| store.add_route_application(path))
+        {
+            Ok(state) => ServiceEvent::AppRoutingPolicy { state },
+            Err(error) => ServiceEvent::Error {
+                message: format!("Не удалось добавить приложение: {error}"),
+            },
+        },
+        ClientCommand::RemoveRouteApplication { application_id } => match service_store()
+            .lock()
+            .map_err(|_| anyhow!("Service store lock is poisoned."))
+            .and_then(|mut store| store.remove_route_application(&application_id))
+        {
+            Ok(state) => ServiceEvent::AppRoutingPolicy { state },
+            Err(error) => ServiceEvent::Error {
+                message: format!("Не удалось удалить приложение: {error}"),
+            },
+        },
+        ClientCommand::RestoreAppRoutingPolicy => match service_store()
+            .lock()
+            .map_err(|_| anyhow!("Service store lock is poisoned."))
+            .map(|mut store| store.restore_app_routing_policy())
+        {
+            Ok(state) => ServiceEvent::AppRoutingPolicy { state },
+            Err(error) => ServiceEvent::Error {
+                message: format!("Не удалось восстановить политику приложений: {error}"),
+            },
+        },
         ClientCommand::TestPing { server_id } => match service_store()
             .lock()
             .map_err(|_| anyhow!("Service store lock is poisoned."))
@@ -339,6 +393,7 @@ fn current_state(running: bool) -> ServiceState {
             engine_catalog: discover_engines(),
             proxy_state: ProxyLifecycleState::default(),
             tun_state: TunLifecycleState::default(),
+            app_routing_policy: AppRoutingPolicyState::default(),
             probe_queue_active: false,
             probe_results: Vec::new(),
             subscriptions: vec![sample_subscription()],
@@ -406,6 +461,9 @@ impl ServiceStore {
         let engine_catalog = self.engine_manager.catalog();
         let proxy_state = self.engine_manager.proxy_snapshot();
         let tun_state = self.engine_manager.tun_snapshot();
+        let app_routing_policy = self
+            .engine_manager
+            .app_routing_snapshot(self.state.route_mode, self.public_route_applications());
         ServiceState {
             version: env!("CARGO_PKG_VERSION").to_string(),
             running,
@@ -416,6 +474,7 @@ impl ServiceStore {
             engine_catalog,
             proxy_state,
             tun_state,
+            app_routing_policy,
             probe_queue_active: self.state.probe_queue_active,
             probe_results: self.state.probe_results.clone(),
             subscriptions: self
@@ -522,6 +581,11 @@ impl ServiceStore {
         self.engine_manager.tun_snapshot()
     }
 
+    fn app_routing_policy(&mut self) -> AppRoutingPolicyState {
+        self.engine_manager
+            .app_routing_snapshot(self.state.route_mode, self.public_route_applications())
+    }
+
     fn preview_engine_config(&mut self, server_id: &str) -> Result<EngineConfigPreview> {
         let server = self
             .find_server(server_id)
@@ -545,6 +609,16 @@ impl ServiceStore {
             .ok_or_else(|| anyhow!("исходная ссылка сервера недоступна"))?;
         let state = self.engine_manager.start(&server, &raw_url, route_mode)?;
         self.state.route_mode = route_mode;
+        let route_applications = self.public_route_applications();
+        let policy = self
+            .engine_manager
+            .apply_app_routing_policy(route_mode, route_applications);
+        if route_mode != RouteMode::WholeComputer && policy.applications.is_empty() {
+            self.engine_manager.stop()?;
+            self.state.connected_server_id = None;
+            self.save()?;
+            return Err(anyhow!("выберите приложения для этого режима"));
+        }
         if state.status == "running" || state.status == "starting" {
             self.state.connected_server_id = Some(server.id.clone());
             self.state.selected_server_id = Some(server.id);
@@ -557,6 +631,7 @@ impl ServiceStore {
 
     fn stop_engine(&mut self) -> Result<EngineLifecycleState> {
         let state = self.engine_manager.stop()?;
+        let _ = self.engine_manager.restore_app_routing_policy();
         self.state.connected_server_id = None;
         self.save()?;
         Ok(state)
@@ -568,6 +643,46 @@ impl ServiceStore {
 
     fn restore_tun_policy(&mut self) -> Result<TunLifecycleState> {
         self.engine_manager.restore_tun_policy()
+    }
+
+    fn restore_app_routing_policy(&mut self) -> AppRoutingPolicyState {
+        self.engine_manager.restore_app_routing_policy()
+    }
+
+    fn set_app_routing_policy(
+        &mut self,
+        route_mode: RouteMode,
+        applications: Vec<RouteApplication>,
+    ) -> Result<AppRoutingPolicyState> {
+        let stored = applications
+            .into_iter()
+            .map(StoredRouteApplication::from_public)
+            .collect::<Result<Vec<_>>>()?;
+        self.state.route_mode = route_mode;
+        self.state.route_applications = dedupe_route_applications(stored);
+        self.save()?;
+        Ok(self.app_routing_policy())
+    }
+
+    fn add_route_application(&mut self, path: String) -> Result<AppRoutingPolicyState> {
+        let application = StoredRouteApplication::from_path(path)?;
+        self.state.route_applications.push(application);
+        self.state.route_applications =
+            dedupe_route_applications(std::mem::take(&mut self.state.route_applications));
+        self.save()?;
+        Ok(self.app_routing_policy())
+    }
+
+    fn remove_route_application(&mut self, application_id: &str) -> Result<AppRoutingPolicyState> {
+        let before = self.state.route_applications.len();
+        self.state
+            .route_applications
+            .retain(|application| application.id != application_id);
+        if before == self.state.route_applications.len() {
+            return Err(anyhow!("приложение не найдено"));
+        }
+        self.save()?;
+        Ok(self.app_routing_policy())
     }
 
     fn restart_engine(
@@ -723,6 +838,14 @@ impl ServiceStore {
             .collect()
     }
 
+    fn public_route_applications(&self) -> Vec<RouteApplication> {
+        self.state
+            .route_applications
+            .iter()
+            .map(StoredRouteApplication::to_public)
+            .collect()
+    }
+
     fn upsert_probe_result(&mut self, result: PingProbeResult) {
         for subscription in &mut self.state.subscriptions {
             for server in &mut subscription.servers {
@@ -750,6 +873,8 @@ struct StoredState {
     probe_queue_active: bool,
     #[serde(default)]
     probe_results: Vec<PingProbeResult>,
+    #[serde(default)]
+    route_applications: Vec<StoredRouteApplication>,
     subscriptions: Vec<StoredSubscription>,
 }
 
@@ -762,7 +887,66 @@ impl StoredState {
             connected_server_id: None,
             probe_queue_active: false,
             probe_results: Vec::new(),
+            route_applications: Vec::new(),
             subscriptions: vec![StoredSubscription::from_public(sample_subscription())],
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+struct StoredRouteApplication {
+    id: String,
+    name: String,
+    path: String,
+    enabled: bool,
+}
+
+impl StoredRouteApplication {
+    fn from_path(path: String) -> Result<Self> {
+        let path = normalize_application_path(&path)?;
+        let name = PathBuf::from(&path)
+            .file_name()
+            .and_then(|value| value.to_str())
+            .filter(|value| !value.trim().is_empty())
+            .unwrap_or("application.exe")
+            .to_string();
+        let id = stable_application_id(&path);
+        Ok(Self {
+            id,
+            name,
+            path,
+            enabled: true,
+        })
+    }
+
+    fn from_public(application: RouteApplication) -> Result<Self> {
+        let path = normalize_application_path(&application.path)?;
+        Ok(Self {
+            id: if application.id.trim().is_empty() {
+                stable_application_id(&path)
+            } else {
+                application.id
+            },
+            name: if application.name.trim().is_empty() {
+                PathBuf::from(&path)
+                    .file_name()
+                    .and_then(|value| value.to_str())
+                    .unwrap_or("application.exe")
+                    .to_string()
+            } else {
+                application.name
+            },
+            path,
+            enabled: application.enabled,
+        })
+    }
+
+    fn to_public(&self) -> RouteApplication {
+        RouteApplication {
+            id: self.id.clone(),
+            name: self.name.clone(),
+            path: self.path.clone(),
+            enabled: self.enabled,
         }
     }
 }
@@ -954,6 +1138,45 @@ fn stable_subscription_id(name: &str, url: &str) -> String {
         acc.wrapping_mul(31).wrapping_add(byte as u32)
     });
     format!("subscription-{checksum:08x}")
+}
+
+fn stable_application_id(path: &str) -> String {
+    let checksum = path
+        .to_ascii_lowercase()
+        .bytes()
+        .fold(0u32, |acc, byte| acc.wrapping_mul(33).wrapping_add(byte as u32));
+    format!("app-{checksum:08x}")
+}
+
+fn normalize_application_path(path: &str) -> Result<String> {
+    let trimmed = path
+        .trim()
+        .trim_matches('"')
+        .trim_start_matches("file:///");
+    if trimmed.is_empty() {
+        return Err(anyhow!("путь приложения пуст"));
+    }
+
+    let normalized = trimmed.replace('/', "\\");
+    if !normalized.to_ascii_lowercase().ends_with(".exe") {
+        return Err(anyhow!("выберите exe-файл"));
+    }
+
+    Ok(normalized)
+}
+
+fn dedupe_route_applications(
+    applications: Vec<StoredRouteApplication>,
+) -> Vec<StoredRouteApplication> {
+    let mut unique = Vec::new();
+    for application in applications {
+        if !unique.iter().any(|existing: &StoredRouteApplication| {
+            existing.path.eq_ignore_ascii_case(&application.path)
+        }) {
+            unique.push(application);
+        }
+    }
+    unique
 }
 
 fn now_label() -> String {
@@ -1181,6 +1404,128 @@ impl TunManager {
 }
 
 #[derive(Debug)]
+struct AppRoutingManager {
+    state: AppRoutingPolicyState,
+}
+
+impl AppRoutingManager {
+    fn new() -> Self {
+        Self {
+            state: AppRoutingPolicyState::default(),
+        }
+    }
+
+    fn snapshot(
+        &self,
+        route_mode: RouteMode,
+        applications: Vec<RouteApplication>,
+    ) -> AppRoutingPolicyState {
+        let mut state = self.state.clone();
+        state.route_mode = route_mode;
+        state.applications = applications;
+        if matches!(state.status.as_str(), "inactive" | "restored")
+            && route_mode != RouteMode::WholeComputer
+        {
+            let enabled_count = state
+                .applications
+                .iter()
+                .filter(|application| application.enabled)
+                .count();
+            if enabled_count == 0 {
+                state.status = "needs-apps".to_string();
+                state.supported = false;
+                state.message = "Добавьте приложения для выбранного режима.".to_string();
+            } else {
+                state.status = "configured".to_string();
+                state.supported = false;
+                state.rule_names = state
+                    .applications
+                    .iter()
+                    .filter(|application| application.enabled)
+                    .map(|application| format!("Samhain Security App Route {}", application.id))
+                    .collect();
+                state.message =
+                    "Приложения сохранены. Применение при подключении остаётся ограниченным до WFP-слоя."
+                        .to_string();
+            }
+        }
+        state
+    }
+
+    fn apply(
+        &mut self,
+        route_mode: RouteMode,
+        applications: Vec<RouteApplication>,
+    ) -> AppRoutingPolicyState {
+        let enabled_apps = applications
+            .iter()
+            .filter(|application| application.enabled)
+            .cloned()
+            .collect::<Vec<_>>();
+
+        if route_mode == RouteMode::WholeComputer {
+            self.state = AppRoutingPolicyState {
+                status: "inactive".to_string(),
+                route_mode,
+                supported: true,
+                applications,
+                rule_names: Vec::new(),
+                applied_at: None,
+                restored_at: None,
+                message: "Режим всего компьютера не требует списка приложений.".to_string(),
+            };
+            return self.state.clone();
+        }
+
+        if enabled_apps.is_empty() {
+            self.state = AppRoutingPolicyState {
+                status: "needs-apps".to_string(),
+                route_mode,
+                supported: false,
+                applications,
+                rule_names: Vec::new(),
+                applied_at: None,
+                restored_at: None,
+                message: "Добавьте приложения для выбранного режима.".to_string(),
+            };
+            return self.state.clone();
+        }
+
+        let rule_names = enabled_apps
+            .iter()
+            .map(|application| format!("Samhain Security App Route {}", application.id))
+            .collect::<Vec<_>>();
+        let dry_run = app_routing_dry_run();
+        self.state = AppRoutingPolicyState {
+            status: if dry_run { "dry-run" } else { "limited" }.to_string(),
+            route_mode,
+            supported: false,
+            applications,
+            rule_names,
+            applied_at: Some(now_engine_label()),
+            restored_at: None,
+            message: if dry_run {
+                "Политика приложений проверена в dry-run. Прозрачная маршрутизация требует WFP-слой."
+                    .to_string()
+            } else {
+                "Приложения сохранены. Точная прозрачная маршрутизация требует WFP-слой; режим не помечен как полностью поддержанный."
+                    .to_string()
+            },
+        };
+        self.state.clone()
+    }
+
+    fn restore(&mut self) -> AppRoutingPolicyState {
+        self.state.status = "restored".to_string();
+        self.state.supported = self.state.route_mode == RouteMode::WholeComputer;
+        self.state.rule_names.clear();
+        self.state.restored_at = Some(now_engine_label());
+        self.state.message = "Политика приложений восстановлена.".to_string();
+        self.state.clone()
+    }
+}
+
+#[derive(Debug)]
 struct AdapterManager {
     active: Option<ActiveAdapter>,
 }
@@ -1291,6 +1636,7 @@ struct EngineManager {
     state: EngineLifecycleState,
     proxy: ProxyManager,
     tun: TunManager,
+    app_routing: AppRoutingManager,
     adapter: AdapterManager,
     logs: Arc<Mutex<Vec<EngineLogEntry>>>,
     last_plan: Option<EngineStartPlan>,
@@ -1303,6 +1649,7 @@ impl EngineManager {
             state: EngineLifecycleState::default(),
             proxy: ProxyManager::new(),
             tun: TunManager::new(),
+            app_routing: AppRoutingManager::new(),
             adapter: AdapterManager::new(),
             logs: Arc::new(Mutex::new(Vec::new())),
             last_plan: None,
@@ -1330,12 +1677,37 @@ impl EngineManager {
         self.tun.snapshot()
     }
 
+    fn app_routing_snapshot(
+        &mut self,
+        route_mode: RouteMode,
+        applications: Vec<RouteApplication>,
+    ) -> AppRoutingPolicyState {
+        self.reap_finished_process();
+        self.app_routing.snapshot(route_mode, applications)
+    }
+
     fn restore_proxy_policy(&mut self) -> Result<ProxyLifecycleState> {
         self.proxy.restore()
     }
 
     fn restore_tun_policy(&mut self) -> Result<TunLifecycleState> {
         Ok(self.tun.restore())
+    }
+
+    fn apply_app_routing_policy(
+        &mut self,
+        route_mode: RouteMode,
+        applications: Vec<RouteApplication>,
+    ) -> AppRoutingPolicyState {
+        let state = self.app_routing.apply(route_mode, applications);
+        push_engine_log(&self.logs, "info", "routing", &state.message);
+        state
+    }
+
+    fn restore_app_routing_policy(&mut self) -> AppRoutingPolicyState {
+        let state = self.app_routing.restore();
+        push_engine_log(&self.logs, "info", "routing", &state.message);
+        state
     }
 
     fn preview_config(&mut self, server: &Server, raw_url: &str) -> Result<EngineConfigPreview> {
@@ -1564,6 +1936,7 @@ impl EngineManager {
             return Err(error);
         }
         self.tun.restore();
+        self.app_routing.restore();
 
         self.state.status = "stopped".to_string();
         self.state.pid = None;
@@ -1680,6 +2053,7 @@ impl EngineManager {
                 );
             }
             self.tun.restore();
+            self.app_routing.restore();
         }
 
         self.state.log_tail = self.log_tail();
@@ -2290,6 +2664,10 @@ fn adapter_name_for(server_id: &str, kind: EngineKind) -> String {
 
 fn adapter_dry_run() -> bool {
     std::env::var_os(ADAPTER_DRY_RUN_ENV).is_some()
+}
+
+fn app_routing_dry_run() -> bool {
+    std::env::var_os(APP_ROUTING_DRY_RUN_ENV).is_some()
 }
 
 fn shell_preview(executable_path: &std::path::Path, args: &[String]) -> String {
@@ -3173,7 +3551,43 @@ mod tests {
             !generated
                 .warnings
                 .iter()
-                .any(|warning| warning.contains("обфускации"))
+            .any(|warning| warning.contains("обфускации"))
         );
+    }
+
+    #[test]
+    fn normalizes_route_application_paths() {
+        let app = StoredRouteApplication::from_path(
+            "file:///C:/Program Files/Samhain/test-app.exe".to_string(),
+        )
+        .expect("app");
+
+        assert_eq!(app.name, "test-app.exe");
+        assert!(app.path.ends_with("test-app.exe"));
+        assert!(app.enabled);
+    }
+
+    #[test]
+    fn app_routing_policy_marks_app_modes_limited() {
+        let mut manager = AppRoutingManager::new();
+        let state = manager.apply(
+            RouteMode::SelectedAppsOnly,
+            vec![RouteApplication {
+                id: "app-1".to_string(),
+                name: "test-app.exe".to_string(),
+                path: "C:\\Program Files\\Samhain\\test-app.exe".to_string(),
+                enabled: true,
+            }],
+        );
+
+        assert_eq!(state.status, "limited");
+        assert!(!state.supported);
+        assert_eq!(state.rule_names.len(), 1);
+        assert!(state.message.contains("WFP"));
+
+        let fresh_manager = AppRoutingManager::new();
+        let configured = fresh_manager.snapshot(RouteMode::SelectedAppsOnly, state.applications);
+        assert_eq!(configured.status, "configured");
+        assert_eq!(configured.rule_names.len(), 1);
     }
 }
