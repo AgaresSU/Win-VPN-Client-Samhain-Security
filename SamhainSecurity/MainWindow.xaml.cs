@@ -59,6 +59,7 @@ public partial class MainWindow : Window
     private bool _isLoadingSubscriptions;
     private bool _isLoadingServerChoices;
     private bool _isLoadingAppSettings;
+    private bool _isApplyingServerCategory;
     private bool _isBackgroundProbeRunning;
     private bool _isRefreshingSubscriptionsQuietly;
     private bool _isWatchdogChecking;
@@ -104,6 +105,7 @@ public partial class MainWindow : Window
 
         UpdateServerCatalogSummary();
         UpdateServerRecommendations();
+        UpdateServerCategoryChrome("all");
         CommandBindings.Add(new CommandBinding(
             ApplicationCommands.Paste,
             PasteCommand_Executed,
@@ -292,42 +294,96 @@ public partial class MainWindow : Window
     private void ApplyServerCategory(string category)
     {
         var normalizedCategory = category.Trim().ToLowerInvariant();
-        ServerSearchTextBox.Clear();
-        FavoriteServersOnlyCheckBox.IsChecked = false;
+        normalizedCategory = normalizedCategory is "favorite" or "fast" or "recent" or "vless" or "awg"
+            ? normalizedCategory
+            : "all";
 
         var statusText = "Показаны все серверы";
-        switch (normalizedCategory)
+        _isApplyingServerCategory = true;
+        try
         {
-            case "favorite":
-                FavoriteServersOnlyCheckBox.IsChecked = true;
-                SelectServerSortMode("favorite");
-                statusText = "Показаны избранные серверы";
-                break;
-            case "fast":
-                SelectServerSortMode("latency");
-                statusText = "Показаны быстрые серверы";
-                break;
-            case "recent":
-                SelectServerSortMode("recent");
-                statusText = "Показаны последние серверы";
-                break;
-            case "vless":
-                SelectServerSortMode("smart");
-                ServerSearchTextBox.Text = "VLESS";
-                statusText = "Показаны VLESS серверы";
-                break;
-            case "awg":
-                SelectServerSortMode("smart");
-                ServerSearchTextBox.Text = "AmneziaWG";
-                statusText = "Показаны AWG серверы";
-                break;
-            default:
-                SelectServerSortMode("smart");
-                break;
+            ServerSearchTextBox.Clear();
+            FavoriteServersOnlyCheckBox.IsChecked = false;
+
+            switch (normalizedCategory)
+            {
+                case "favorite":
+                    FavoriteServersOnlyCheckBox.IsChecked = true;
+                    SelectServerSortMode("favorite");
+                    statusText = "Показаны избранные серверы";
+                    break;
+                case "fast":
+                    SelectServerSortMode("latency");
+                    statusText = "Показаны быстрые серверы";
+                    break;
+                case "recent":
+                    SelectServerSortMode("recent");
+                    statusText = "Показаны последние серверы";
+                    break;
+                case "vless":
+                    SelectServerSortMode("smart");
+                    ServerSearchTextBox.Text = "VLESS";
+                    statusText = "Показаны VLESS серверы";
+                    break;
+                case "awg":
+                    SelectServerSortMode("smart");
+                    ServerSearchTextBox.Text = "AmneziaWG";
+                    statusText = "Показаны AWG серверы";
+                    break;
+                default:
+                    SelectServerSortMode("smart");
+                    break;
+            }
+        }
+        finally
+        {
+            _isApplyingServerCategory = false;
         }
 
+        UpdateServerCategoryChrome(normalizedCategory);
         RefreshServerCatalogView();
         StatusTextBlock.Text = statusText;
+    }
+
+    private void UpdateServerCategoryChrome(string category)
+    {
+        ServerCatalogTitleTextBlock.Text = GetServerCategoryTitle(category);
+
+        foreach (var button in GetServerCategoryButtons())
+        {
+            var isActive = string.Equals(button.Tag as string, category, StringComparison.OrdinalIgnoreCase);
+            button.Background = isActive
+                ? (System.Windows.Media.Brush)FindResource("AccentSoftBrush")
+                : System.Windows.Media.Brushes.Transparent;
+            button.Foreground = isActive
+                ? (System.Windows.Media.Brush)FindResource("AccentBrush")
+                : (System.Windows.Media.Brush)FindResource("NavTextBrush");
+            button.FontWeight = isActive ? FontWeights.SemiBold : FontWeights.Normal;
+        }
+    }
+
+    private IEnumerable<System.Windows.Controls.Button> GetServerCategoryButtons()
+    {
+        yield return AllServersCategoryButton;
+        yield return FavoriteServersCategoryButton;
+        yield return FastServersCategoryButton;
+        yield return RecentServersCategoryButton;
+        yield return VlessServersCategoryButton;
+        yield return AwgServersCategoryButton;
+    }
+
+    private static string GetServerCategoryTitle(string category)
+    {
+        return category switch
+        {
+            "favorite" => "Избранные серверы",
+            "fast" => "Быстрые серверы",
+            "recent" => "Последние серверы",
+            "vless" => "VLESS серверы",
+            "awg" => "AWG серверы",
+            "custom" => "Серверы по фильтру",
+            _ => "Все серверы"
+        };
     }
 
     private void ServersListView_PreviewMouseRightButtonDown(object sender, MouseButtonEventArgs e)
@@ -408,6 +464,11 @@ public partial class MainWindow : Window
 
         RefreshServerCatalogView();
 
+        if (!_isApplyingServerCategory)
+        {
+            UpdateServerCategoryChrome(HasActiveServerCatalogFilter() ? "custom" : "all");
+        }
+
         if (ReferenceEquals(sender, FavoriteServersOnlyCheckBox))
         {
             _appSettings.ServerCatalogFavoritesOnly = FavoriteServersOnlyCheckBox.IsChecked == true;
@@ -450,6 +511,7 @@ public partial class MainWindow : Window
         FavoriteServersOnlyCheckBox.IsChecked = false;
         SelectServerSortMode("smart");
         RefreshServerCatalogView();
+        UpdateServerCategoryChrome("all");
         StatusTextBlock.Text = "Фильтры серверов сброшены";
     }
 
@@ -470,6 +532,10 @@ public partial class MainWindow : Window
         var selectedProfileId = (ServerSelectorComboBox.SelectedItem as ServerListItem)?.Profile.Id
             ?? (ServersListView.SelectedItem as ServerListItem)?.Profile.Id;
         RenderServerChoices(SubscriptionSelectorComboBox.SelectedItem as SubscriptionSourceListItem, selectedProfileId);
+        if (!_isApplyingServerCategory)
+        {
+            UpdateServerCategoryChrome(HasActiveServerCatalogFilter() ? "custom" : "all");
+        }
     }
 
     private void ApplySelectedServerChoice(string statusText)

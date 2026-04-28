@@ -1,6 +1,6 @@
 # Samhain Security Roadmap
 
-Version baseline: `0.6.0`
+Version baseline: `0.6.1`
 
 ## Product Goal
 
@@ -424,6 +424,12 @@ The default UI should stay close to the simplicity of Happ: a small set of obvio
 - Done: first premium daily shell pass with left server categories, central catalog, and right connection panel.
 - Done: category buttons switch between all, favorite, fast, recent, VLESS, and AWG server views.
 - Done: the main connect action is promoted into a large dedicated control while technical settings stay below.
+
+### 0.6.1
+
+- Done: the active server category is visually highlighted in the left navigation.
+- Done: the central catalog title follows the selected category.
+- Done: manual search, favorites-only, or sort changes mark the catalog as a filtered view.
 
 ## Design Direction
 

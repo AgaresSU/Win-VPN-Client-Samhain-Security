@@ -1,6 +1,6 @@
 # Samhain Security
 
-Version: `0.6.0`
+Version: `0.6.1`
 
 Desktop secure tunneling client for Windows built with WPF and .NET 9.
 
@@ -43,6 +43,7 @@ Desktop secure tunneling client for Windows built with WPF and .NET 9.
 - Adds daily server shortcuts: Enter in search selects the first visible server, Escape clears search, and double-clicking a server connects it.
 - Adds right-click server row actions for connect, favorite toggle, and address copy.
 - Adds a premium daily shell with server categories, a larger central catalog, and a dedicated connection panel.
+- Highlights the active server category and keeps the catalog title synchronized with category and filter state.
 - Adds pre-connect validation for VLESS Reality and WireGuard-style configs with clear local errors.
 - Adds optional reconnect after resume or network changes for the last successful profile.
 - Adds tray-first server selection with connect selected, connect best, and current server submenu.
@@ -121,7 +122,7 @@ Portable package:
 Local package helper:
 
 ```powershell
-.\scripts\install-local.ps1 -PackagePath ".\dist\SamhainSecurity-0.6.0-win-x64" -StartService -CreateStartMenuShortcut
+.\scripts\install-local.ps1 -PackagePath ".\dist\SamhainSecurity-0.6.1-win-x64" -StartService -CreateStartMenuShortcut
 ```
 
 Default install root is `%ProgramFiles%\Samhain Security`. The helper stops and replaces the previous service registration, copies the package to the install root, writes `install-manifest.json`, and preserves `%APPDATA%\SamhainSecurity`.
@@ -230,6 +231,8 @@ Version `0.5.8` improves daily keyboard flow. Enter in server search selects the
 Version `0.5.9` adds right-click server row actions. A row context menu can connect the selected server, add or remove it from favorites, or copy the visible address.
 
 Version `0.6.0` starts the premium daily shell. The main window now has server categories on the left, a larger central server catalog, and a right-side connection panel with a large connect action and live route status.
+
+Version `0.6.1` polishes category navigation. The active server category is highlighted, the catalog title follows the selected category, and manual search or sorting switches the title to the filtered view.
 
 ## Versioning
 

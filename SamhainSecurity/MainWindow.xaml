@@ -22,6 +22,7 @@
         <SolidColorBrush x:Key="MutedTextBrush" Color="#A8B0C2" />
         <SolidColorBrush x:Key="TextBrush" Color="#F5F7FA" />
         <SolidColorBrush x:Key="SidebarBrush" Color="#11151D" />
+        <SolidColorBrush x:Key="NavTextBrush" Color="#D7DCE8" />
         <SolidColorBrush x:Key="SuccessBrush" Color="#173D35" />
         <SolidColorBrush x:Key="SuccessTextBrush" Color="#64D6B5" />
         <SolidColorBrush x:Key="WarningBrush" Color="#3E341F" />
@@ -102,7 +103,7 @@
             <Setter Property="Padding" Value="12,9" />
             <Setter Property="Margin" Value="0,0,0,6" />
             <Setter Property="Background" Value="Transparent" />
-            <Setter Property="Foreground" Value="#D7DCE8" />
+            <Setter Property="Foreground" Value="{StaticResource NavTextBrush}" />
         </Style>
 
         <Style x:Key="PowerButtonStyle" TargetType="Button" BasedOn="{StaticResource PrimaryButtonStyle}">
@@ -172,27 +173,33 @@
                                FontSize="12"
                                FontWeight="SemiBold"
                                Margin="0,0,0,8" />
-                    <Button Content="Все серверы"
+                    <Button x:Name="AllServersCategoryButton"
+                            Content="Все серверы"
                             Tag="all"
                             Style="{StaticResource NavButtonStyle}"
                             Click="ServerCategoryButton_Click" />
-                    <Button Content="Избранные"
+                    <Button x:Name="FavoriteServersCategoryButton"
+                            Content="Избранные"
                             Tag="favorite"
                             Style="{StaticResource NavButtonStyle}"
                             Click="ServerCategoryButton_Click" />
-                    <Button Content="Быстрые"
+                    <Button x:Name="FastServersCategoryButton"
+                            Content="Быстрые"
                             Tag="fast"
                             Style="{StaticResource NavButtonStyle}"
                             Click="ServerCategoryButton_Click" />
-                    <Button Content="Последние"
+                    <Button x:Name="RecentServersCategoryButton"
+                            Content="Последние"
                             Tag="recent"
                             Style="{StaticResource NavButtonStyle}"
                             Click="ServerCategoryButton_Click" />
-                    <Button Content="VLESS"
+                    <Button x:Name="VlessServersCategoryButton"
+                            Content="VLESS"
                             Tag="vless"
                             Style="{StaticResource NavButtonStyle}"
                             Click="ServerCategoryButton_Click" />
-                    <Button Content="AWG"
+                    <Button x:Name="AwgServersCategoryButton"
+                            Content="AWG"
                             Tag="awg"
                             Style="{StaticResource NavButtonStyle}"
                             Click="ServerCategoryButton_Click" />
@@ -245,7 +252,8 @@
 
             <DockPanel Grid.Row="0" Margin="0,0,0,20">
                 <StackPanel DockPanel.Dock="Left">
-                    <TextBlock Text="Все серверы"
+                    <TextBlock x:Name="ServerCatalogTitleTextBlock"
+                               Text="Все серверы"
                                FontSize="24"
                                FontWeight="SemiBold" />
                     <TextBlock x:Name="StatusTextBlock"
