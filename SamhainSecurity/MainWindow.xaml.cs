@@ -8,6 +8,7 @@ using System.Threading;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
+using System.Windows.Threading;
 using Microsoft.Win32;
 using SamhainSecurity.Models;
 using SamhainSecurity.Services;
@@ -39,6 +40,10 @@ public partial class MainWindow : Window
     private readonly ConnectionStateStore _connectionStateStore = new();
     private readonly StructuredLogService _structuredLogService = new();
     private readonly DiagnosticsBundleService _diagnosticsBundleService;
+    private readonly DispatcherTimer _connectionWatchdogTimer = new()
+    {
+        Interval = TimeSpan.FromSeconds(60)
+    };
     private Forms.NotifyIcon? _notifyIcon;
     private bool _allowExit;
     private bool _isBusy;
@@ -48,10 +53,13 @@ public partial class MainWindow : Window
     private bool _isLoadingAppSettings;
     private bool _isBackgroundProbeRunning;
     private bool _isRefreshingSubscriptionsQuietly;
+    private bool _isWatchdogChecking;
     private string _lastClipboardSubscriptionUrl = string.Empty;
+    private string _watchdogProfileId = string.Empty;
     private string _dailyConnectionState = "Ожидание";
     private string _dailyServiceState = "Служба: проверка";
     private DateTimeOffset _lastReconnectAttemptAt = DateTimeOffset.MinValue;
+    private DateTimeOffset _lastWatchdogRecoveryAt = DateTimeOffset.MinValue;
     private AppSettings _appSettings = new();
 
     public MainWindow()
@@ -85,6 +93,7 @@ public partial class MainWindow : Window
         UpdateProtocolFields();
         InitializeTrayIcon();
         InitializeReconnectMonitors();
+        InitializeConnectionWatchdog();
         UpdateAdminButton();
         UpdateDailyStatusPanel();
     }
@@ -144,6 +153,7 @@ public partial class MainWindow : Window
         }
 
         UnsubscribeReconnectMonitors();
+        _connectionWatchdogTimer.Stop();
         _notifyIcon?.Dispose();
         base.OnClosing(e);
     }
@@ -355,11 +365,21 @@ public partial class MainWindow : Window
         _appSettings.AutoFailoverOnConnectFailure = AutoFailoverCheckBox.IsChecked == true;
         _appSettings.ConnectBestServerAutomatically = AutoBestServerCheckBox.IsChecked == true;
         _appSettings.AutoRefreshSubscriptions = AutoRefreshSubscriptionsCheckBox.IsChecked == true;
+        _appSettings.EnableConnectionWatchdog = ConnectionWatchdogCheckBox.IsChecked == true;
 
         try
         {
             _startupRegistrationService.SetEnabled(_appSettings.LaunchAtStartup);
             await _appSettingsStore.SaveAsync(_appSettings);
+            if (!_appSettings.EnableConnectionWatchdog)
+            {
+                StopConnectionWatchdog();
+            }
+            else if (IsConnectedState(_dailyConnectionState) && GetCurrentOrSelectedProfile() is { } profile)
+            {
+                StartConnectionWatchdog(profile);
+            }
+
             StatusTextBlock.Text = "Настройки сохранены";
             UpdateDailyStatusPanel();
         }
@@ -466,11 +486,13 @@ public partial class MainWindow : Window
                 await _profileStore.SaveAsync(_profiles);
                 await SaveAppSettingsQuietlyAsync();
                 RenderServerChoices(SubscriptionSelectorComboBox.SelectedItem as SubscriptionSourceListItem, connectedProfile.Id);
+                StartConnectionWatchdog(connectedProfile);
             }
             else
             {
                 await _profileStore.SaveAsync(_profiles);
                 RenderServerChoices(SubscriptionSelectorComboBox.SelectedItem as SubscriptionSourceListItem, profile.Id);
+                StopConnectionWatchdog();
             }
 
             StatusTextBlock.Text = connectResult.IsSuccess
@@ -669,6 +691,11 @@ public partial class MainWindow : Window
             StatusTextBlock.Text = disconnectResult.IsSuccess
                 ? "Отключено"
                 : "Отключение не удалось";
+            if (disconnectResult.IsSuccess)
+            {
+                StopConnectionWatchdog();
+            }
+
             UpdateDailyStatusPanel(profile, disconnectResult.IsSuccess ? "Отключено" : "Ошибка отключения");
         }, "Отключение...");
     }
@@ -1497,8 +1524,9 @@ public partial class MainWindow : Window
         var recovery = _appSettings.AutoReconnectOnSystemChange ? "восстановление" : "без восстановления";
         var failover = _appSettings.AutoFailoverOnConnectFailure ? "резерв" : "без резерва";
         var best = _appSettings.ConnectBestServerAutomatically ? "лучший" : "выбранный";
+        var watchdog = _appSettings.EnableConnectionWatchdog ? "надзор" : "без надзора";
 
-        return $"{startup}; {reconnect}; {recovery}; {failover}; {best}";
+        return $"{startup}; {reconnect}; {recovery}; {failover}; {best}; {watchdog}";
     }
 
     private static string BuildDailyConnectionStatus(CommandResult result)
@@ -1524,6 +1552,12 @@ public partial class MainWindow : Window
         }
 
         return "Статус получен";
+    }
+
+    private static bool IsConnectedState(string state)
+    {
+        return state.Contains("Подключено", StringComparison.OrdinalIgnoreCase)
+            || state.Contains("Статус получен", StringComparison.OrdinalIgnoreCase);
     }
 
     private async Task RefreshDailyServiceStateAsync()
@@ -1582,6 +1616,7 @@ public partial class MainWindow : Window
             AutoFailoverCheckBox.IsChecked = _appSettings.AutoFailoverOnConnectFailure;
             AutoBestServerCheckBox.IsChecked = _appSettings.ConnectBestServerAutomatically;
             AutoRefreshSubscriptionsCheckBox.IsChecked = _appSettings.AutoRefreshSubscriptions;
+            ConnectionWatchdogCheckBox.IsChecked = _appSettings.EnableConnectionWatchdog;
             AdvancedSettingsExpander.IsExpanded = _appSettings.AdvancedSettingsExpanded;
         }
         finally
@@ -1626,11 +1661,13 @@ public partial class MainWindow : Window
                 await _profileStore.SaveAsync(_profiles);
                 await SaveAppSettingsQuietlyAsync();
                 RenderServerChoices(SubscriptionSelectorComboBox.SelectedItem as SubscriptionSourceListItem, connectedProfile.Id);
+                StartConnectionWatchdog(connectedProfile);
             }
             else
             {
                 await _profileStore.SaveAsync(_profiles);
                 RenderServerChoices(SubscriptionSelectorComboBox.SelectedItem as SubscriptionSourceListItem, profile.Id);
+                StopConnectionWatchdog();
             }
 
             UpdateDailyStatusPanel(connectedProfile, connectResult.IsSuccess ? "Подключено" : "Автоподключение не удалось");
@@ -2534,6 +2571,11 @@ public partial class MainWindow : Window
         NetworkChange.NetworkAddressChanged += NetworkChange_NetworkAddressChanged;
     }
 
+    private void InitializeConnectionWatchdog()
+    {
+        _connectionWatchdogTimer.Tick += ConnectionWatchdogTimer_Tick;
+    }
+
     private void UnsubscribeReconnectMonitors()
     {
         SystemEvents.PowerModeChanged -= SystemEvents_PowerModeChanged;
@@ -2560,6 +2602,79 @@ public partial class MainWindow : Window
     private void NetworkChange_NetworkAddressChanged(object? sender, EventArgs e)
     {
         ScheduleReconnect("смена сети");
+    }
+
+    private void StartConnectionWatchdog(VpnProfile profile)
+    {
+        if (!_appSettings.EnableConnectionWatchdog)
+        {
+            return;
+        }
+
+        _watchdogProfileId = profile.Id;
+        _connectionWatchdogTimer.Start();
+        ConnectionDetailTextBlock.Text = $"Надзор активен: {profile.Name}";
+    }
+
+    private void StopConnectionWatchdog()
+    {
+        _connectionWatchdogTimer.Stop();
+        _watchdogProfileId = string.Empty;
+        _isWatchdogChecking = false;
+    }
+
+    private async void ConnectionWatchdogTimer_Tick(object? sender, EventArgs e)
+    {
+        if (!_appSettings.EnableConnectionWatchdog
+            || _isBusy
+            || _isWatchdogChecking
+            || string.IsNullOrWhiteSpace(_watchdogProfileId))
+        {
+            return;
+        }
+
+        var profile = _profiles.FirstOrDefault(item => item.Id == _watchdogProfileId);
+        if (profile is null)
+        {
+            StopConnectionWatchdog();
+            return;
+        }
+
+        _isWatchdogChecking = true;
+        try
+        {
+            var statusResult = await _vpnService.GetStatusAsync(profile);
+            _structuredLogService.WriteCommand("watchdog.status", profile, statusResult);
+            var state = BuildDailyConnectionStatus(statusResult);
+
+            if (statusResult.IsSuccess && state != "Отключено")
+            {
+                UpdateDailyStatusPanel(profile, "Подключено");
+                ConnectionDetailTextBlock.Text = $"Надзор: проверено {DateTime.Now:HH:mm}";
+                return;
+            }
+
+            MarkProfileConnectFailed(profile);
+            await _profileStore.SaveAsync(_profiles);
+            if (DateTimeOffset.UtcNow - _lastWatchdogRecoveryAt < TimeSpan.FromMinutes(2))
+            {
+                UpdateDailyStatusPanel(profile, "Ошибка подключения");
+                ConnectionDetailTextBlock.Text = FriendlyErrorService.ToUserMessage(statusResult);
+                return;
+            }
+
+            _lastWatchdogRecoveryAt = DateTimeOffset.UtcNow;
+            AppendLog("Надзор: маршрут требует восстановления");
+            await TryReconnectLastProfileAsync("надзор подключения");
+        }
+        catch (Exception ex)
+        {
+            AppendLog($"Надзор: {ex.Message}");
+        }
+        finally
+        {
+            _isWatchdogChecking = false;
+        }
     }
 
     private void ScheduleReconnect(string reason)
@@ -2615,11 +2730,13 @@ public partial class MainWindow : Window
                 await _profileStore.SaveAsync(_profiles);
                 await SaveAppSettingsQuietlyAsync();
                 RenderServerChoices(SubscriptionSelectorComboBox.SelectedItem as SubscriptionSourceListItem, connectedProfile.Id);
+                StartConnectionWatchdog(connectedProfile);
             }
             else
             {
                 await _profileStore.SaveAsync(_profiles);
                 RenderServerChoices(SubscriptionSelectorComboBox.SelectedItem as SubscriptionSourceListItem, profile.Id);
+                StopConnectionWatchdog();
             }
 
             StatusTextBlock.Text = connectResult.IsSuccess

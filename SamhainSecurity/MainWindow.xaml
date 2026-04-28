@@ -568,6 +568,7 @@
                                     <RowDefinition Height="Auto" />
                                     <RowDefinition Height="Auto" />
                                     <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="Auto" />
                                 </Grid.RowDefinitions>
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="*" />
@@ -617,6 +618,14 @@
                                           Grid.Column="1"
                                           Margin="0,10,0,0"
                                           Content="Обновлять подписки"
+                                          Foreground="{StaticResource TextBrush}"
+                                          Checked="AppSettingCheckBox_Changed"
+                                          Unchecked="AppSettingCheckBox_Changed" />
+
+                                <CheckBox x:Name="ConnectionWatchdogCheckBox"
+                                          Grid.Row="3"
+                                          Margin="0,10,0,0"
+                                          Content="Следить за подключением"
                                           Foreground="{StaticResource TextBrush}"
                                           Checked="AppSettingCheckBox_Changed"
                                           Unchecked="AppSettingCheckBox_Changed" />

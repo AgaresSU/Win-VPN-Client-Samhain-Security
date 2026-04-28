@@ -1,6 +1,6 @@
 {
   "product": "Samhain Security",
-  "version": "0.3.7",
+  "version": "0.3.8",
   "windowsRuntime": "win-x64",
   "appEntry": "app/SamhainSecurity.exe",
   "serviceEntry": "service/SamhainSecurity.Service.exe",

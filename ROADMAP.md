@@ -1,6 +1,6 @@
 # Samhain Security Roadmap
 
-Version baseline: `0.3.7`
+Version baseline: `0.3.8`
 
 ## Product Goal
 
@@ -295,6 +295,12 @@ The default UI should stay close to the simplicity of Happ: a small set of obvio
 
 - Done: installer preparation manifest.
 - Done: local install and uninstall helper scripts for the packaged service.
+
+### 0.3.8
+
+- Done: optional connection watchdog.
+- Done: periodic status checks after successful connect.
+- Done: automatic recovery through the reserve-server flow when the active route drops.
 
 ## Design Direction
 
