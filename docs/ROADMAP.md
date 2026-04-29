@@ -1,6 +1,6 @@
 # Roadmap
 
-Current version: `1.1.2`
+Current version: `1.1.3`
 
 This roadmap is the working contract for Samhain Security. Future implementation should follow this order unless a blocker is found and documented in the same commit.
 
@@ -406,6 +406,17 @@ Done when service status and release evidence explain exactly why app routing is
 
 Status: shipped in `v1.1.2` with service readiness telemetry, app-routing evidence, and package-level readiness checks.
 
+### 1.1.3 - Subscription Action Reliability
+
+- Keep subscription source URLs in the desktop state for local action fallback.
+- Make the subscription action popup preserve its row target before closing.
+- Let refresh, pin, URL copy, rename, and delete complete locally when the service is unavailable.
+- Show clear status/log feedback instead of silent no-op behavior.
+
+Done when every action in the subscription menu gives an observable result in both service-backed and local states.
+
+Status: shipped in `v1.1.3` with local fallbacks and popup click reliability fixes.
+
 ## Immediate Next Build Order
 
-1. `1.1.3`: installer-managed privileged service registration plan and dry-run operation surface.
+1. `1.1.4`: installer-managed privileged service registration plan and dry-run operation surface.

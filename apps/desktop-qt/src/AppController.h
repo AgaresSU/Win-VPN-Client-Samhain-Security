@@ -31,6 +31,7 @@ struct SubscriptionItem {
     QString meta;
     bool expanded = true;
     QVector<ServerItem> servers;
+    QString sourceUrl;
 };
 
 struct RouteApplicationItem {
@@ -74,6 +75,7 @@ public:
     bool isSubscriptionRow(int row) const;
     QString subscriptionIdAtRow(int row) const;
     QString subscriptionNameAtRow(int row) const;
+    QString subscriptionUrlAtRow(int row) const;
     int serverCountAtRow(int row) const;
     QVector<QString> serverIds() const;
     QVector<QString> serverIdsAtSubscriptionRow(int row) const;
@@ -264,7 +266,8 @@ private:
         const QString &id,
         const QString &name,
         const QString &meta,
-        QVector<ServerItem> servers) const;
+        QVector<ServerItem> servers,
+        const QString &sourceUrl = {}) const;
     QVector<ServerItem> buildServersForUrl(const QString &url) const;
     QString requestService(const QJsonObject &command, int timeoutMs) const;
     QString protocolLabel(const QString &wireProtocol) const;

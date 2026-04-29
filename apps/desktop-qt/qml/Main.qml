@@ -341,8 +341,9 @@ ApplicationWindow {
                 iconKind: "refresh"
                 text: "Обновить"
                 onTriggered: {
+                    var row = subscriptionActionsPopup.rowIndex
                     subscriptionActionsPopup.close()
-                    appController.refreshSubscription(subscriptionActionsPopup.rowIndex)
+                    appController.refreshSubscription(row)
                 }
             }
             PopupDivider {}
@@ -350,8 +351,9 @@ ApplicationWindow {
                 iconKind: "latency"
                 text: "Тест пинга"
                 onTriggered: {
+                    var row = subscriptionActionsPopup.rowIndex
                     subscriptionActionsPopup.close()
-                    appController.testSubscriptionPings(subscriptionActionsPopup.rowIndex)
+                    appController.testSubscriptionPings(row)
                 }
             }
             PopupDivider {}
@@ -359,8 +361,9 @@ ApplicationWindow {
                 iconKind: "pin"
                 text: "Закрепить"
                 onTriggered: {
+                    var row = subscriptionActionsPopup.rowIndex
                     subscriptionActionsPopup.close()
-                    appController.pinSubscription(subscriptionActionsPopup.rowIndex)
+                    appController.pinSubscription(row)
                 }
             }
             PopupDivider {}
@@ -368,8 +371,9 @@ ApplicationWindow {
                 iconKind: "copy"
                 text: "Копировать URL"
                 onTriggered: {
+                    var row = subscriptionActionsPopup.rowIndex
                     subscriptionActionsPopup.close()
-                    appController.copySubscriptionUrl(subscriptionActionsPopup.rowIndex)
+                    appController.copySubscriptionUrl(row)
                 }
             }
             PopupDivider {}
@@ -377,9 +381,11 @@ ApplicationWindow {
                 iconKind: "edit"
                 text: "Редактировать"
                 onTriggered: {
+                    var row = subscriptionActionsPopup.rowIndex
+                    var name = subscriptionActionsPopup.subscriptionName
                     subscriptionActionsPopup.close()
-                    renameDialog.rowIndex = subscriptionActionsPopup.rowIndex
-                    renameSubscriptionNameInput.text = subscriptionActionsPopup.subscriptionName
+                    renameDialog.rowIndex = row
+                    renameSubscriptionNameInput.text = name
                     renameDialog.open()
                 }
             }
@@ -389,8 +395,9 @@ ApplicationWindow {
                 text: "Удалить"
                 danger: true
                 onTriggered: {
+                    var row = subscriptionActionsPopup.rowIndex
                     subscriptionActionsPopup.close()
-                    appController.deleteSubscription(subscriptionActionsPopup.rowIndex)
+                    appController.deleteSubscription(row)
                 }
             }
         }
@@ -1272,7 +1279,7 @@ ApplicationWindow {
             spacing: 18
             PageTitle { text: "О программе" }
             MetricRow { title: "Программа"; value: "Samhain Security Native" }
-            MetricRow { title: "Версия"; value: "1.1.2" }
+            MetricRow { title: "Версия"; value: "1.1.3" }
             MetricRow { title: "Интерфейс"; value: "Qt 6 / QML" }
             MetricRow { title: "Ядро"; value: "Rust workspace" }
             MetricRow { title: "Статус"; value: appController.statusText }
@@ -1603,6 +1610,7 @@ ApplicationWindow {
             id: popupActionMouse
             anchors.fill: parent
             hoverEnabled: true
+            preventStealing: true
             cursorShape: Qt.PointingHandCursor
             onClicked: popupAction.triggered()
         }

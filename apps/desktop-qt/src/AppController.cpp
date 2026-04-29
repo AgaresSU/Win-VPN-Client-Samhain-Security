@@ -335,6 +335,20 @@ QString ServerListModel::subscriptionNameAtRow(int row) const
     return m_subscriptions.at(subscriptionIndex).name;
 }
 
+QString ServerListModel::subscriptionUrlAtRow(int row) const
+{
+    if (row < 0 || row >= m_rows.size()) {
+        return {};
+    }
+
+    const auto subscriptionIndex = m_rows.at(row).subscriptionIndex;
+    if (subscriptionIndex < 0 || subscriptionIndex >= m_subscriptions.size()) {
+        return {};
+    }
+
+    return m_subscriptions.at(subscriptionIndex).sourceUrl;
+}
+
 int ServerListModel::serverCountAtRow(int row) const
 {
     if (row < 0 || row >= m_rows.size()) {
@@ -1042,7 +1056,8 @@ void AppController::addSubscription(const QString &name, const QString &url)
             "local-" + QString::number(QDateTime::currentMSecsSinceEpoch()),
             m_subscriptionName,
             m_subscriptionMeta,
-            buildServersForUrl(normalizedUrl));
+            buildServersForUrl(normalizedUrl),
+            normalizedUrl);
         auto subscriptions = m_serverModel.subscriptions();
         subscriptions.erase(
             std::remove_if(
@@ -1068,7 +1083,11 @@ void AppController::addSubscription(const QString &name, const QString &url)
 void AppController::refreshSubscription(int row)
 {
     const auto subscriptionId = m_serverModel.subscriptionIdAtRow(row);
+    const auto subscriptionName = m_serverModel.subscriptionNameAtRow(row);
+    const auto sourceUrl = m_serverModel.subscriptionUrlAtRow(row).trimmed();
     if (subscriptionId.isEmpty()) {
+        m_statusText = "Подписка не найдена";
+        emit statusChanged();
         return;
     }
 
@@ -1076,24 +1095,55 @@ void AppController::refreshSubscription(int row)
     command["type"] = "refresh-subscription";
     command["subscription_id"] = subscriptionId;
     const auto response = requestService(command, IpcRequestTimeoutMs);
-    if (response.isEmpty()) {
-        m_statusText = "Сервис недоступен для обновления";
-        emit statusChanged();
-        return;
+
+    if (!response.isEmpty()) {
+        const auto document = QJsonDocument::fromJson(response.toUtf8());
+        const auto root = document.object();
+        const auto event = root.value("event").toObject();
+        if (root.value("ok").toBool(false) && event.value("type").toString() != "error") {
+            loadStateFromService();
+            m_statusText = "Подписка обновлена";
+            appendLog("Обновлена подписка: " + subscriptionName);
+            updateSelectedServerProperties();
+            emit statusChanged();
+            return;
+        }
+        appendLog("Сервис: " + event.value("message").toString("обновление недоступно"));
     }
 
-    const auto document = QJsonDocument::fromJson(response.toUtf8());
-    const auto root = document.object();
-    const auto event = root.value("event").toObject();
-    if (!root.value("ok").toBool(false) || event.value("type").toString() == "error") {
-        const auto message = event.value("message").toString("Не удалось обновить подписку");
-        m_statusText = message;
-        appendLog("Сервис: " + message);
-    } else {
-        loadStateFromService();
-        m_statusText = "Подписка обновлена";
-        appendLog("Обновлена подписка: " + m_serverModel.subscriptionNameAtRow(row));
+    if (!sourceUrl.isEmpty() && !sourceUrl.startsWith("protected://", Qt::CaseInsensitive)) {
+        auto subscriptions = m_serverModel.subscriptions();
+        auto item = std::find_if(
+            subscriptions.begin(),
+            subscriptions.end(),
+            [&subscriptionId](const SubscriptionItem &subscription) {
+                return subscription.id == subscriptionId;
+            });
+        if (item != subscriptions.end()) {
+            const auto preferredServerId = m_serverModel.selectedServer()
+                ? m_serverModel.selectedServer()->id
+                : QString();
+            *item = buildLocalSubscription(
+                subscriptionId,
+                item->name,
+                QDateTime::currentDateTime().toString("dd.MM.yyyy HH:mm")
+                    + " | Автообновление - 24ч.",
+                buildServersForUrl(sourceUrl),
+                sourceUrl);
+            m_serverModel.setSubscriptions(subscriptions, preferredServerId);
+            updateSelectedServerProperties();
+            saveState();
+            m_statusText = "Подписка обновлена локально";
+            appendLog("Обновлена подписка локально: " + subscriptionName);
+            emit subscriptionChanged();
+            emit statusChanged();
+            return;
+        }
     }
+
+    m_statusText = sourceUrl.isEmpty()
+        ? "Нет исходной ссылки для обновления"
+        : "Сервис недоступен для обновления";
     updateSelectedServerProperties();
     emit statusChanged();
 }
@@ -1103,6 +1153,8 @@ void AppController::pinSubscription(int row)
     const auto subscriptionId = m_serverModel.subscriptionIdAtRow(row);
     const auto subscriptionName = m_serverModel.subscriptionNameAtRow(row);
     if (subscriptionId.isEmpty()) {
+        m_statusText = "Подписка не найдена";
+        emit statusChanged();
         return;
     }
 
@@ -1110,24 +1162,47 @@ void AppController::pinSubscription(int row)
     command["type"] = "pin-subscription";
     command["subscription_id"] = subscriptionId;
     const auto response = requestService(command, IpcRequestTimeoutMs);
-    if (response.isEmpty()) {
-        m_statusText = "Сервис недоступен для закрепления";
+    if (!response.isEmpty()) {
+        const auto document = QJsonDocument::fromJson(response.toUtf8());
+        const auto root = document.object();
+        const auto event = root.value("event").toObject();
+        if (root.value("ok").toBool(false) && event.value("type").toString() != "error") {
+            loadStateFromService();
+            m_statusText = "Подписка закреплена";
+            appendLog("Закреплена подписка: " + subscriptionName);
+            updateSelectedServerProperties();
+            emit statusChanged();
+            return;
+        }
+        appendLog("Сервис: " + event.value("message").toString("закрепление недоступно"));
+    }
+
+    auto subscriptions = m_serverModel.subscriptions();
+    const auto selectedServerId = m_serverModel.selectedServer()
+        ? m_serverModel.selectedServer()->id
+        : QString();
+    auto item = std::find_if(
+        subscriptions.begin(),
+        subscriptions.end(),
+        [&subscriptionId](const SubscriptionItem &subscription) {
+            return subscription.id == subscriptionId;
+        });
+    if (item == subscriptions.end()) {
+        m_statusText = "Подписка не найдена";
         emit statusChanged();
         return;
     }
 
-    const auto document = QJsonDocument::fromJson(response.toUtf8());
-    const auto root = document.object();
-    const auto event = root.value("event").toObject();
-    if (!root.value("ok").toBool(false) || event.value("type").toString() == "error") {
-        const auto message = event.value("message").toString("Не удалось закрепить подписку");
-        m_statusText = message;
-        appendLog("Сервис: " + message);
-    } else {
-        loadStateFromService();
-        m_statusText = "Подписка закреплена";
-        appendLog("Закреплена подписка: " + subscriptionName);
-    }
+    auto pinned = *item;
+    pinned.meta = QDateTime::currentDateTime().toString("dd.MM.yyyy HH:mm")
+        + " | Закреплено";
+    subscriptions.erase(item);
+    subscriptions.prepend(pinned);
+    m_serverModel.setSubscriptions(subscriptions, selectedServerId);
+    saveState();
+    m_statusText = "Подписка закреплена локально";
+    appendLog("Закреплена подписка локально: " + subscriptionName);
+    emit subscriptionChanged();
     updateSelectedServerProperties();
     emit statusChanged();
 }
@@ -1136,7 +1211,10 @@ void AppController::copySubscriptionUrl(int row)
 {
     const auto subscriptionId = m_serverModel.subscriptionIdAtRow(row);
     const auto subscriptionName = m_serverModel.subscriptionNameAtRow(row);
+    const auto sourceUrl = m_serverModel.subscriptionUrlAtRow(row).trimmed();
     if (subscriptionId.isEmpty()) {
+        m_statusText = "Подписка не найдена";
+        emit statusChanged();
         return;
     }
 
@@ -1144,24 +1222,30 @@ void AppController::copySubscriptionUrl(int row)
     command["type"] = "get-subscription-url";
     command["subscription_id"] = subscriptionId;
     const auto response = requestService(command, IpcRequestTimeoutMs);
-    if (response.isEmpty()) {
-        m_statusText = "Сервис недоступен для копирования";
-        emit statusChanged();
-        return;
+    if (!response.isEmpty()) {
+        const auto document = QJsonDocument::fromJson(response.toUtf8());
+        const auto root = document.object();
+        const auto event = root.value("event").toObject();
+        const auto url = event.value("url").toString();
+        if (root.value("ok").toBool(false)
+            && event.value("type").toString() == "subscription-url"
+            && !url.isEmpty()) {
+            QGuiApplication::clipboard()->setText(url);
+            m_statusText = "URL скопирован";
+            appendLog("Скопирован URL подписки: " + subscriptionName);
+            emit statusChanged();
+            return;
+        }
+        appendLog("Сервис: " + event.value("message").toString("копирование ссылки недоступно"));
     }
 
-    const auto document = QJsonDocument::fromJson(response.toUtf8());
-    const auto root = document.object();
-    const auto event = root.value("event").toObject();
-    const auto url = event.value("url").toString();
-    if (!root.value("ok").toBool(false) || event.value("type").toString() != "subscription-url" || url.isEmpty()) {
-        const auto message = event.value("message").toString("Не удалось скопировать ссылку");
-        m_statusText = message;
-        appendLog("Сервис: " + message);
-    } else {
-        QGuiApplication::clipboard()->setText(url);
+    if (!sourceUrl.isEmpty() && !sourceUrl.startsWith("protected://", Qt::CaseInsensitive)) {
+        QGuiApplication::clipboard()->setText(sourceUrl);
         m_statusText = "URL скопирован";
-        appendLog("Скопирован URL подписки: " + subscriptionName);
+        appendLog("Скопирован URL подписки локально: " + subscriptionName);
+    } else {
+        m_statusText = "Исходный URL не сохранён";
+        appendLog("URL подписки недоступен: " + subscriptionName);
     }
     emit statusChanged();
 }
@@ -1171,6 +1255,8 @@ void AppController::renameSubscription(int row, const QString &name)
     const auto subscriptionId = m_serverModel.subscriptionIdAtRow(row);
     const auto normalizedName = name.trimmed();
     if (subscriptionId.isEmpty() || normalizedName.isEmpty()) {
+        m_statusText = normalizedName.isEmpty() ? "Введите имя подписки" : "Подписка не найдена";
+        emit statusChanged();
         return;
     }
 
@@ -1179,24 +1265,45 @@ void AppController::renameSubscription(int row, const QString &name)
     command["subscription_id"] = subscriptionId;
     command["name"] = normalizedName;
     const auto response = requestService(command, IpcRequestTimeoutMs);
-    if (response.isEmpty()) {
-        m_statusText = "Сервис недоступен для переименования";
+    if (!response.isEmpty()) {
+        const auto document = QJsonDocument::fromJson(response.toUtf8());
+        const auto root = document.object();
+        const auto event = root.value("event").toObject();
+        if (root.value("ok").toBool(false) && event.value("type").toString() != "error") {
+            loadStateFromService();
+            m_statusText = "Подписка переименована";
+            appendLog("Подписка переименована: " + normalizedName);
+            updateSelectedServerProperties();
+            emit statusChanged();
+            return;
+        }
+        appendLog("Сервис: " + event.value("message").toString("переименование недоступно"));
+    }
+
+    auto subscriptions = m_serverModel.subscriptions();
+    auto item = std::find_if(
+        subscriptions.begin(),
+        subscriptions.end(),
+        [&subscriptionId](const SubscriptionItem &subscription) {
+            return subscription.id == subscriptionId;
+        });
+    if (item == subscriptions.end()) {
+        m_statusText = "Подписка не найдена";
         emit statusChanged();
         return;
     }
 
-    const auto document = QJsonDocument::fromJson(response.toUtf8());
-    const auto root = document.object();
-    const auto event = root.value("event").toObject();
-    if (!root.value("ok").toBool(false) || event.value("type").toString() == "error") {
-        const auto message = event.value("message").toString("Не удалось переименовать подписку");
-        m_statusText = message;
-        appendLog("Сервис: " + message);
-    } else {
-        loadStateFromService();
-        m_statusText = "Подписка переименована";
-        appendLog("Подписка переименована: " + normalizedName);
-    }
+    item->name = normalizedName;
+    item->meta = QDateTime::currentDateTime().toString("dd.MM.yyyy HH:mm")
+        + " | Изменено";
+    const auto selectedServerId = m_serverModel.selectedServer()
+        ? m_serverModel.selectedServer()->id
+        : QString();
+    m_serverModel.setSubscriptions(subscriptions, selectedServerId);
+    saveState();
+    m_statusText = "Подписка переименована локально";
+    appendLog("Подписка переименована локально: " + normalizedName);
+    emit subscriptionChanged();
     updateSelectedServerProperties();
     emit statusChanged();
 }
@@ -1206,6 +1313,8 @@ void AppController::deleteSubscription(int row)
     const auto subscriptionId = m_serverModel.subscriptionIdAtRow(row);
     const auto subscriptionName = m_serverModel.subscriptionNameAtRow(row);
     if (subscriptionId.isEmpty()) {
+        m_statusText = "Подписка не найдена";
+        emit statusChanged();
         return;
     }
 
@@ -1213,26 +1322,47 @@ void AppController::deleteSubscription(int row)
     command["type"] = "delete-subscription";
     command["subscription_id"] = subscriptionId;
     const auto response = requestService(command, IpcRequestTimeoutMs);
-    if (response.isEmpty()) {
-        m_statusText = "Сервис недоступен для удаления";
+    if (!response.isEmpty()) {
+        const auto document = QJsonDocument::fromJson(response.toUtf8());
+        const auto root = document.object();
+        const auto event = root.value("event").toObject();
+        if (root.value("ok").toBool(false) && event.value("type").toString() != "error") {
+            loadStateFromService();
+            updateSelectedServerProperties();
+            saveState();
+            m_statusText = "Подписка удалена";
+            appendLog("Удалена подписка: " + subscriptionName);
+            emit statusChanged();
+            return;
+        }
+        appendLog("Сервис: " + event.value("message").toString("удаление недоступно"));
+    }
+
+    auto subscriptions = m_serverModel.subscriptions();
+    const auto before = subscriptions.size();
+    subscriptions.erase(
+        std::remove_if(
+            subscriptions.begin(),
+            subscriptions.end(),
+            [&subscriptionId](const SubscriptionItem &subscription) {
+                return subscription.id == subscriptionId;
+            }),
+        subscriptions.end());
+    if (subscriptions.size() == before) {
+        m_statusText = "Подписка не найдена";
         emit statusChanged();
         return;
     }
 
-    const auto document = QJsonDocument::fromJson(response.toUtf8());
-    const auto root = document.object();
-    const auto event = root.value("event").toObject();
-    if (!root.value("ok").toBool(false) || event.value("type").toString() == "error") {
-        const auto message = event.value("message").toString("Не удалось удалить подписку");
-        m_statusText = message;
-        appendLog("Сервис: " + message);
-    } else {
-        loadStateFromService();
-        updateSelectedServerProperties();
-        saveState();
-        m_statusText = "Подписка удалена";
-        appendLog("Удалена подписка: " + subscriptionName);
-    }
+    const auto preferredServerId = subscriptions.isEmpty() || subscriptions.first().servers.isEmpty()
+        ? QString()
+        : subscriptions.first().servers.first().id;
+    m_serverModel.setSubscriptions(subscriptions, preferredServerId);
+    updateSelectedServerProperties();
+    saveState();
+    m_statusText = "Подписка удалена локально";
+    appendLog("Удалена подписка локально: " + subscriptionName);
+    emit subscriptionChanged();
     emit statusChanged();
 }
 
@@ -1986,6 +2116,7 @@ void AppController::loadState()
     }
 
     QVector<SubscriptionItem> subscriptions;
+    const auto hasStoredSubscriptions = object.contains("subscriptions");
     const auto subscriptionValues = object.value("subscriptions").toArray();
     for (const auto subscriptionValue : subscriptionValues) {
         const auto subscriptionObject = subscriptionValue.toObject();
@@ -2009,10 +2140,11 @@ void AppController::loadState()
             subscriptionObject.value("meta").toString("Локальный профиль"),
             subscriptionObject.value("expanded").toBool(true),
             servers,
+            subscriptionObject.value("sourceUrl").toString(),
         });
     }
 
-    if (subscriptions.isEmpty()) {
+    if (subscriptions.isEmpty() && !hasStoredSubscriptions) {
         m_subscriptionName = object.value("name").toString("Samhain Security");
         m_subscriptionMeta = object.value("meta").toString("27.04.2026 23:22 | Автообновление - 24ч.");
         QVector<ServerItem> servers;
@@ -2038,7 +2170,7 @@ void AppController::loadState()
         }
     }
 
-    if (subscriptions.isEmpty()) {
+    if (subscriptions.isEmpty() && !hasStoredSubscriptions) {
         loadSampleSubscription();
     } else {
         m_serverModel.setSubscriptions(subscriptions, object.value("selectedServerId").toString());
@@ -2112,6 +2244,7 @@ bool AppController::applyServiceState(const QJsonObject &state)
             subscription.value("updated_at").toString("Сервис готов"),
             true,
             servers,
+            subscription.value("url").toString(),
         });
     }
 
@@ -2169,6 +2302,7 @@ void AppController::saveState() const
         subscriptionObject["name"] = subscription.name;
         subscriptionObject["meta"] = subscription.meta;
         subscriptionObject["expanded"] = subscription.expanded;
+        subscriptionObject["sourceUrl"] = subscription.sourceUrl;
         subscriptionObject["servers"] = servers;
         subscriptions.push_back(subscriptionObject);
     }
@@ -2884,13 +3018,15 @@ SubscriptionItem AppController::buildLocalSubscription(
     const QString &id,
     const QString &name,
     const QString &meta,
-    QVector<ServerItem> servers) const
+    QVector<ServerItem> servers,
+    const QString &sourceUrl) const
 {
     SubscriptionItem subscription;
     subscription.id = id;
     subscription.name = name.trimmed().isEmpty() ? "Samhain Security" : name.trimmed();
     subscription.meta = meta.trimmed().isEmpty() ? "Локальный профиль" : meta.trimmed();
     subscription.expanded = true;
+    subscription.sourceUrl = sourceUrl.trimmed();
     for (int index = 0; index < servers.size(); ++index) {
         auto &server = servers[index];
         server.subscriptionId = subscription.id;
