@@ -1,8 +1,8 @@
 # Local Operations
 
-Version: `1.1.9`
+Version: `1.2.0`
 
-The Windows package includes `tools\local-ops.ps1` for current-user install, repair, uninstall, and status checks before the signed privileged installer is ready.
+The Windows package includes `tools\local-ops.ps1` for current-user install, repair, uninstall, status checks, and the first installer-owned machine service path.
 
 ## Commands
 
@@ -29,7 +29,7 @@ Use `-RemoveData` with uninstall only when local app data should be removed too:
 
 ## Machine Scope Dry Run
 
-The same script now exposes the future installer-managed service surface through `-Scope Machine`. This mode is intentionally dry-run for write operations until the signed installer owns elevation, service identity, rollback, and code-signing policy.
+Use `-Scope Machine` for the machine service path. `Status` is read-only and works from a normal shell. `Install`, `Repair`, and `Uninstall` can be inspected with `-DryRun` from any shell, and real write operations require an elevated PowerShell session.
 
 ```powershell
 .\tools\local-ops.ps1 -Action Status -Scope Machine
@@ -38,20 +38,30 @@ The same script now exposes the future installer-managed service surface through
 .\tools\local-ops.ps1 -Action Uninstall -Scope Machine -DryRun
 ```
 
+Run real machine operations from an elevated PowerShell session:
+
+```powershell
+.\tools\local-ops.ps1 -Action Install -Scope Machine
+.\tools\local-ops.ps1 -Action Repair -Scope Machine
+.\tools\local-ops.ps1 -Action Uninstall -Scope Machine
+```
+
 Machine-scope dry runs report:
 
 - target install root under `%ProgramFiles%\SamhainSecurity`;
+- machine data root under `%ProgramData%\SamhainSecurity`;
 - Windows service name `SamhainSecurityService`;
 - planned service command, start mode, recovery policy, and status verification;
 - whether the current PowerShell process is elevated;
 - whether existing service registration is present.
 
-Running `Install`, `Repair`, or `Uninstall` with `-Scope Machine` and without `-DryRun` fails fast by design in this build.
+Running `Install`, `Repair`, or `Uninstall` with `-Scope Machine` from a non-elevated shell fails before files, services, firewall, routing, or data roots are modified.
 
 ## Storage
 
 - Install root: `%LOCALAPPDATA%\SamhainSecurity`
-- Service data: `%APPDATA%\SamhainSecurity`
+- Current-user service data: `%APPDATA%\SamhainSecurity`
+- Machine service data: `%ProgramData%\SamhainSecurity`
 - Operation state: `%LOCALAPPDATA%\SamhainSecurity\install-state.json`
 - Migration backups: `%APPDATA%\SamhainSecurity\migration`
 

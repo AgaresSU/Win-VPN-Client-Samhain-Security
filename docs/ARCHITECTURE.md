@@ -1,6 +1,6 @@
 # Architecture
 
-Version: `1.1.9`
+Version: `1.2.0`
 
 ## Components
 
@@ -18,7 +18,7 @@ crates/service
   Rust service skeleton, named-pipe IPC endpoint, future privileged operations owner
 
 scripts/local-ops.ps1
-  Current-user package operations plus machine-scope dry-run planning for the future privileged service path
+  Current-user package operations plus installer-owned machine service install, repair, status, and uninstall operations
 
 scripts/validate-package.ps1 and scripts/smoke-package.ps1
   Beta package validation, checksum verification, dry-run operation checks, service status, and packaged desktop launch smoke
@@ -53,4 +53,4 @@ Ctrl+V / Add subscription
   -> show speed, traffic, session time
 ```
 
-The `1.1.9` build implements the shell, state model, versioned IPC envelopes, a Windows named-pipe service endpoint, real subscription ingestion, DPAPI-protected service storage, compact service-backed subscription groups, DNS-aware service-owned latency probes without synthetic fallback, Engine Manager V1, the first proxy path, the whole-computer TUN path foundation, the WireGuard/AmneziaWG adapter path, the app-routing policy foundation, a polished structured application routing editor, service readiness evidence for enforcement gates, the first protection layer, desktop integration, service-owned session traffic state, categorized log snapshots, redacted support export, responsive dark red graphite UI polish, calmer main-screen layout, dark-green connected-state indicators, real Proxy/TUN route buttons, an overlay subscription action menu with pinning, scoped latency checks, URL copy, and SVG-backed action glyphs, custom-drawn action controls without native light hover states, simplified settings, grouped advanced operations, dark title-bar styling, oval rendered country badges, custom navigation buttons with a gear-shaped settings icon, current-user package operations, machine-scope privileged service dry-run planning, repeatable package validation, stable update-manifest verification, release evidence output, signing readiness checks, and clean-machine evidence generation. Firewall enforcement remains gated for privileged service runs until the installer/service identity and WFP layer are complete.
+The `1.2.0` build implements the shell, state model, versioned IPC envelopes, a Windows named-pipe service endpoint, real subscription ingestion, DPAPI-protected service storage, compact service-backed subscription groups, DNS-aware service-owned latency probes without synthetic fallback, Engine Manager V1, the first proxy path, the whole-computer TUN path foundation, the WireGuard/AmneziaWG adapter path, the app-routing policy foundation, a polished structured application routing editor, service readiness evidence for enforcement gates, the first protection layer, desktop integration, service-owned session traffic state, categorized log snapshots, redacted support export, responsive dark red graphite UI polish, calmer main-screen layout, dark-green connected-state indicators, real Proxy/TUN route buttons, an overlay subscription action menu with pinning, scoped latency checks, URL copy, and SVG-backed action glyphs, custom-drawn action controls without native light hover states, simplified settings, grouped advanced operations, dark title-bar styling, oval rendered country badges, custom navigation buttons with a gear-shaped settings icon, current-user package operations, installer-owned machine service operations, repeatable package validation, stable update-manifest verification, release evidence output, signing readiness checks, and clean-machine evidence generation. Firewall enforcement remains gated for privileged service runs until the signed service identity and WFP layer are complete.

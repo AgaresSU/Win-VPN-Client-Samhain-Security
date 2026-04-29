@@ -70,13 +70,52 @@ function Invoke-ScriptStep {
         return
     }
 
-    $output = & $ScriptPath @Parameters *>&1
-    $exitCode = $LASTEXITCODE
+    try {
+        $output = & $ScriptPath @Parameters *>&1
+        $exitCode = $LASTEXITCODE
+    }
+    catch {
+        $output = $_ | Out-String
+        $exitCode = 1
+    }
     $detail = ($output | Out-String).Trim()
     if ($detail.Length -gt 500) {
         $detail = $detail.Substring(0, 500)
     }
     Add-Step $Name ($exitCode -eq 0) "exit=$exitCode $detail"
+}
+
+function Invoke-ExpectedFailureStep {
+    param(
+        [string]$Name,
+        [string]$ScriptPath,
+        [hashtable]$Parameters
+    )
+
+    if (-not (Test-Path $ScriptPath)) {
+        Add-Step $Name $false "missing=$ScriptPath"
+        return
+    }
+
+    try {
+        $output = & $ScriptPath @Parameters *>&1
+        $exitCode = $LASTEXITCODE
+    }
+    catch {
+        $output = $_ | Out-String
+        $exitCode = 1
+    }
+    $detail = ($output | Out-String).Trim()
+    if ($detail.Length -gt 500) {
+        $detail = $detail.Substring(0, 500)
+    }
+    Add-Step $Name ($exitCode -ne 0) "expected-failure exit=$exitCode $detail"
+}
+
+function Test-IsAdministrator {
+    $identity = [Security.Principal.WindowsIdentity]::GetCurrent()
+    $principal = [Security.Principal.WindowsPrincipal]::new($identity)
+    return $principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
 }
 
 $toolsRoot = Join-Path $PackageRoot "tools"
@@ -147,6 +186,15 @@ Invoke-ScriptStep -Name "local-ops:machine-uninstall-dry-run" -ScriptPath $local
     Action = "Uninstall"
     Scope = "Machine"
     DryRun = $true
+}
+if (-not (Test-IsAdministrator)) {
+    Invoke-ExpectedFailureStep -Name "local-ops:machine-install-nonadmin-guard" -ScriptPath $localOpsScript -Parameters @{
+        Action = "Install"
+        Scope = "Machine"
+    }
+}
+else {
+    Add-Step "local-ops:machine-install-nonadmin-guard" $true "skipped: elevated shell"
 }
 
 if (-not (Test-Path $serviceExe)) {

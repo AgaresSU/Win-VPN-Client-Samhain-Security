@@ -1,6 +1,6 @@
 # Roadmap
 
-Current version: `1.1.9`
+Current version: `1.2.0`
 
 This roadmap is the working contract for Samhain Security. Future implementation should follow this order unless a blocker is found and documented in the same commit.
 
@@ -489,10 +489,11 @@ Status: shipped in `v1.1.9` with machine-scope service dry-run planning and pack
 - Keep current-user install as a fallback developer path, but make the production path machine-scoped.
 - Add rollback if service registration, file copy, or first status check fails.
 - Add tests and package gates for dry run, real status, uninstall dry run, and repair dry run.
+- Block machine-scope writes in non-elevated shells before any filesystem, registry, service, firewall, or routing changes are attempted.
 
 Done when an elevated operator can install, repair, inspect, and uninstall the service without manual SCM commands.
 
-Status: planned.
+Status: shipped in `v1.2.0` with installer-owned machine-scope service operations, admin gating, recovery policy wiring, rollback for first install, and package evidence.
 
 ### 1.2.1 - Service Identity And Recovery
 
@@ -660,18 +661,17 @@ Status: planned.
 
 ## Immediate Next Build Order
 
-1. `1.2.0`: turn machine-scope dry-run into installer-owned service install, repair, status, and uninstall.
-2. `1.2.1`: service identity, recovery, and self-check evidence.
-3. `1.2.2`: privileged enforcement transaction planner.
-4. `1.2.3`: production engine bundle contract.
-5. `1.2.4`: runtime health and counters.
-6. `1.2.5`: subscription operations hardening.
-7. `1.3.0`: daily UX freeze.
-8. `1.3.1`: connection reliability pass.
-9. `1.3.2`: app-routing design gate.
-10. `1.3.3`: app-routing enforcement V1.
-11. `1.3.4`: diagnostics and support final.
-12. `1.3.5`: tray, startup, and link ownership.
-13. `1.3.6`: update and rollback hardening.
-14. `1.3.7`: security review and abuse resistance.
-15. `1.4.0`: release-ready competitive build.
+1. `1.2.1`: service identity, recovery, and self-check evidence.
+2. `1.2.2`: privileged enforcement transaction planner.
+3. `1.2.3`: production engine bundle contract.
+4. `1.2.4`: runtime health and counters.
+5. `1.2.5`: subscription operations hardening.
+6. `1.3.0`: daily UX freeze.
+7. `1.3.1`: connection reliability pass.
+8. `1.3.2`: app-routing design gate.
+9. `1.3.3`: app-routing enforcement V1.
+10. `1.3.4`: diagnostics and support final.
+11. `1.3.5`: tray, startup, and link ownership.
+12. `1.3.6`: update and rollback hardening.
+13. `1.3.7`: security review and abuse resistance.
+14. `1.4.0`: release-ready competitive build.

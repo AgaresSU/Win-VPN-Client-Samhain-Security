@@ -1,5 +1,5 @@
 param(
-    [string]$Version = "1.1.9",
+    [string]$Version = "1.2.0",
     [string]$Configuration = "Release"
 )
 
@@ -87,12 +87,12 @@ $manifest = [PSCustomObject]@{
         actions = @("Install", "Repair", "Uninstall", "Status")
         privilegedService = [PSCustomObject]@{
             scope = "Machine"
-            status = "dry-run-planned"
+            status = "installer-owned"
             script = "tools\local-ops.ps1"
             serviceName = "SamhainSecurityService"
             serviceDisplayName = "Samhain Security Service"
             actions = @("Install", "Repair", "Uninstall", "Status")
-            dryRunRequired = $true
+            dryRunRequired = $false
             requiresElevation = $true
         }
     }
@@ -174,9 +174,10 @@ $updateManifest = [PSCustomObject]@{
         script = "tools\local-ops.ps1"
         privilegedService = [PSCustomObject]@{
             scope = "Machine"
-            status = "dry-run-planned"
+            status = "installer-owned"
             serviceName = "SamhainSecurityService"
-            dryRunRequired = $true
+            dryRunRequired = $false
+            requiresElevation = $true
         }
     }
     verification = [PSCustomObject]@{

@@ -98,9 +98,10 @@ if (Test-Path $manifestPath) {
         Add-Check "manifest:version" ($manifest.version -eq $packageVersion) "manifest=$($manifest.version) file=$packageVersion"
         Add-Check "manifest:operations" ($manifest.operations.script -eq "tools\local-ops.ps1") ([string]$manifest.operations.script)
         Add-Check "manifest:operations-scope" ($manifest.operations.scope -eq "CurrentUser") ([string]$manifest.operations.scope)
-        Add-Check "manifest:privileged-service" ($manifest.operations.privilegedService.status -eq "dry-run-planned") ([string]$manifest.operations.privilegedService.status)
+        Add-Check "manifest:privileged-service" ($manifest.operations.privilegedService.status -eq "installer-owned") ([string]$manifest.operations.privilegedService.status)
         Add-Check "manifest:privileged-service-name" ($manifest.operations.privilegedService.serviceName -eq "SamhainSecurityService") ([string]$manifest.operations.privilegedService.serviceName)
-        Add-Check "manifest:privileged-service-dry-run" ([bool]$manifest.operations.privilegedService.dryRunRequired) ([string]$manifest.operations.privilegedService.dryRunRequired)
+        Add-Check "manifest:privileged-service-elevation" ([bool]$manifest.operations.privilegedService.requiresElevation) ([string]$manifest.operations.privilegedService.requiresElevation)
+        Add-Check "manifest:privileged-service-dry-run" (-not [bool]$manifest.operations.privilegedService.dryRunRequired) ([string]$manifest.operations.privilegedService.dryRunRequired)
         Add-Check "manifest:smoke" ($manifest.quality.smokeScript -eq "tools\smoke-package.ps1") ([string]$manifest.quality.smokeScript)
         Add-Check "manifest:update-verifier" ($manifest.quality.updateManifestVerifier -eq "tools\verify-update-manifest.ps1") ([string]$manifest.quality.updateManifestVerifier)
         Add-Check "manifest:release-evidence" ($manifest.quality.releaseEvidenceScript -eq "tools\write-release-evidence.ps1") ([string]$manifest.quality.releaseEvidenceScript)
