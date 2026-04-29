@@ -1,8 +1,8 @@
 # Local Operations
 
-Version: `1.3.5`
+Version: `1.3.6`
 
-The Windows package includes `tools\local-ops.ps1` for current-user install, repair, uninstall, status checks, and the first installer-owned machine service path.
+The Windows package includes `tools\local-ops.ps1` for current-user install, repair, rollback, uninstall, status checks, and the first installer-owned machine service path.
 
 ## Commands
 
@@ -11,6 +11,7 @@ Run these commands from the extracted package root:
 ```powershell
 .\tools\local-ops.ps1 -Action Install
 .\tools\local-ops.ps1 -Action Repair
+.\tools\local-ops.ps1 -Action Rollback
 .\tools\local-ops.ps1 -Action Status
 .\tools\local-ops.ps1 -Action Uninstall
 ```
@@ -19,6 +20,7 @@ Use `-DryRun` to inspect actions without writing registry keys, tasks, files, or
 
 ```powershell
 .\tools\local-ops.ps1 -Action Install -DryRun
+.\tools\local-ops.ps1 -Action Rollback -DryRun
 ```
 
 Use `-RemoveData` with uninstall only when local app data should be removed too:
@@ -29,12 +31,13 @@ Use `-RemoveData` with uninstall only when local app data should be removed too:
 
 ## Machine Scope Dry Run
 
-Use `-Scope Machine` for the machine service path. `Status` is read-only and works from a normal shell. `Install`, `Repair`, and `Uninstall` can be inspected with `-DryRun` from any shell, and real write operations require an elevated PowerShell session.
+Use `-Scope Machine` for the machine service path. `Status` is read-only and works from a normal shell. `Install`, `Repair`, `Rollback`, and `Uninstall` can be inspected with `-DryRun` from any shell, and real write operations require an elevated PowerShell session.
 
 ```powershell
 .\tools\local-ops.ps1 -Action Status -Scope Machine
 .\tools\local-ops.ps1 -Action Install -Scope Machine -DryRun
 .\tools\local-ops.ps1 -Action Repair -Scope Machine -DryRun
+.\tools\local-ops.ps1 -Action Rollback -Scope Machine -DryRun
 .\tools\local-ops.ps1 -Action Uninstall -Scope Machine -DryRun
 ```
 
@@ -63,9 +66,17 @@ Running `Install`, `Repair`, or `Uninstall` with `-Scope Machine` from a non-ele
 - Current-user service data: `%APPDATA%\SamhainSecurity`
 - Machine service data: `%ProgramData%\SamhainSecurity`
 - Operation state: `%LOCALAPPDATA%\SamhainSecurity\install-state.json`
+- Rollback state: `%APPDATA%\SamhainSecurity\rollback\rollback-state.json`
+- Previous package slot: `%APPDATA%\SamhainSecurity\rollback\previous-package`
 - Migration backups: `%APPDATA%\SamhainSecurity\migration`
 
-The local operations script only writes under `%LOCALAPPDATA%` and `%APPDATA%`. Cleanup refuses paths outside those roots.
+The local operations script only writes under `%LOCALAPPDATA%` and `%APPDATA%`. Cleanup and rollback refuse paths outside those roots.
+
+## Rollback
+
+Current-user `Install` and `Repair` preserve the previous package before replacing files. `Rollback` stops package-owned processes, restores the preserved package slot, reapplies startup and link ownership, rewrites desktop integration evidence, registers the user service task, and starts the local service again.
+
+The rollback slot is not a backup system for user data. Subscription state and diagnostics stay in `%APPDATA%\SamhainSecurity`; package rollback only restores executable, tools, docs, assets, manifests, and install evidence from the previous installed package.
 
 ## Integrations
 

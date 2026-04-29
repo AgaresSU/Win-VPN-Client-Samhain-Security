@@ -126,6 +126,9 @@ if (Test-Path $updateManifestPath) {
     $updateManifest = Get-Content -LiteralPath $updateManifestPath -Raw | ConvertFrom-Json
     Add-Gate "release:stable-channel" ($updateManifest.channel -eq "stable") ([string]$updateManifest.channel)
     Add-Gate "release:expected-version" ($updateManifest.version -eq $ExpectedVersion) "expected=$ExpectedVersion actual=$($updateManifest.version)"
+    Add-Gate "release:update-policy-hash" ($updateManifest.updatePolicy.trustedHashAlgorithm -eq "SHA256") ([string]$updateManifest.updatePolicy.trustedHashAlgorithm)
+    Add-Gate "release:update-policy-downgrade" ([bool]$updateManifest.updatePolicy.downgradeProtection) ([string]$updateManifest.updatePolicy.downgradeProtection)
+    Add-Gate "release:update-policy-rollback" ([bool]$updateManifest.updatePolicy.rollback.preservePreviousPackage) ([string]$updateManifest.updatePolicy.rollback.preservePreviousPackage)
 }
 
 Invoke-GateScript -Name "validate-package" -ScriptPath $validateScript -Parameters @{
@@ -205,6 +208,7 @@ $evidence = [PSCustomObject]@{
         status = $signingStatus
         productionSigned = ($signingStatus -eq "signed-production")
     }
+    updatePolicy = if ($updateManifest) { $updateManifest.updatePolicy } else { $null }
     gates = $gates
     warnings = $warnings
 }

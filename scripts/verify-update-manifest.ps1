@@ -2,7 +2,9 @@ param(
     [string]$ManifestPath = "",
     [string]$ArchivePath = "",
     [string]$ExpectedVersion = "",
+    [string]$InstalledVersion = "",
     [switch]$RequireStableChannel,
+    [switch]$AllowDowngradeRecovery,
     [switch]$SkipExtractedPackageValidation,
     [switch]$Json
 )
@@ -39,6 +41,22 @@ function Assert-UnderTemp {
     $tempRoot = [System.IO.Path]::GetFullPath([System.IO.Path]::GetTempPath())
     if (-not $fullPath.StartsWith($tempRoot, [System.StringComparison]::OrdinalIgnoreCase)) {
         throw "Refusing to remove path outside temp: $fullPath"
+    }
+}
+
+function Compare-VersionString {
+    param(
+        [string]$Left,
+        [string]$Right
+    )
+
+    try {
+        $leftVersion = [version]$Left
+        $rightVersion = [version]$Right
+        return $leftVersion.CompareTo($rightVersion)
+    }
+    catch {
+        return [string]::Compare($Left, $Right, $true, [Globalization.CultureInfo]::InvariantCulture)
     }
 }
 
@@ -87,6 +105,23 @@ Add-Check "manifest:runtime-source" ($manifest.install.runtimeContract.availabil
 Add-Check "manifest:engine-inventory" ($manifest.verification.engineInventory -eq "engine-inventory.json") ([string]$manifest.verification.engineInventory)
 Add-Check "manifest:runtime-health" ($manifest.verification.runtimeHealthEvidence -eq "service.runtime_health") ([string]$manifest.verification.runtimeHealthEvidence)
 Add-Check "manifest:subscription-operations" ($manifest.verification.subscriptionOperationsEvidence -eq "service.subscription_operations") ([string]$manifest.verification.subscriptionOperationsEvidence)
+
+$policy = $manifest.updatePolicy
+Add-Check "manifest:update-policy" ($null -ne $policy) "present=$($null -ne $policy)"
+Add-Check "manifest:update-policy-hash" ($policy.trustedHashAlgorithm -eq "SHA256") ([string]$policy.trustedHashAlgorithm)
+Add-Check "manifest:update-policy-downgrade" ([bool]$policy.downgradeProtection) ([string]$policy.downgradeProtection)
+Add-Check "manifest:update-policy-minimum-version" (-not [string]::IsNullOrWhiteSpace([string]$policy.minimumSupportedVersion)) ([string]$policy.minimumSupportedVersion)
+Add-Check "manifest:update-policy-explicit-recovery" ([bool]$policy.explicitRecoveryRequired) ([string]$policy.explicitRecoveryRequired)
+Add-Check "manifest:update-policy-rollback-preserve" ([bool]$policy.rollback.preservePreviousPackage) ([string]$policy.rollback.preservePreviousPackage)
+Add-Check "manifest:update-policy-rollback-state" ($policy.rollback.stateFile -eq "rollback-state.json") ([string]$policy.rollback.stateFile)
+Add-Check "manifest:update-policy-rollback-owner" ($policy.rollback.owner -eq "local-ops") ([string]$policy.rollback.owner)
+
+if (-not [string]::IsNullOrWhiteSpace($InstalledVersion)) {
+    $comparison = Compare-VersionString -Left ([string]$manifest.version) -Right $InstalledVersion
+    $isDowngrade = $comparison -lt 0
+    $downgradeAllowed = (-not $isDowngrade) -or [bool]$AllowDowngradeRecovery
+    Add-Check "manifest:update-policy-downgrade-guard" $downgradeAllowed "installed=$InstalledVersion candidate=$($manifest.version) recovery=$([bool]$AllowDowngradeRecovery)"
+}
 
 if (-not [string]::IsNullOrWhiteSpace($ExpectedVersion)) {
     Add-Check "manifest:expected-version" ($manifest.version -eq $ExpectedVersion) "expected=$ExpectedVersion actual=$($manifest.version)"

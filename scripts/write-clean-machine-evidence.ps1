@@ -202,6 +202,23 @@ if ((Test-Path $updateManifestPath) -and (Test-Path $archivePath)) {
         RequireStableChannel = $true
         Json = $true
     }
+    Invoke-ExpectedFailureStep -Name "update-manifest:downgrade-guard" -ScriptPath $verifyScript -Parameters @{
+        ManifestPath = $updateManifestPath
+        ArchivePath = $archivePath
+        ExpectedVersion = $ExpectedVersion
+        InstalledVersion = "9.9.9"
+        RequireStableChannel = $true
+        Json = $true
+    }
+    Invoke-ScriptStep -Name "update-manifest:recovery-override" -ScriptPath $verifyScript -Parameters @{
+        ManifestPath = $updateManifestPath
+        ArchivePath = $archivePath
+        ExpectedVersion = $ExpectedVersion
+        InstalledVersion = "9.9.9"
+        AllowDowngradeRecovery = $true
+        RequireStableChannel = $true
+        Json = $true
+    }
 }
 else {
     Add-Step "update-manifest" $true "skipped: sibling archive or manifest not present"
@@ -224,6 +241,10 @@ Invoke-ScriptStep -Name "local-ops:repair-dry-run" -ScriptPath $localOpsScript -
     Action = "Repair"
     DryRun = $true
 }
+Invoke-ScriptStep -Name "local-ops:rollback-dry-run" -ScriptPath $localOpsScript -Parameters @{
+    Action = "Rollback"
+    DryRun = $true
+}
 Invoke-ScriptStep -Name "local-ops:uninstall-dry-run" -ScriptPath $localOpsScript -Parameters @{
     Action = "Uninstall"
     DryRun = $true
@@ -239,6 +260,11 @@ Invoke-ScriptStep -Name "local-ops:machine-install-dry-run" -ScriptPath $localOp
 }
 Invoke-ScriptStep -Name "local-ops:machine-repair-dry-run" -ScriptPath $localOpsScript -Parameters @{
     Action = "Repair"
+    Scope = "Machine"
+    DryRun = $true
+}
+Invoke-ScriptStep -Name "local-ops:machine-rollback-dry-run" -ScriptPath $localOpsScript -Parameters @{
+    Action = "Rollback"
     Scope = "Machine"
     DryRun = $true
 }

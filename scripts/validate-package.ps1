@@ -99,10 +99,15 @@ if (Test-Path $manifestPath) {
         Add-Check "manifest:version" ($manifest.version -eq $packageVersion) "manifest=$($manifest.version) file=$packageVersion"
         Add-Check "manifest:operations" ($manifest.operations.script -eq "tools\local-ops.ps1") ([string]$manifest.operations.script)
         Add-Check "manifest:operations-scope" ($manifest.operations.scope -eq "CurrentUser") ([string]$manifest.operations.scope)
+        Add-Check "manifest:operations-rollback-action" ($manifest.operations.actions -contains "Rollback") "actions=$($manifest.operations.actions -join ',')"
+        Add-Check "manifest:rollback-owner" ($manifest.operations.rollback.owner -eq "local-ops") ([string]$manifest.operations.rollback.owner)
+        Add-Check "manifest:rollback-preserve" ([bool]$manifest.operations.rollback.preservePreviousPackage) ([string]$manifest.operations.rollback.preservePreviousPackage)
+        Add-Check "manifest:rollback-recovery-mode" ([bool]$manifest.operations.rollback.recoveryModeRequired) ([string]$manifest.operations.rollback.recoveryModeRequired)
         Add-Check "manifest:privileged-service" ($manifest.operations.privilegedService.status -eq "installer-owned") ([string]$manifest.operations.privilegedService.status)
         Add-Check "manifest:privileged-service-name" ($manifest.operations.privilegedService.serviceName -eq "SamhainSecurityService") ([string]$manifest.operations.privilegedService.serviceName)
         Add-Check "manifest:privileged-service-elevation" ([bool]$manifest.operations.privilegedService.requiresElevation) ([string]$manifest.operations.privilegedService.requiresElevation)
         Add-Check "manifest:privileged-service-dry-run" (-not [bool]$manifest.operations.privilegedService.dryRunRequired) ([string]$manifest.operations.privilegedService.dryRunRequired)
+        Add-Check "manifest:privileged-service-rollback-action" ($manifest.operations.privilegedService.actions -contains "Rollback") "actions=$($manifest.operations.privilegedService.actions -join ',')"
         Add-Check "manifest:service-self-check" ($manifest.operations.serviceSelfCheck.command -eq "service\samhain-service.exe self-check") ([string]$manifest.operations.serviceSelfCheck.command)
         Add-Check "manifest:desktop-integration-owner" ($manifest.operations.desktopIntegration.owner -eq "local-ops") ([string]$manifest.operations.desktopIntegration.owner)
         Add-Check "manifest:desktop-integration-status-file" ($manifest.operations.desktopIntegration.statusFile -eq "desktop-integration.json") ([string]$manifest.operations.desktopIntegration.statusFile)
@@ -121,6 +126,12 @@ if (Test-Path $manifestPath) {
         Add-Check "manifest:signing-readiness" ($manifest.quality.signingReadinessScript -eq "tools\test-signing-readiness.ps1") ([string]$manifest.quality.signingReadinessScript)
         Add-Check "manifest:clean-machine-evidence" ($manifest.quality.cleanMachineEvidenceScript -eq "tools\write-clean-machine-evidence.ps1") ([string]$manifest.quality.cleanMachineEvidenceScript)
         Add-Check "manifest:signing" ($manifest.signing.digestAlgorithm -eq "SHA256") ([string]$manifest.signing.digestAlgorithm)
+        Add-Check "manifest:update-policy-hash" ($manifest.updates.policy.trustedHashAlgorithm -eq "SHA256") ([string]$manifest.updates.policy.trustedHashAlgorithm)
+        Add-Check "manifest:update-policy-downgrade" ([bool]$manifest.updates.policy.downgradeProtection) ([string]$manifest.updates.policy.downgradeProtection)
+        Add-Check "manifest:update-policy-minimum-version" (-not [string]::IsNullOrWhiteSpace([string]$manifest.updates.policy.minimumSupportedVersion)) ([string]$manifest.updates.policy.minimumSupportedVersion)
+        Add-Check "manifest:update-policy-recovery" ([bool]$manifest.updates.policy.explicitRecoveryRequired) ([string]$manifest.updates.policy.explicitRecoveryRequired)
+        Add-Check "manifest:update-policy-rollback" ([bool]$manifest.updates.policy.rollback.preservePreviousPackage) ([string]$manifest.updates.policy.rollback.preservePreviousPackage)
+        Add-Check "manifest:update-policy-rollback-owner" ($manifest.updates.policy.rollback.owner -eq "local-ops") ([string]$manifest.updates.policy.rollback.owner)
     }
     catch {
         Add-Check "manifest:json" $false $_.Exception.Message

@@ -1,6 +1,6 @@
 # Clean Machine Evidence
 
-Version: `1.3.5`
+Version: `1.3.6`
 
 This checklist records repeatable evidence from a fresh Windows profile or test machine without changing the simple desktop workflow.
 
@@ -9,13 +9,13 @@ This checklist records repeatable evidence from a fresh Windows profile or test 
 Run from the extracted package root or from the repository:
 
 ```powershell
-.\tools\write-clean-machine-evidence.ps1 -ExpectedVersion 1.3.5
+.\tools\write-clean-machine-evidence.ps1 -ExpectedVersion 1.3.6
 ```
 
 For local release verification without launching the desktop:
 
 ```powershell
-.\scripts\write-clean-machine-evidence.ps1 -ExpectedVersion 1.3.5 -SkipLaunch
+.\scripts\write-clean-machine-evidence.ps1 -ExpectedVersion 1.3.6 -SkipLaunch
 ```
 
 The script records:
@@ -25,9 +25,10 @@ The script records:
 - package validation;
 - stable update-manifest verification when the sibling archive and manifest are present;
 - signing readiness inventory;
-- current-user install, repair, and uninstall dry-runs;
+- current-user install, repair, rollback, and uninstall dry-runs;
+- update downgrade guard and explicit recovery override checks;
 - desktop integration ownership for autostart, `samhain://`, tray ownership, and single-instance handoff;
-- machine-scope service status plus install, repair, and uninstall dry-runs;
+- machine-scope service status plus install, repair, rollback, and uninstall dry-runs;
 - non-elevated machine writes fail before modifying system locations;
 - service status, self-check command, recovery policy, protection transaction snapshots, and readiness gates;
 - optional desktop launch smoke.

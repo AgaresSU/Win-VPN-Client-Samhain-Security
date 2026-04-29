@@ -1,5 +1,5 @@
 param(
-    [string]$Version = "1.3.5",
+    [string]$Version = "1.3.6",
     [string]$Configuration = "Release"
 )
 
@@ -175,16 +175,24 @@ $manifest = [PSCustomObject]@{
     operations = [PSCustomObject]@{
         scope = "CurrentUser"
         script = "tools\local-ops.ps1"
-        actions = @("Install", "Repair", "Uninstall", "Status")
+        actions = @("Install", "Repair", "Rollback", "Uninstall", "Status")
         privilegedService = [PSCustomObject]@{
             scope = "Machine"
             status = "installer-owned"
             script = "tools\local-ops.ps1"
             serviceName = "SamhainSecurityService"
             serviceDisplayName = "Samhain Security Service"
-            actions = @("Install", "Repair", "Uninstall", "Status")
+            actions = @("Install", "Repair", "Rollback", "Uninstall", "Status")
             dryRunRequired = $false
             requiresElevation = $true
+        }
+        rollback = [PSCustomObject]@{
+            owner = "local-ops"
+            action = "Rollback"
+            preservePreviousPackage = $true
+            stateFile = "rollback-state.json"
+            snapshotRoot = "%APPDATA%\SamhainSecurity\rollback\previous-package"
+            recoveryModeRequired = $true
         }
         serviceSelfCheck = [PSCustomObject]@{
             command = "service\samhain-service.exe self-check"
@@ -252,6 +260,18 @@ $manifest = [PSCustomObject]@{
         manifestFile = "SamhainSecurityNative-$Version-win-x64.update-manifest.json"
         archiveFile = "SamhainSecurityNative-$Version-win-x64.zip"
         verifier = "tools\verify-update-manifest.ps1"
+        policy = [PSCustomObject]@{
+            trustedHashAlgorithm = "SHA256"
+            downgradeProtection = $true
+            minimumSupportedVersion = "1.0.0"
+            explicitRecoveryRequired = $true
+            rollback = [PSCustomObject]@{
+                preservePreviousPackage = $true
+                stateFile = "rollback-state.json"
+                slot = "%APPDATA%\SamhainSecurity\rollback\previous-package"
+                owner = "local-ops"
+            }
+        }
     }
     createdAtUtc = (Get-Date).ToUniversalTime().ToString("O")
 }
@@ -297,6 +317,18 @@ $updateManifest = [PSCustomObject]@{
         sha256 = $archiveHash
         algorithm = "SHA256"
     }
+    updatePolicy = [PSCustomObject]@{
+        trustedHashAlgorithm = "SHA256"
+        downgradeProtection = $true
+        minimumSupportedVersion = "1.0.0"
+        explicitRecoveryRequired = $true
+        rollback = [PSCustomObject]@{
+            preservePreviousPackage = $true
+            stateFile = "rollback-state.json"
+            slot = "%APPDATA%\SamhainSecurity\rollback\previous-package"
+            owner = "local-ops"
+        }
+    }
     install = [PSCustomObject]@{
         scope = "CurrentUser"
         script = "tools\local-ops.ps1"
@@ -315,6 +347,14 @@ $updateManifest = [PSCustomObject]@{
         runtimeContract = [PSCustomObject]@{
             inventory = "engine-inventory.json"
             availabilitySource = "package-inventory"
+        }
+        rollback = [PSCustomObject]@{
+            owner = "local-ops"
+            action = "Rollback"
+            preservePreviousPackage = $true
+            stateFile = "rollback-state.json"
+            snapshotRoot = "%APPDATA%\SamhainSecurity\rollback\previous-package"
+            recoveryModeRequired = $true
         }
     }
     verification = [PSCustomObject]@{

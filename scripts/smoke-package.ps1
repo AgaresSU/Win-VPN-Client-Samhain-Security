@@ -165,6 +165,21 @@ Invoke-ScriptStep -Name "update-manifest" -ScriptPath $updateVerifierScript -Par
     ExpectedVersion = $ExpectedVersion
     Json = $true
 }
+Invoke-ExpectedFailureStep -Name "update-manifest:downgrade-guard" -ScriptPath $updateVerifierScript -Parameters @{
+    ManifestPath = $updateManifestPath
+    ArchivePath = $archivePath
+    ExpectedVersion = $ExpectedVersion
+    InstalledVersion = "9.9.9"
+    Json = $true
+}
+Invoke-ScriptStep -Name "update-manifest:recovery-override" -ScriptPath $updateVerifierScript -Parameters @{
+    ManifestPath = $updateManifestPath
+    ArchivePath = $archivePath
+    ExpectedVersion = $ExpectedVersion
+    InstalledVersion = "9.9.9"
+    AllowDowngradeRecovery = $true
+    Json = $true
+}
 Invoke-ScriptStep -Name "signing-readiness" -ScriptPath $signingScript -Parameters @{
     PackageRoot = $PackageRoot
     ExpectedVersion = $ExpectedVersion
@@ -189,6 +204,10 @@ Invoke-ScriptStep -Name "local-ops:repair-dry-run" -ScriptPath $localOpsScript -
     Action = "Repair"
     DryRun = $true
 }
+Invoke-ScriptStep -Name "local-ops:rollback-dry-run" -ScriptPath $localOpsScript -Parameters @{
+    Action = "Rollback"
+    DryRun = $true
+}
 Invoke-ScriptStep -Name "local-ops:uninstall-dry-run" -ScriptPath $localOpsScript -Parameters @{
     Action = "Uninstall"
     DryRun = $true
@@ -204,6 +223,11 @@ Invoke-ScriptStep -Name "local-ops:machine-install-dry-run" -ScriptPath $localOp
 }
 Invoke-ScriptStep -Name "local-ops:machine-repair-dry-run" -ScriptPath $localOpsScript -Parameters @{
     Action = "Repair"
+    Scope = "Machine"
+    DryRun = $true
+}
+Invoke-ScriptStep -Name "local-ops:machine-rollback-dry-run" -ScriptPath $localOpsScript -Parameters @{
+    Action = "Rollback"
     Scope = "Machine"
     DryRun = $true
 }

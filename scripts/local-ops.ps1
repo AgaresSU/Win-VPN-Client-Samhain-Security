@@ -1,5 +1,5 @@
 param(
-    [ValidateSet("Install", "Repair", "Uninstall", "Status")]
+    [ValidateSet("Install", "Repair", "Uninstall", "Status", "Rollback")]
     [string]$Action = "Status",
     [ValidateSet("CurrentUser", "Machine")]
     [string]$Scope = "CurrentUser",
@@ -46,6 +46,9 @@ if ([string]::IsNullOrWhiteSpace($PackageRoot)) {
 $PackageRoot = [System.IO.Path]::GetFullPath([string]$PackageRoot)
 $InstallRoot = [System.IO.Path]::GetFullPath($InstallRoot)
 $DataRoot = [System.IO.Path]::GetFullPath($DataRoot)
+$RollbackRoot = [System.IO.Path]::GetFullPath((Join-Path $DataRoot "rollback"))
+$RollbackSnapshotRoot = Join-Path $RollbackRoot "previous-package"
+$RollbackStatePath = Join-Path $RollbackRoot "rollback-state.json"
 
 function Write-Step {
     param([string]$Message)
@@ -279,6 +282,144 @@ function Get-InstalledVersion {
     return ""
 }
 
+function Get-RollbackStatus {
+    $snapshotVersion = ""
+    $snapshotVersionPath = Join-Path $RollbackSnapshotRoot "VERSION"
+    if (Test-Path $snapshotVersionPath) {
+        $snapshotVersion = (Get-Content -LiteralPath $snapshotVersionPath -Raw).Trim()
+    }
+
+    $stateVersion = ""
+    $stateSavedAt = ""
+    if (Test-Path $RollbackStatePath) {
+        try {
+            $state = Get-Content -LiteralPath $RollbackStatePath -Raw | ConvertFrom-Json
+            $stateVersion = [string]$state.version
+            $stateSavedAt = [string]$state.savedAtUtc
+        }
+        catch {
+            $stateVersion = ""
+            $stateSavedAt = ""
+        }
+    }
+
+    $available = (Test-Path $RollbackSnapshotRoot) -and -not [string]::IsNullOrWhiteSpace($snapshotVersion)
+
+    [PSCustomObject]@{
+        owner = "local-ops"
+        status = if ($available) { "available" } else { "not-available" }
+        available = $available
+        installedVersion = Get-InstalledVersion
+        preservedVersion = if (-not [string]::IsNullOrWhiteSpace($snapshotVersion)) { $snapshotVersion } else { $stateVersion }
+        savedAtUtc = $stateSavedAt
+        snapshotRoot = $RollbackSnapshotRoot
+        statePath = $RollbackStatePath
+        recoveryModeRequired = $true
+        actions = @("Rollback")
+        evidence = @(
+            "rollback-owner=local-ops",
+            "rollback-preserve-previous-package=true",
+            "rollback-recovery-mode-required=true"
+        )
+    }
+}
+
+function Save-RollbackSnapshot {
+    $currentVersion = Get-InstalledVersion
+    if (-not (Test-Path $InstallRoot) -or [string]::IsNullOrWhiteSpace($currentVersion)) {
+        Invoke-Operation "Rollback snapshot skipped; no previous package installed" {}
+        return
+    }
+
+    Assert-UserPath $RollbackRoot
+    Assert-UserPath $RollbackSnapshotRoot
+
+    Invoke-Operation "Preserving previous package for rollback" {
+        New-Item -ItemType Directory -Force -Path $RollbackRoot | Out-Null
+        if (Test-Path $RollbackSnapshotRoot) {
+            Remove-Item -LiteralPath $RollbackSnapshotRoot -Recurse -Force
+        }
+        New-Item -ItemType Directory -Force -Path $RollbackSnapshotRoot | Out-Null
+
+        foreach ($entry in @("app", "service", "assets", "docs", "tools")) {
+            $source = Join-Path $InstallRoot $entry
+            $target = Join-Path $RollbackSnapshotRoot $entry
+            Assert-UnderPath -Path $target -Root $RollbackSnapshotRoot -Label "rollback snapshot content"
+            if (Test-Path $source) {
+                Copy-Item -LiteralPath $source -Destination $target -Recurse -Force
+            }
+        }
+
+        foreach ($file in @("README.md", "VERSION", "release-manifest.json", "checksums.txt", "desktop-integration.json", "install-state.json")) {
+            $source = Join-Path $InstallRoot $file
+            $target = Join-Path $RollbackSnapshotRoot $file
+            Assert-UnderPath -Path $target -Root $RollbackSnapshotRoot -Label "rollback snapshot file"
+            if (Test-Path $source) {
+                Copy-Item -LiteralPath $source -Destination $target -Force
+            }
+        }
+
+        [PSCustomObject]@{
+            product = $ProductName
+            version = $currentVersion
+            source = $InstallRoot
+            snapshotRoot = $RollbackSnapshotRoot
+            recoveryModeRequired = $true
+            savedAtUtc = (Get-Date).ToUniversalTime().ToString("O")
+        } | ConvertTo-Json -Depth 4 | Set-Content -LiteralPath $RollbackStatePath -Encoding UTF8
+    }
+}
+
+function Restore-RollbackPackage {
+    Assert-UserPath $InstallRoot
+    Assert-UserPath $RollbackRoot
+
+    if (-not (Test-Path $RollbackSnapshotRoot)) {
+        $message = "Rollback snapshot is not available: $RollbackSnapshotRoot"
+        if ($DryRun) {
+            Invoke-Operation $message {}
+            return
+        }
+
+        throw $message
+    }
+
+    Invoke-Operation "Restoring previous package from rollback snapshot" {
+        New-Item -ItemType Directory -Force -Path $InstallRoot | Out-Null
+
+        foreach ($entry in @("app", "service", "assets", "docs", "tools")) {
+            $source = Join-Path $RollbackSnapshotRoot $entry
+            $target = Join-Path $InstallRoot $entry
+            Assert-UnderPath -Path $target -Root $InstallRoot -Label "rollback restore content"
+            if (Test-Path $source) {
+                if (Test-Path $target) {
+                    Remove-Item -LiteralPath $target -Recurse -Force
+                }
+                Copy-Item -LiteralPath $source -Destination $target -Recurse -Force
+            }
+        }
+
+        foreach ($file in @("README.md", "VERSION", "release-manifest.json", "checksums.txt", "desktop-integration.json", "install-state.json")) {
+            $source = Join-Path $RollbackSnapshotRoot $file
+            $target = Join-Path $InstallRoot $file
+            Assert-UnderPath -Path $target -Root $InstallRoot -Label "rollback restore file"
+            if (Test-Path $source) {
+                Copy-Item -LiteralPath $source -Destination $target -Force
+            }
+        }
+
+        $state = [PSCustomObject]@{
+            product = $ProductName
+            version = Get-InstalledVersion
+            source = $RollbackSnapshotRoot
+            restoredTo = $InstallRoot
+            recoveryModeRequired = $true
+            restoredAtUtc = (Get-Date).ToUniversalTime().ToString("O")
+        }
+        $state | ConvertTo-Json -Depth 4 | Set-Content -LiteralPath $RollbackStatePath -Encoding UTF8
+    }
+}
+
 function Stop-InstalledProcesses {
     foreach ($name in @("SamhainSecurityNative", "samhain-service")) {
         Get-Process -Name $name -ErrorAction SilentlyContinue | ForEach-Object {
@@ -325,10 +466,20 @@ function Get-MachineServicePlan {
         "Repair" {
             return @(
                 "Stop service $ServiceName if it is running",
+                "Preserve current package in rollback slot",
                 "Refresh package files in $InstallRoot",
                 "Reapply service command, start mode, and recovery policy",
                 "Start service and verify named-pipe status",
                 "Write repair timestamp to install-state.json"
+            )
+        }
+        "Rollback" {
+            return @(
+                "Use installer-owned rollback slot",
+                "Stop service $ServiceName if it is running",
+                "Restore the preserved previous package",
+                "Reapply service command, start mode, and recovery policy",
+                "Start service and verify named-pipe status"
             )
         }
         "Uninstall" {
@@ -653,6 +804,7 @@ function Invoke-MachineOperation {
         "Install" { return (Invoke-MachineInstall) }
         "Repair" { return (Invoke-MachineRepair) }
         "Uninstall" { return (Invoke-MachineUninstall) }
+        "Rollback" { throw "Machine scope rollback is installer-owned and must be run by the elevated installer recovery path." }
         default { return (Get-MachineStatus) }
     }
 }
@@ -818,6 +970,7 @@ function Get-LocalStatus {
         urlScheme = $desktopIntegration.urlSchemeRegistered
         urlSchemeOwned = $desktopIntegration.urlSchemeOwned
         desktopIntegration = $desktopIntegration
+        rollback = Get-RollbackStatus
         dryRun = [bool]$DryRun
     }
 }
@@ -833,6 +986,9 @@ if ($Scope -eq "Machine") {
         "Uninstall" {
             Invoke-MachineOperation -Operation "Uninstall" | ConvertTo-Json -Depth 5
         }
+        "Rollback" {
+            Invoke-MachineOperation -Operation "Rollback" | ConvertTo-Json -Depth 5
+        }
         "Status" {
             Get-MachineStatus | ConvertTo-Json -Depth 5
         }
@@ -843,6 +999,8 @@ if ($Scope -eq "Machine") {
 
 switch ($Action) {
     "Install" {
+        Stop-InstalledProcesses
+        Save-RollbackSnapshot
         Copy-PackageContent
         Invoke-StateMigration
         Register-Autostart
@@ -850,17 +1008,28 @@ switch ($Action) {
         Write-DesktopIntegrationState
         Register-ServiceTask
         Start-LocalService
-        Get-LocalStatus | ConvertTo-Json -Depth 4
+        Get-LocalStatus | ConvertTo-Json -Depth 5
     }
     "Repair" {
         Stop-InstalledProcesses
+        Save-RollbackSnapshot
         Copy-PackageContent
         Register-Autostart
         Register-UrlScheme
         Write-DesktopIntegrationState
         Register-ServiceTask
         Start-LocalService
-        Get-LocalStatus | ConvertTo-Json -Depth 4
+        Get-LocalStatus | ConvertTo-Json -Depth 5
+    }
+    "Rollback" {
+        Stop-InstalledProcesses
+        Restore-RollbackPackage
+        Register-Autostart
+        Register-UrlScheme
+        Write-DesktopIntegrationState
+        Register-ServiceTask
+        Start-LocalService
+        Get-LocalStatus | ConvertTo-Json -Depth 5
     }
     "Uninstall" {
         Stop-InstalledProcesses
@@ -869,10 +1038,10 @@ switch ($Action) {
         if ($RemoveData) {
             Remove-DataRoot
         }
-        Get-LocalStatus | ConvertTo-Json -Depth 4
+        Get-LocalStatus | ConvertTo-Json -Depth 5
     }
     "Status" {
-        Get-LocalStatus | ConvertTo-Json -Depth 4
+        Get-LocalStatus | ConvertTo-Json -Depth 5
     }
 }
 

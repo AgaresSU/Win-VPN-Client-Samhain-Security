@@ -1,6 +1,6 @@
 # Roadmap
 
-Current version: `1.3.5`
+Current version: `1.3.6`
 
 This roadmap is the working contract for Samhain Security. Future implementation should follow this order unless a blocker is found and documented in the same commit.
 
@@ -633,7 +633,7 @@ Status: shipped in `v1.3.5` with local-ops ownership evidence for autostart and 
 
 Done when updates are auditable and a bad update can be backed out cleanly.
 
-Status: planned.
+Status: shipped in `v1.3.6` with SHA256 update policy in release and update manifests, downgrade protection with explicit recovery override, previous-package preservation before install/repair, current-user `Rollback` action, rollback status evidence, release evidence fields, clean-machine/smoke downgrade guard checks, and operator docs for rollback handling.
 
 ### 1.3.7 - Security Review And Abuse Resistance
 
@@ -661,6 +661,5 @@ Status: planned.
 
 ## Immediate Next Build Order
 
-1. `1.3.6`: update and rollback hardening.
-2. `1.3.7`: security review and abuse resistance.
-3. `1.4.0`: release-ready competitive build.
+1. `1.3.7`: security review and abuse resistance.
+2. `1.4.0`: release-ready competitive build.

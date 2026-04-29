@@ -1,6 +1,6 @@
 # Architecture
 
-Version: `1.3.5`
+Version: `1.3.6`
 
 ## Components
 

@@ -1,6 +1,6 @@
 # Samhain Security Native
 
-Version: `1.3.5`
+Version: `1.3.6`
 
 Native Windows secure tunneling client prototype built from a clean base.
 
@@ -16,7 +16,7 @@ Native Windows secure tunneling client prototype built from a clean base.
 
 This release is the native foundation. It focuses on the product shell, simple daily UX, local models, persistence, and build/package flow.
 
-Implemented through `1.3.5`:
+Implemented through `1.3.6`:
 
 - Happ-inspired Qt/QML shell with servers, add, settings, statistics, logs, and about sections.
 - Compact subscription group and server rows without technical clutter.
@@ -47,6 +47,7 @@ Implemented through `1.3.5`:
 - Desktop integration ownership: package operations now report expected and actual autostart/link-handler commands, detect drift from old installs, copy tools into the install root, and write `desktop-integration.json` during install/repair.
 - Service telemetry: per-session traffic state, categorized service/engine logs, and redacted support export for diagnostics.
 - Diagnostics final: support bundle now includes a compact health summary, recent-error report, app-routing evidence, service self-check, inventory, audit tail, and stable log categories without leaking tokens or raw configs.
+- Update and rollback hardening: stable manifests now declare trusted SHA256 policy, downgrade protection, explicit recovery override, previous-package preservation, and local rollback evidence.
 - UX polish: dark red graphite theme pass, responsive compact navigation, bundled app icon in the shell, and empty states for quiet screens.
 - Package script for a local Windows distributable.
 - Local operations script for current-user install, repair, uninstall, status, migration backup, and package integrity files.
@@ -93,7 +94,7 @@ Not implemented yet:
 The package is written to:
 
 ```text
-dist\SamhainSecurityNative-1.3.5-win-x64
+dist\SamhainSecurityNative-1.3.6-win-x64
 ```
 
 ## Local Operations
@@ -104,6 +105,7 @@ After extracting the package, use:
 .\tools\local-ops.ps1 -Action Install
 .\tools\local-ops.ps1 -Action Status
 .\tools\local-ops.ps1 -Action Repair
+.\tools\local-ops.ps1 -Action Rollback
 .\tools\local-ops.ps1 -Action Uninstall
 ```
 
@@ -112,8 +114,8 @@ See `docs\LOCAL_OPERATIONS.md` and `docs\SIGNING.md` for install scope, storage,
 ## Package Checks
 
 ```powershell
-.\scripts\validate-package.ps1 -ExpectedVersion 1.3.5 -RunServiceStatus
-.\scripts\smoke-package.ps1 -ExpectedVersion 1.3.5
+.\scripts\validate-package.ps1 -ExpectedVersion 1.3.6 -RunServiceStatus
+.\scripts\smoke-package.ps1 -ExpectedVersion 1.3.6
 ```
 
 See `docs\BETA_CHECKLIST.md` for the manual Windows and protocol matrix.
@@ -121,10 +123,11 @@ See `docs\BETA_CHECKLIST.md` for the manual Windows and protocol matrix.
 ## Stable Checks
 
 ```powershell
-.\scripts\verify-update-manifest.ps1 -ExpectedVersion 1.3.5 -RequireStableChannel
-.\scripts\test-signing-readiness.ps1 -ExpectedVersion 1.3.5
-.\scripts\write-clean-machine-evidence.ps1 -ExpectedVersion 1.3.5 -SkipLaunch
-.\scripts\write-release-evidence.ps1 -ExpectedVersion 1.3.5
+.\scripts\verify-update-manifest.ps1 -ExpectedVersion 1.3.6 -RequireStableChannel
+.\scripts\verify-update-manifest.ps1 -ExpectedVersion 1.3.6 -RequireStableChannel -InstalledVersion 9.9.9 -AllowDowngradeRecovery
+.\scripts\test-signing-readiness.ps1 -ExpectedVersion 1.3.6
+.\scripts\write-clean-machine-evidence.ps1 -ExpectedVersion 1.3.6 -SkipLaunch
+.\scripts\write-release-evidence.ps1 -ExpectedVersion 1.3.6
 ```
 
 See `docs\STABLE_RELEASE.md` and `docs\CLEAN_MACHINE_EVIDENCE.md` for the stable release checklist and external test evidence flow.
