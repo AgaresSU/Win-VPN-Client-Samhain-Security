@@ -1,6 +1,6 @@
 # Roadmap
 
-Current version: `1.2.0`
+Current version: `1.2.1`
 
 This roadmap is the working contract for Samhain Security. Future implementation should follow this order unless a blocker is found and documented in the same commit.
 
@@ -505,7 +505,7 @@ Status: shipped in `v1.2.0` with installer-owned machine-scope service operation
 
 Done when service status explains what is available, what is blocked, and which recovery path will run after a failure.
 
-Status: planned.
+Status: shipped in `v1.2.1` with service identity/signing gates for privileged network actions, service-owned recovery evidence, a service self-check command, redacted rotated audit events, and support/release evidence wiring.
 
 ### 1.2.2 - Enforcement Policy Planner
 
@@ -661,17 +661,16 @@ Status: planned.
 
 ## Immediate Next Build Order
 
-1. `1.2.1`: service identity, recovery, and self-check evidence.
-2. `1.2.2`: privileged enforcement transaction planner.
-3. `1.2.3`: production engine bundle contract.
-4. `1.2.4`: runtime health and counters.
-5. `1.2.5`: subscription operations hardening.
-6. `1.3.0`: daily UX freeze.
-7. `1.3.1`: connection reliability pass.
-8. `1.3.2`: app-routing design gate.
-9. `1.3.3`: app-routing enforcement V1.
-10. `1.3.4`: diagnostics and support final.
-11. `1.3.5`: tray, startup, and link ownership.
-12. `1.3.6`: update and rollback hardening.
-13. `1.3.7`: security review and abuse resistance.
-14. `1.4.0`: release-ready competitive build.
+1. `1.2.2`: privileged enforcement transaction planner.
+2. `1.2.3`: production engine bundle contract.
+3. `1.2.4`: runtime health and counters.
+4. `1.2.5`: subscription operations hardening.
+5. `1.3.0`: daily UX freeze.
+6. `1.3.1`: connection reliability pass.
+7. `1.3.2`: app-routing design gate.
+8. `1.3.3`: app-routing enforcement V1.
+9. `1.3.4`: diagnostics and support final.
+10. `1.3.5`: tray, startup, and link ownership.
+11. `1.3.6`: update and rollback hardening.
+12. `1.3.7`: security review and abuse resistance.
+13. `1.4.0`: release-ready competitive build.

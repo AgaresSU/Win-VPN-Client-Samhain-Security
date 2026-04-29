@@ -1,5 +1,5 @@
 param(
-    [string]$Version = "1.2.0",
+    [string]$Version = "1.2.1",
     [string]$Configuration = "Release"
 )
 
@@ -95,6 +95,11 @@ $manifest = [PSCustomObject]@{
             dryRunRequired = $false
             requiresElevation = $true
         }
+        serviceSelfCheck = [PSCustomObject]@{
+            command = "service\samhain-service.exe self-check"
+            recoveryOwner = "service"
+            audit = "redacted-rotated"
+        }
     }
     signing = [PSCustomObject]@{
         status = "unsigned-dev"
@@ -109,6 +114,7 @@ $manifest = [PSCustomObject]@{
         releaseEvidenceScript = "tools\write-release-evidence.ps1"
         signingReadinessScript = "tools\test-signing-readiness.ps1"
         cleanMachineEvidenceScript = "tools\write-clean-machine-evidence.ps1"
+        serviceSelfCheckCommand = "service\samhain-service.exe self-check"
         gates = @(
             "cargo test --workspace",
             "scripts\build.ps1",
@@ -187,6 +193,7 @@ $updateManifest = [PSCustomObject]@{
         releaseEvidenceScript = "tools\write-release-evidence.ps1"
         signingReadinessScript = "tools\test-signing-readiness.ps1"
         cleanMachineEvidenceScript = "tools\write-clean-machine-evidence.ps1"
+        serviceSelfCheckCommand = "service\samhain-service.exe self-check"
         signingStatus = "unsigned-dev"
         expectedPublisher = "Samhain Security"
     }

@@ -63,6 +63,7 @@ pub enum ClientCommand {
     GetProxyStatus,
     GetTunStatus,
     GetAppRoutingPolicy,
+    GetServiceSelfCheck,
     GetTrafficStats,
     GetLogs {
         category: Option<String>,
@@ -190,6 +191,9 @@ pub enum ServiceEvent {
     },
     ProtectionPolicy {
         state: ProtectionPolicyState,
+    },
+    ServiceSelfCheck {
+        state: ServiceSelfCheckState,
     },
     TrafficStats {
         state: TrafficStatsState,
@@ -457,11 +461,17 @@ pub struct ServiceReadinessState {
     pub status: String,
     pub identity: String,
     pub required_identity: String,
+    pub identity_valid: bool,
+    pub signing_state: String,
+    pub signing_valid: bool,
     pub running_as_admin: bool,
+    pub privileged_policy_allowed: bool,
     pub protection_enforcement_requested: bool,
     pub app_routing_enforcement_requested: bool,
     pub firewall_enforcement_available: bool,
     pub app_routing_enforcement_available: bool,
+    pub recovery_policy: String,
+    pub audit_log_path: Option<String>,
     pub checks: Vec<String>,
     pub message: String,
 }
@@ -472,11 +482,17 @@ impl Default for ServiceReadinessState {
             status: "current-user".to_string(),
             identity: "current-user-package".to_string(),
             required_identity: "signed-privileged-service".to_string(),
+            identity_valid: false,
+            signing_state: "unsigned-dev".to_string(),
+            signing_valid: false,
             running_as_admin: false,
+            privileged_policy_allowed: false,
             protection_enforcement_requested: false,
             app_routing_enforcement_requested: false,
             firewall_enforcement_available: false,
             app_routing_enforcement_available: false,
+            recovery_policy: "service-owned".to_string(),
+            audit_log_path: None,
             checks: vec![
                 "service identity: current user package".to_string(),
                 "privileged identity: pending installer service".to_string(),
@@ -485,6 +501,74 @@ impl Default for ServiceReadinessState {
             message: "Privileged service identity is not installed yet.".to_string(),
         }
     }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RecoveryPolicyState {
+    pub owner: String,
+    pub watchdog_enabled: bool,
+    pub emergency_restore_owner: String,
+    pub reconnect_attempts: u8,
+    pub backoff_base_ms: u64,
+    pub service_failure_restart: bool,
+    pub evidence: Vec<String>,
+}
+
+impl Default for RecoveryPolicyState {
+    fn default() -> Self {
+        Self {
+            owner: "service".to_string(),
+            watchdog_enabled: true,
+            emergency_restore_owner: "service".to_string(),
+            reconnect_attempts: 3,
+            backoff_base_ms: 250,
+            service_failure_restart: false,
+            evidence: vec![
+                "watchdog_owner=service".to_string(),
+                "emergency_restore_owner=service".to_string(),
+                "installer_recovery_policy=pending-status-check".to_string(),
+            ],
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ServiceCheckItem {
+    pub name: String,
+    pub ok: bool,
+    pub status: String,
+    pub detail: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ServiceSelfCheckState {
+    pub status: String,
+    pub generated_at: String,
+    pub checks: Vec<ServiceCheckItem>,
+    pub recovery_policy: RecoveryPolicyState,
+    pub audit_log_path: Option<String>,
+}
+
+impl Default for ServiceSelfCheckState {
+    fn default() -> Self {
+        Self {
+            status: "unknown".to_string(),
+            generated_at: "not collected".to_string(),
+            checks: Vec::new(),
+            recovery_policy: RecoveryPolicyState::default(),
+            audit_log_path: None,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ServiceAuditEvent {
+    pub id: u64,
+    pub timestamp: String,
+    pub category: String,
+    pub action: String,
+    pub result: String,
+    pub detail: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -582,6 +666,9 @@ pub struct ServiceState {
     pub app_routing_policy: AppRoutingPolicyState,
     pub protection_policy: ProtectionPolicyState,
     pub service_readiness: ServiceReadinessState,
+    pub service_self_check: ServiceSelfCheckState,
+    pub recovery_policy: RecoveryPolicyState,
+    pub audit_events: Vec<ServiceAuditEvent>,
     pub traffic_stats: TrafficStatsState,
     pub probe_queue_active: bool,
     pub probe_results: Vec<PingProbeResult>,
@@ -603,6 +690,9 @@ impl Default for ServiceState {
             app_routing_policy: AppRoutingPolicyState::default(),
             protection_policy: ProtectionPolicyState::default(),
             service_readiness: ServiceReadinessState::default(),
+            service_self_check: ServiceSelfCheckState::default(),
+            recovery_policy: RecoveryPolicyState::default(),
+            audit_events: Vec::new(),
             traffic_stats: TrafficStatsState::default(),
             probe_queue_active: false,
             probe_results: Vec::new(),

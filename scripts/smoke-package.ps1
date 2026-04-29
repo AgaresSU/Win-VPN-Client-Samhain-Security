@@ -206,9 +206,21 @@ else {
     try {
         $serviceState = ($serviceOutput | Out-String).Trim() | ConvertFrom-Json
         Add-Step "service:status" (($serviceExitCode -eq 0) -and ($serviceState.version -eq $ExpectedVersion)) "exit=$serviceExitCode version=$($serviceState.version)"
+        Add-Step "service:self-check-state" ($null -ne $serviceState.service_self_check) "status=$($serviceState.service_self_check.status)"
+        Add-Step "service:recovery-policy" (($null -ne $serviceState.recovery_policy) -and ($serviceState.recovery_policy.owner -eq "service")) "owner=$($serviceState.recovery_policy.owner)"
     }
     catch {
         Add-Step "service:status" $false $_.Exception.Message
+    }
+
+    try {
+        $selfCheckOutput = & $serviceExe self-check 2>&1
+        $selfCheckExitCode = $LASTEXITCODE
+        $selfCheck = ($selfCheckOutput | Out-String).Trim() | ConvertFrom-Json
+        Add-Step "service:self-check-command" (($selfCheckExitCode -eq 0) -and ($null -ne $selfCheck.state)) "exit=$selfCheckExitCode status=$($selfCheck.state.status)"
+    }
+    catch {
+        Add-Step "service:self-check-command" $false $_.Exception.Message
     }
 }
 

@@ -7,16 +7,17 @@ use samhain_ipc::{
     AppRoutingPolicyState, ClientCommand, EngineCatalogEntry, EngineConfigPreview, EngineKind,
     EngineLifecycleState, EngineLogEntry, IPC_PROTOCOL_VERSION, Ipv6Policy, LogSnapshotState,
     PingProbeResult, ProtectionPolicyState, ProtectionSettings, ProxyLifecycleState,
-    RequestEnvelope, ResponseEnvelope, RouteApplication, ServiceEvent, ServiceReadinessState,
-    ServiceState, SupportBundleState, TrafficStatsState, TunLifecycleState, decode_request,
-    encode_event, encode_response,
+    RecoveryPolicyState, RequestEnvelope, ResponseEnvelope, RouteApplication, ServiceAuditEvent,
+    ServiceCheckItem, ServiceEvent, ServiceReadinessState, ServiceSelfCheckState, ServiceState,
+    SupportBundleState, TrafficStatsState, TunLifecycleState, decode_request, encode_event,
+    encode_response,
 };
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeSet;
 use std::fs;
 use std::io::{BufRead, BufReader, Read};
 use std::net::{IpAddr, SocketAddr, TcpStream, ToSocketAddrs};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::process::{Child, Command, Stdio};
 use std::sync::{Arc, Mutex, OnceLock};
 use std::thread;
@@ -34,6 +35,8 @@ const APP_ROUTING_DRY_RUN_ENV: &str = "SAMHAIN_APP_ROUTING_DRY_RUN";
 const APP_ROUTING_ENFORCE_ENV: &str = "SAMHAIN_APP_ROUTING_ENFORCE";
 const PROTECTION_DRY_RUN_ENV: &str = "SAMHAIN_PROTECTION_DRY_RUN";
 const PROTECTION_ENFORCE_ENV: &str = "SAMHAIN_PROTECTION_ENFORCE";
+const SERVICE_SIGNED_ENV: &str = "SAMHAIN_SERVICE_SIGNED";
+const AUDIT_EVENT_LIMIT: usize = 120;
 const MAX_RECONNECT_ATTEMPTS: u8 = 3;
 const RECONNECT_BACKOFF_BASE_MS: u64 = 250;
 
@@ -47,9 +50,12 @@ fn main() -> Result<()> {
         "stop" => print_stub("stop"),
         "uninstall" => print_stub("uninstall"),
         "status" => print_status()?,
+        "self-check" => print_self_check()?,
         "run" | "serve" => run_service()?,
         _ => {
-            eprintln!("Usage: samhain-service [install|start|stop|status|uninstall|run]");
+            eprintln!(
+                "Usage: samhain-service [install|start|stop|status|self-check|uninstall|run]"
+            );
             std::process::exit(2);
         }
     }
@@ -67,6 +73,16 @@ fn print_status() -> Result<()> {
     println!(
         "{}",
         encode_event(&ServiceEvent::State(current_state(false)))?
+    );
+    Ok(())
+}
+
+fn print_self_check() -> Result<()> {
+    println!(
+        "{}",
+        encode_event(&ServiceEvent::ServiceSelfCheck {
+            state: service_self_check_state(&storage_path())
+        })?
     );
     Ok(())
 }
@@ -164,6 +180,16 @@ fn handle_command(command: ClientCommand) -> ServiceEvent {
             Ok(state) => ServiceEvent::AppRoutingPolicy { state },
             Err(error) => ServiceEvent::Error {
                 message: format!("Не удалось получить политику приложений: {error}"),
+            },
+        },
+        ClientCommand::GetServiceSelfCheck => match service_store()
+            .lock()
+            .map_err(|_| anyhow!("Service store lock is poisoned."))
+            .map(|mut store| store.service_self_check())
+        {
+            Ok(state) => ServiceEvent::ServiceSelfCheck { state },
+            Err(error) => ServiceEvent::Error {
+                message: format!("Не удалось выполнить самопроверку сервиса: {error}"),
             },
         },
         ClientCommand::GetTrafficStats => match service_store()
@@ -501,6 +527,9 @@ fn current_state(running: bool) -> ServiceState {
             app_routing_policy: AppRoutingPolicyState::default(),
             protection_policy: ProtectionPolicyState::default(),
             service_readiness: service_readiness_state(),
+            service_self_check: service_self_check_state(&storage_path()),
+            recovery_policy: recovery_policy_state(),
+            audit_events: Vec::new(),
             traffic_stats: TrafficStatsState::default(),
             probe_queue_active: false,
             probe_results: Vec::new(),
@@ -576,6 +605,8 @@ impl ServiceStore {
             .engine_manager
             .protection_snapshot(self.state.protection_settings.clone());
         let service_readiness = service_readiness_state();
+        let service_self_check = service_self_check_state(&self.path);
+        let recovery_policy = service_self_check.recovery_policy.clone();
         let traffic_stats = self.engine_manager.traffic_snapshot();
         ServiceState {
             version: env!("CARGO_PKG_VERSION").to_string(),
@@ -590,6 +621,9 @@ impl ServiceStore {
             app_routing_policy,
             protection_policy,
             service_readiness,
+            service_self_check,
+            recovery_policy,
+            audit_events: self.state.audit_events.clone(),
             traffic_stats,
             probe_queue_active: self.state.probe_queue_active,
             probe_results: self.state.probe_results.clone(),
@@ -707,6 +741,10 @@ impl ServiceStore {
             .protection_snapshot(self.state.protection_settings.clone())
     }
 
+    fn service_self_check(&mut self) -> ServiceSelfCheckState {
+        service_self_check_state(&self.path)
+    }
+
     fn traffic_stats(&mut self) -> TrafficStatsState {
         self.engine_manager.traffic_snapshot()
     }
@@ -728,13 +766,26 @@ impl ServiceStore {
             "version": env!("CARGO_PKG_VERSION"),
             "created_at": created_at,
             "redacted": true,
-            "files": ["manifest.json", "state.json", "logs.json", "health.txt"]
+            "files": [
+                "manifest.json",
+                "state.json",
+                "logs.json",
+                "service-self-check.json",
+                "service-audit.json",
+                "health.txt"
+            ],
+            "service_readiness": state.service_readiness.status,
+            "recovery_policy": state.recovery_policy.owner
         });
         let health = format!(
-            "Samhain Security diagnostics\nversion: {}\nengine: {}\ntraffic: {}\nentries: {}\nredacted: true\n",
+            "Samhain Security diagnostics\nversion: {}\nengine: {}\ntraffic: {}\nservice: {}\nself-check: {}\nrecovery: {}\naudit-events: {}\nentries: {}\nredacted: true\n",
             env!("CARGO_PKG_VERSION"),
             state.engine_state.status,
             state.traffic_stats.status,
+            state.service_readiness.status,
+            state.service_self_check.status,
+            state.recovery_policy.owner,
+            state.audit_events.len(),
             logs.entries.len()
         );
 
@@ -750,6 +801,14 @@ impl ServiceStore {
             (
                 "logs.json",
                 redact_support_text(&serde_json::to_string_pretty(&logs)?),
+            ),
+            (
+                "service-self-check.json",
+                redact_support_text(&serde_json::to_string_pretty(&state.service_self_check)?),
+            ),
+            (
+                "service-audit.json",
+                redact_support_text(&serde_json::to_string_pretty(&state.audit_events)?),
             ),
             ("health.txt", redact_support_text(&health)),
         ];
@@ -849,14 +908,29 @@ impl ServiceStore {
     ) -> Result<ProtectionPolicyState> {
         let settings = normalize_protection_settings(settings);
         self.state.protection_settings = settings.clone();
-        self.save()?;
-        Ok(self
+        let state = self
             .engine_manager
-            .apply_protection_policy(settings, self.state.route_mode))
+            .apply_protection_policy(settings, self.state.route_mode);
+        self.append_audit_event(
+            "protection",
+            "set-policy",
+            &state.status,
+            &state.message,
+        );
+        self.save()?;
+        Ok(state)
     }
 
     fn restore_protection_policy(&mut self) -> ProtectionPolicyState {
-        self.engine_manager.restore_protection_policy()
+        let state = self.engine_manager.restore_protection_policy();
+        self.append_audit_event(
+            "protection",
+            "restore-policy",
+            &state.status,
+            &state.message,
+        );
+        let _ = self.save();
+        state
     }
 
     fn emergency_restore(&mut self) -> Result<ServiceState> {
@@ -866,6 +940,12 @@ impl ServiceStore {
         let _ = self.engine_manager.restore_app_routing_policy();
         let _ = self.engine_manager.restore_protection_policy();
         self.state.connected_server_id = None;
+        self.append_audit_event(
+            "recovery",
+            "emergency-restore",
+            "restored",
+            "Service-owned emergency restore completed.",
+        );
         self.save()?;
         Ok(self.service_state(true))
     }
@@ -881,6 +961,12 @@ impl ServiceStore {
             .collect::<Result<Vec<_>>>()?;
         self.state.route_mode = route_mode;
         self.state.route_applications = dedupe_route_applications(stored);
+        self.append_audit_event(
+            "routing",
+            "set-app-policy",
+            "configured",
+            &format!("route_mode={route_mode:?}"),
+        );
         self.save()?;
         Ok(self.app_routing_policy())
     }
@@ -1041,6 +1127,34 @@ impl ServiceStore {
         self.save()
     }
 
+    fn append_audit_event(
+        &mut self,
+        category: impl Into<String>,
+        action: impl Into<String>,
+        result: impl Into<String>,
+        detail: impl AsRef<str>,
+    ) {
+        let next_id = self
+            .state
+            .audit_events
+            .last()
+            .map(|event| event.id.saturating_add(1))
+            .unwrap_or(1);
+        self.state.audit_events.push(ServiceAuditEvent {
+            id: next_id,
+            timestamp: now_engine_label(),
+            category: category.into(),
+            action: action.into(),
+            result: result.into(),
+            detail: redact_support_text(detail.as_ref()),
+        });
+
+        if self.state.audit_events.len() > AUDIT_EVENT_LIMIT {
+            let remove_count = self.state.audit_events.len() - AUDIT_EVENT_LIMIT;
+            self.state.audit_events.drain(0..remove_count);
+        }
+    }
+
     fn save(&self) -> Result<()> {
         if let Some(parent) = self.path.parent() {
             fs::create_dir_all(parent)
@@ -1127,6 +1241,8 @@ struct StoredState {
     route_applications: Vec<StoredRouteApplication>,
     #[serde(default)]
     protection_settings: ProtectionSettings,
+    #[serde(default)]
+    audit_events: Vec<ServiceAuditEvent>,
     subscriptions: Vec<StoredSubscription>,
 }
 
@@ -1141,6 +1257,7 @@ impl StoredState {
             probe_results: Vec::new(),
             route_applications: Vec::new(),
             protection_settings: ProtectionSettings::default(),
+            audit_events: Vec::new(),
             subscriptions: vec![StoredSubscription::from_public(sample_subscription())],
         }
     }
@@ -3320,21 +3437,189 @@ fn protection_dry_run() -> bool {
     std::env::var_os(PROTECTION_DRY_RUN_ENV).is_some()
 }
 
-fn protection_enforce() -> bool {
+fn protection_enforcement_requested() -> bool {
     std::env::var_os(PROTECTION_ENFORCE_ENV).is_some()
+}
+
+fn protection_enforce() -> bool {
+    protection_enforcement_requested() && privileged_policy_allows_network_actions()
+}
+
+fn service_identity() -> String {
+    if service_identity_valid() {
+        "installer-owned-service".to_string()
+    } else {
+        "current-user-package".to_string()
+    }
+}
+
+fn service_identity_valid() -> bool {
+    let Ok(exe) = std::env::current_exe() else {
+        return false;
+    };
+    let Some(program_files) = std::env::var_os("ProgramFiles") else {
+        return false;
+    };
+    let install_root = PathBuf::from(program_files).join("SamhainSecurity");
+    exe.starts_with(install_root)
+}
+
+fn service_signing_state() -> String {
+    if service_signing_valid() {
+        "trusted-signature".to_string()
+    } else {
+        "unsigned-dev".to_string()
+    }
+}
+
+fn service_signing_valid() -> bool {
+    std::env::var_os(SERVICE_SIGNED_ENV)
+        .map(|value| {
+            let normalized = value.to_string_lossy().to_ascii_lowercase();
+            matches!(normalized.as_str(), "1" | "true" | "yes" | "trusted")
+        })
+        .unwrap_or(false)
+}
+
+fn privileged_policy_allows_network_actions() -> bool {
+    process_is_elevated() && service_identity_valid() && service_signing_valid()
+}
+
+fn recovery_policy_state() -> RecoveryPolicyState {
+    let identity_valid = service_identity_valid();
+    RecoveryPolicyState {
+        owner: "service".to_string(),
+        watchdog_enabled: true,
+        emergency_restore_owner: "service".to_string(),
+        reconnect_attempts: MAX_RECONNECT_ATTEMPTS,
+        backoff_base_ms: RECONNECT_BACKOFF_BASE_MS,
+        service_failure_restart: identity_valid,
+        evidence: vec![
+            "watchdog_owner=service".to_string(),
+            "emergency_restore_owner=service".to_string(),
+            format!("reconnect_attempts={MAX_RECONNECT_ATTEMPTS}"),
+            format!("backoff_base_ms={RECONNECT_BACKOFF_BASE_MS}"),
+            format!("service_failure_restart={identity_valid}"),
+        ],
+    }
+}
+
+fn service_self_check_state(storage_path: &Path) -> ServiceSelfCheckState {
+    let readiness = service_readiness_state();
+    let recovery_policy = recovery_policy_state();
+    let storage_parent = storage_path.parent().unwrap_or_else(|| Path::new(""));
+    let engine_dirs = engine_search_dirs();
+    let engine_dir_ready = engine_dirs.iter().any(|dir| dir.is_dir());
+    let audit_path = storage_parent.join("service-audit.json");
+
+    let checks = vec![
+        check_item(
+            "named-pipe",
+            true,
+            "configured",
+            &format!("name={}", samhain_ipc::NAMED_PIPE_NAME),
+        ),
+        check_item(
+            "engine-directory",
+            engine_dir_ready,
+            if engine_dir_ready { "ready" } else { "missing" },
+            &engine_dirs
+                .iter()
+                .map(|path| path.display().to_string())
+                .collect::<Vec<_>>()
+                .join("; "),
+        ),
+        check_item(
+            "storage",
+            storage_parent.is_dir(),
+            if storage_parent.is_dir() { "ready" } else { "pending" },
+            &format!("path={}", storage_path.display()),
+        ),
+        check_item(
+            "routes",
+            readiness.privileged_policy_allowed,
+            if readiness.privileged_policy_allowed {
+                "available"
+            } else {
+                "gated"
+            },
+            "requires installer-owned signed service identity",
+        ),
+        check_item(
+            "dns",
+            readiness.privileged_policy_allowed,
+            if readiness.privileged_policy_allowed {
+                "available"
+            } else {
+                "gated"
+            },
+            "requires installer-owned signed service identity",
+        ),
+        check_item(
+            "firewall",
+            readiness.firewall_enforcement_available,
+            if readiness.firewall_enforcement_available {
+                "available"
+            } else {
+                "gated"
+            },
+            "requires policy request and trusted service identity",
+        ),
+        check_item(
+            "service-identity",
+            readiness.identity_valid && readiness.signing_valid,
+            &readiness.status,
+            &format!(
+                "identity={} signing={}",
+                readiness.identity, readiness.signing_state
+            ),
+        ),
+    ];
+
+    let status = if checks.iter().all(|check| check.ok) {
+        "ready"
+    } else if readiness.privileged_policy_allowed {
+        "partial"
+    } else {
+        "gated"
+    };
+
+    ServiceSelfCheckState {
+        status: status.to_string(),
+        generated_at: now_engine_label(),
+        checks,
+        recovery_policy,
+        audit_log_path: Some(audit_path.display().to_string()),
+    }
+}
+
+fn check_item(name: &str, ok: bool, status: &str, detail: &str) -> ServiceCheckItem {
+    ServiceCheckItem {
+        name: name.to_string(),
+        ok,
+        status: status.to_string(),
+        detail: redact_support_text(detail),
+    }
 }
 
 fn service_readiness_state() -> ServiceReadinessState {
     let running_as_admin = process_is_elevated();
-    let protection_requested = protection_enforce();
+    let protection_requested = protection_enforcement_requested();
     let app_routing_requested = app_routing_enforce();
-    let firewall_available = protection_requested && running_as_admin;
+    let identity = service_identity();
+    let identity_valid = service_identity_valid();
+    let signing_state = service_signing_state();
+    let signing_valid = service_signing_valid();
+    let privileged_policy_allowed = privileged_policy_allows_network_actions();
+    let firewall_available = protection_requested && privileged_policy_allowed;
     let app_routing_available = app_routing_enforcement_available();
 
     let status = if app_routing_requested && !app_routing_available {
         "waiting-wfp"
     } else if firewall_available {
         "privileged-ready"
+    } else if protection_requested && !privileged_policy_allowed {
+        "identity-gated"
     } else if running_as_admin {
         "elevated"
     } else {
@@ -3343,17 +3628,27 @@ fn service_readiness_state() -> ServiceReadinessState {
 
     let mut checks = Vec::new();
     checks.push(format!("running_as_admin={running_as_admin}"));
+    checks.push(format!("identity={identity}"));
+    checks.push(format!("identity_valid={identity_valid}"));
+    checks.push(format!("signing_state={signing_state}"));
+    checks.push(format!("signing_valid={signing_valid}"));
+    checks.push(format!(
+        "privileged_policy_allowed={privileged_policy_allowed}"
+    ));
     checks.push(format!("protection_requested={protection_requested}"));
     checks.push(format!("firewall_available={firewall_available}"));
     checks.push(format!("app_routing_requested={app_routing_requested}"));
     checks.push(format!("app_routing_available={app_routing_available}"));
-    checks.push("service_identity=current-user-package".to_string());
+    checks.push(format!("service_identity={identity}"));
     checks.push("required_identity=signed-privileged-service".to_string());
+    checks.extend(recovery_policy_state().evidence);
 
     let message = if app_routing_requested && !app_routing_available {
         "App routing enforcement requested, but the WFP layer is not ready yet."
     } else if firewall_available {
         "Firewall enforcement is available for this process."
+    } else if protection_requested && !privileged_policy_allowed {
+        "Privileged network actions are blocked until service identity, elevation, and signing policy match."
     } else if running_as_admin {
         "Process is elevated; installer-managed service identity is still pending."
     } else {
@@ -3362,13 +3657,21 @@ fn service_readiness_state() -> ServiceReadinessState {
 
     ServiceReadinessState {
         status: status.to_string(),
-        identity: "current-user-package".to_string(),
+        identity,
         required_identity: "signed-privileged-service".to_string(),
+        identity_valid,
+        signing_state,
+        signing_valid,
         running_as_admin,
+        privileged_policy_allowed,
         protection_enforcement_requested: protection_requested,
         app_routing_enforcement_requested: app_routing_requested,
         firewall_enforcement_available: firewall_available,
         app_routing_enforcement_available: app_routing_available,
+        recovery_policy: "service-owned".to_string(),
+        audit_log_path: storage_path()
+            .parent()
+            .map(|path| path.join("service-audit.json").display().to_string()),
         checks,
         message: message.to_string(),
     }
@@ -4608,12 +4911,60 @@ mod tests {
 
         assert_eq!(state.identity, "current-user-package");
         assert_eq!(state.required_identity, "signed-privileged-service");
+        assert!(!state.identity_valid);
+        assert_eq!(state.signing_state, "unsigned-dev");
+        assert!(!state.signing_valid);
+        assert!(!state.privileged_policy_allowed);
         assert!(!state.app_routing_enforcement_available);
         assert!(
             state
                 .checks
                 .iter()
-                .any(|check| check.starts_with("app_routing_available="))
+                .any(|check| check.starts_with("privileged_policy_allowed="))
+        );
+    }
+
+    #[test]
+    fn service_self_check_reports_gated_capabilities() {
+        let state = service_self_check_state(&storage_path());
+
+        assert!(matches!(state.status.as_str(), "gated" | "partial" | "ready"));
+        assert!(
+            state
+                .checks
+                .iter()
+                .any(|check| check.name == "named-pipe" && check.ok)
+        );
+        assert!(
+            state
+                .checks
+                .iter()
+                .any(|check| check.name == "firewall")
+        );
+        assert_eq!(state.recovery_policy.owner, "service");
+        assert!(state.audit_log_path.is_some());
+    }
+
+    #[test]
+    fn audit_events_are_redacted_and_rotated() {
+        let mut store = ServiceStore::fallback();
+        for index in 0..(AUDIT_EVENT_LIMIT + 5) {
+            store.append_audit_event(
+                "test",
+                "rotate",
+                "ok",
+                format!("token=secret-{index} pbk=public-{index}"),
+            );
+        }
+
+        assert_eq!(store.state.audit_events.len(), AUDIT_EVENT_LIMIT);
+        assert_eq!(store.state.audit_events.first().map(|event| event.id), Some(6));
+        assert!(
+            store
+                .state
+                .audit_events
+                .iter()
+                .all(|event| !event.detail.contains("secret-"))
         );
     }
 

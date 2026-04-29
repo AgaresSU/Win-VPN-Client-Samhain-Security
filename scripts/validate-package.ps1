@@ -102,6 +102,7 @@ if (Test-Path $manifestPath) {
         Add-Check "manifest:privileged-service-name" ($manifest.operations.privilegedService.serviceName -eq "SamhainSecurityService") ([string]$manifest.operations.privilegedService.serviceName)
         Add-Check "manifest:privileged-service-elevation" ([bool]$manifest.operations.privilegedService.requiresElevation) ([string]$manifest.operations.privilegedService.requiresElevation)
         Add-Check "manifest:privileged-service-dry-run" (-not [bool]$manifest.operations.privilegedService.dryRunRequired) ([string]$manifest.operations.privilegedService.dryRunRequired)
+        Add-Check "manifest:service-self-check" ($manifest.operations.serviceSelfCheck.command -eq "service\samhain-service.exe self-check") ([string]$manifest.operations.serviceSelfCheck.command)
         Add-Check "manifest:smoke" ($manifest.quality.smokeScript -eq "tools\smoke-package.ps1") ([string]$manifest.quality.smokeScript)
         Add-Check "manifest:update-verifier" ($manifest.quality.updateManifestVerifier -eq "tools\verify-update-manifest.ps1") ([string]$manifest.quality.updateManifestVerifier)
         Add-Check "manifest:release-evidence" ($manifest.quality.releaseEvidenceScript -eq "tools\write-release-evidence.ps1") ([string]$manifest.quality.releaseEvidenceScript)
@@ -152,12 +153,36 @@ if ($RunServiceStatus) {
             Add-Check "service:readiness-present" ($null -ne $serviceState.service_readiness) "readiness=$($serviceState.service_readiness.status)"
             if ($null -ne $serviceState.service_readiness) {
                 Add-Check "service:readiness-identity" (-not [string]::IsNullOrWhiteSpace($serviceState.service_readiness.identity)) ([string]$serviceState.service_readiness.identity)
+                Add-Check "service:readiness-signing" ($null -ne $serviceState.service_readiness.signing_state) ([string]$serviceState.service_readiness.signing_state)
+                Add-Check "service:readiness-policy" ($null -ne $serviceState.service_readiness.privileged_policy_allowed) "allowed=$($serviceState.service_readiness.privileged_policy_allowed)"
+                Add-Check "service:readiness-recovery" ($serviceState.service_readiness.recovery_policy -eq "service-owned") ([string]$serviceState.service_readiness.recovery_policy)
                 Add-Check "service:firewall-evidence" ($null -ne $serviceState.service_readiness.firewall_enforcement_available) "available=$($serviceState.service_readiness.firewall_enforcement_available)"
                 Add-Check "service:app-routing-evidence" ($null -ne $serviceState.service_readiness.app_routing_enforcement_available) "available=$($serviceState.service_readiness.app_routing_enforcement_available)"
             }
+            Add-Check "service:self-check-present" ($null -ne $serviceState.service_self_check) "status=$($serviceState.service_self_check.status)"
+            if ($null -ne $serviceState.service_self_check) {
+                Add-Check "service:self-check-named-pipe" (($serviceState.service_self_check.checks | Where-Object { $_.name -eq "named-pipe" -and $_.ok }).Count -gt 0) "checks=$($serviceState.service_self_check.checks.Count)"
+                Add-Check "service:self-check-firewall" (($serviceState.service_self_check.checks | Where-Object { $_.name -eq "firewall" }).Count -gt 0) "checks=$($serviceState.service_self_check.checks.Count)"
+            }
+            Add-Check "service:recovery-policy" (($null -ne $serviceState.recovery_policy) -and ($serviceState.recovery_policy.owner -eq "service")) "owner=$($serviceState.recovery_policy.owner)"
+            Add-Check "service:audit-events" ($null -ne $serviceState.audit_events) "count=$($serviceState.audit_events.Count)"
         }
         catch {
             Add-Check "service:status-json" $false $_.Exception.Message
+        }
+
+        try {
+            $selfCheckOutput = & $serviceExe self-check 2>&1
+            $selfCheckExitCode = $LASTEXITCODE
+            Add-Check "service:self-check-exit" ($selfCheckExitCode -eq 0) "exit=$selfCheckExitCode"
+            $selfCheck = ($selfCheckOutput | Out-String).Trim() | ConvertFrom-Json
+            Add-Check "service:self-check-json" ($null -ne $selfCheck.state) "parsed"
+            if ($null -ne $selfCheck.state) {
+                Add-Check "service:self-check-recovery" ($selfCheck.state.recovery_policy.owner -eq "service") "owner=$($selfCheck.state.recovery_policy.owner)"
+            }
+        }
+        catch {
+            Add-Check "service:self-check-json" $false $_.Exception.Message
         }
     }
 }

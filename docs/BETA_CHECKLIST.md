@@ -1,6 +1,6 @@
 # Beta Checklist
 
-Version: `1.2.0`
+Version: `1.2.1`
 
 This checklist keeps beta readiness visible without adding complexity to the desktop UI.
 
@@ -12,11 +12,11 @@ Run before tagging a release:
 cargo test --workspace
 .\scripts\build.ps1
 .\scripts\package.ps1
-.\scripts\validate-package.ps1 -ExpectedVersion 1.2.0 -RunServiceStatus
-.\scripts\verify-update-manifest.ps1 -ExpectedVersion 1.2.0 -RequireStableChannel
-.\scripts\test-signing-readiness.ps1 -ExpectedVersion 1.2.0
-.\scripts\write-clean-machine-evidence.ps1 -ExpectedVersion 1.2.0 -SkipLaunch
-.\scripts\smoke-package.ps1 -ExpectedVersion 1.2.0
+.\scripts\validate-package.ps1 -ExpectedVersion 1.2.1 -RunServiceStatus
+.\scripts\verify-update-manifest.ps1 -ExpectedVersion 1.2.1 -RequireStableChannel
+.\scripts\test-signing-readiness.ps1 -ExpectedVersion 1.2.1
+.\scripts\write-clean-machine-evidence.ps1 -ExpectedVersion 1.2.1 -SkipLaunch
+.\scripts\smoke-package.ps1 -ExpectedVersion 1.2.1
 ```
 
 The smoke script validates package structure, SHA256 hashes, service status, current-user operations in dry-run mode, machine-scope service status/dry-runs, and packaged desktop launch.
