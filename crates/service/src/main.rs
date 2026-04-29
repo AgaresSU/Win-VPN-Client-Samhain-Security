@@ -8,8 +8,8 @@ use samhain_ipc::{
     EngineLifecycleState, EngineLogEntry, IPC_PROTOCOL_VERSION, Ipv6Policy, LogSnapshotState,
     PingProbeResult, ProtectionPolicyState, ProtectionSettings, ProtectionTransactionState,
     ProtectionTransactionStep, ProxyLifecycleState, RecoveryPolicyState, RequestEnvelope,
-    ResponseEnvelope, RouteApplication, ServiceAuditEvent, ServiceCheckItem, ServiceEvent,
-    ServiceReadinessState, ServiceSelfCheckState, ServiceState, SupportBundleState,
+    ResponseEnvelope, RouteApplication, RuntimeHealthState, ServiceAuditEvent, ServiceCheckItem,
+    ServiceEvent, ServiceReadinessState, ServiceSelfCheckState, ServiceState, SupportBundleState,
     TrafficStatsState, TunLifecycleState, decode_request, encode_event, encode_response,
 };
 use serde::{Deserialize, Serialize};
@@ -532,6 +532,7 @@ fn current_state(running: bool) -> ServiceState {
             recovery_policy: recovery_policy_state(),
             audit_events: Vec::new(),
             traffic_stats: TrafficStatsState::default(),
+            runtime_health: RuntimeHealthState::default(),
             probe_queue_active: false,
             probe_results: Vec::new(),
             subscriptions: vec![sample_subscription()],
@@ -610,6 +611,7 @@ impl ServiceStore {
         let service_self_check = service_self_check_state(&self.path);
         let recovery_policy = service_self_check.recovery_policy.clone();
         let traffic_stats = self.engine_manager.traffic_snapshot();
+        let runtime_health = self.engine_manager.runtime_health_snapshot();
         ServiceState {
             version: env!("CARGO_PKG_VERSION").to_string(),
             running,
@@ -627,6 +629,7 @@ impl ServiceStore {
             recovery_policy,
             audit_events: self.state.audit_events.clone(),
             traffic_stats,
+            runtime_health,
             probe_queue_active: self.state.probe_queue_active,
             probe_results: self.state.probe_results.clone(),
             subscriptions: self
@@ -783,9 +786,11 @@ impl ServiceStore {
             "recovery_policy": state.recovery_policy.owner
         });
         let health = format!(
-            "Samhain Security diagnostics\nversion: {}\nengine: {}\ntraffic: {}\nservice: {}\nself-check: {}\nrecovery: {}\naudit-events: {}\nentries: {}\nredacted: true\n",
+            "Samhain Security diagnostics\nversion: {}\nengine: {}\nruntime-health: {}\nmetrics-source: {}\ntraffic: {}\nservice: {}\nself-check: {}\nrecovery: {}\naudit-events: {}\nentries: {}\nredacted: true\n",
             env!("CARGO_PKG_VERSION"),
             state.engine_state.status,
+            state.runtime_health.status,
+            state.runtime_health.metrics_source,
             state.traffic_stats.status,
             state.service_readiness.status,
             state.service_self_check.status,
@@ -2388,6 +2393,11 @@ impl TrafficTracker {
                 upload_bps: 0,
                 session_seconds: self.frozen_session_seconds,
                 source: "service-session".to_string(),
+                metrics_source: "none".to_string(),
+                fallback: true,
+                route_path: self.path.clone(),
+                last_error: None,
+                last_successful_handshake: None,
                 message: "Сессия не активна.".to_string(),
             };
         };
@@ -2421,6 +2431,15 @@ impl TrafficTracker {
             upload_bps,
             session_seconds: self.frozen_session_seconds + seconds,
             source: "service-session".to_string(),
+            metrics_source: "service-session".to_string(),
+            fallback: true,
+            route_path: self.path.clone(),
+            last_error: None,
+            last_successful_handshake: if engine_running {
+                self.started_at.clone()
+            } else {
+                None
+            },
             message: format!("Сервис считает текущую сессию через {}.", self.path),
         }
     }
@@ -2498,6 +2517,70 @@ impl EngineManager {
     fn traffic_snapshot(&mut self) -> TrafficStatsState {
         self.reap_finished_process();
         self.traffic.snapshot(self.state.status == "running")
+    }
+
+    fn runtime_health_snapshot(&mut self) -> RuntimeHealthState {
+        self.reap_finished_process();
+
+        let route_path = self
+            .last_plan
+            .as_ref()
+            .map(|plan| path_name(plan.path).to_string())
+            .unwrap_or_else(|| self.traffic.path.clone());
+        let engine = self
+            .last_plan
+            .as_ref()
+            .map(|plan| plan.kind)
+            .unwrap_or(self.state.engine);
+        let running = self.state.status == "running";
+        let metrics_available = false;
+        let metrics_source = if running { "service-session" } else { "none" }.to_string();
+        let last_error = match self.state.status.as_str() {
+            "missing" | "crashed" | "failed" => Some(redact_support_text(&self.state.message)),
+            _ => None,
+        };
+        let reconnect_reason = if self.state.restart_attempts > 0 {
+            Some("process-exit".to_string())
+        } else {
+            None
+        };
+        let status = if running && metrics_available {
+            "runtime-metrics"
+        } else if running {
+            "fallback-telemetry"
+        } else if self.state.status == "missing" {
+            "missing-runtime"
+        } else if self.state.status == "crashed" {
+            "unhealthy"
+        } else {
+            "idle"
+        }
+        .to_string();
+        let message = match status.as_str() {
+            "fallback-telemetry" => {
+                "Runtime metrics are not exposed; using service-session counters.".to_string()
+            }
+            "runtime-metrics" => "Runtime metrics are active.".to_string(),
+            "missing-runtime" => redact_support_text(&self.state.message),
+            "unhealthy" => redact_support_text(&self.state.message),
+            _ => "Runtime health is idle.".to_string(),
+        };
+
+        RuntimeHealthState {
+            status,
+            engine,
+            route_path,
+            metrics_source,
+            metrics_available,
+            last_error,
+            last_successful_handshake: if running {
+                self.state.started_at.clone()
+            } else {
+                None
+            },
+            reconnect_reason,
+            message,
+        }
     }
 
     fn log_snapshot(&mut self, category: Option<&str>) -> LogSnapshotState {
@@ -5671,14 +5754,45 @@ mod tests {
         let running = tracker.snapshot(true);
         assert_eq!(running.status, "running");
         assert_eq!(running.source, "service-session");
+        assert_eq!(running.metrics_source, "service-session");
+        assert!(running.fallback);
+        assert_eq!(running.route_path, "TUN path");
+        assert!(running.last_successful_handshake.is_some());
         assert!(running.download_bps > 0);
         assert!(running.upload_bps > 0);
 
         tracker.stop();
         let stopped = tracker.snapshot(false);
         assert_eq!(stopped.status, "stopped");
+        assert!(stopped.fallback);
         assert_eq!(stopped.download_bps, 0);
         assert_eq!(stopped.upload_bps, 0);
+    }
+
+    #[test]
+    fn runtime_health_distinguishes_fallback_metrics() {
+        let mut manager = EngineManager::new();
+        manager.state.status = "running".to_string();
+        manager.state.engine = EngineKind::SingBox;
+        manager.state.started_at = Some("Engine event: test".to_string());
+        manager.last_plan = Some(EngineStartPlan {
+            kind: EngineKind::SingBox,
+            path: EnginePath::Tun,
+            server_id: "server-1".to_string(),
+            executable_path: PathBuf::from("sing-box.exe"),
+            config_path: PathBuf::from("config.json"),
+            args: Vec::new(),
+            full_config: "{}".to_string(),
+        });
+
+        let health = manager.runtime_health_snapshot();
+
+        assert_eq!(health.status, "fallback-telemetry");
+        assert_eq!(health.metrics_source, "service-session");
+        assert!(!health.metrics_available);
+        assert_eq!(health.route_path, "TUN path");
+        assert!(health.last_successful_handshake.is_some());
+        assert!(health.last_error.is_none());
     }
 
     #[test]

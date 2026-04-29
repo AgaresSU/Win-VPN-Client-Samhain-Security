@@ -109,6 +109,7 @@ if (Test-Path $manifestPath) {
         Add-Check "manifest:runtime-contract" ($manifest.operations.runtimeContract.inventory -eq "engine-inventory.json") ([string]$manifest.operations.runtimeContract.inventory)
         Add-Check "manifest:runtime-source" ($manifest.operations.runtimeContract.availabilitySource -eq "package-inventory") ([string]$manifest.operations.runtimeContract.availabilitySource)
         Add-Check "manifest:runtime-layout" ($manifest.operations.runtimeContract.layout.Count -ge 4) "entries=$($manifest.operations.runtimeContract.layout.Count)"
+        Add-Check "manifest:runtime-health" ($manifest.quality.runtimeHealthEvidence -eq "service.runtime_health") ([string]$manifest.quality.runtimeHealthEvidence)
         Add-Check "manifest:smoke" ($manifest.quality.smokeScript -eq "tools\smoke-package.ps1") ([string]$manifest.quality.smokeScript)
         Add-Check "manifest:update-verifier" ($manifest.quality.updateManifestVerifier -eq "tools\verify-update-manifest.ps1") ([string]$manifest.quality.updateManifestVerifier)
         Add-Check "manifest:release-evidence" ($manifest.quality.releaseEvidenceScript -eq "tools\write-release-evidence.ps1") ([string]$manifest.quality.releaseEvidenceScript)
@@ -201,6 +202,11 @@ if ($RunServiceStatus) {
             if (($null -ne $serviceState.engine_catalog) -and ($serviceState.engine_catalog.Count -ge 4)) {
                 $singBox = $serviceState.engine_catalog | Where-Object { $_.runtime_id -eq "sing-box" } | Select-Object -First 1
                 Add-Check "service:engine-contract-sing-box" (($null -ne $singBox) -and (-not [string]::IsNullOrWhiteSpace([string]$singBox.bundled_path))) ([string]$singBox.bundled_path)
+            }
+            Add-Check "service:runtime-health" ($null -ne $serviceState.runtime_health) "status=$($serviceState.runtime_health.status)"
+            if ($null -ne $serviceState.runtime_health) {
+                Add-Check "service:runtime-health-source" (-not [string]::IsNullOrWhiteSpace([string]$serviceState.runtime_health.metrics_source)) ([string]$serviceState.runtime_health.metrics_source)
+                Add-Check "service:runtime-health-path" (-not [string]::IsNullOrWhiteSpace([string]$serviceState.runtime_health.route_path)) ([string]$serviceState.runtime_health.route_path)
             }
             $transaction = $serviceState.protection_policy.transaction
             Add-Check "service:protection-transaction" ($null -ne $transaction) "status=$($transaction.status)"

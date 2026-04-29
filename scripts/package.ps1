@@ -1,5 +1,5 @@
 param(
-    [string]$Version = "1.2.3",
+    [string]$Version = "1.2.4",
     [string]$Configuration = "Release"
 )
 
@@ -226,6 +226,7 @@ $manifest = [PSCustomObject]@{
         serviceSelfCheckCommand = "service\samhain-service.exe self-check"
         enforcementTransactionEvidence = "service.protection_policy.transaction"
         engineInventory = "engine-inventory.json"
+        runtimeHealthEvidence = "service.runtime_health"
         gates = @(
             "cargo test --workspace",
             "scripts\build.ps1",
@@ -317,6 +318,7 @@ $updateManifest = [PSCustomObject]@{
         serviceSelfCheckCommand = "service\samhain-service.exe self-check"
         enforcementTransactionEvidence = "service.protection_policy.transaction"
         engineInventory = "engine-inventory.json"
+        runtimeHealthEvidence = "service.runtime_health"
         signingStatus = "unsigned-dev"
         expectedPublisher = "Samhain Security"
     }

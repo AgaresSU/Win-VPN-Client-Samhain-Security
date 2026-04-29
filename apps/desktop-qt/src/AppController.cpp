@@ -2800,6 +2800,9 @@ void AppController::applyTrafficStatsObject(const QJsonObject &state)
     const auto uploadBytes = static_cast<qint64>(state.value("upload_bytes").toDouble(0));
     const auto seconds = static_cast<int>(state.value("session_seconds").toDouble(0));
     const auto source = state.value("source").toString("service");
+    const auto metricsSource = state.value("metrics_source").toString(source);
+    const auto fallback = state.value("fallback").toBool(source == "service-session");
+    const auto routePath = state.value("route_path").toString();
     const auto message = state.value("message").toString();
 
     m_downloadSpeed = formatRate(downloadBps);
@@ -2807,7 +2810,10 @@ void AppController::applyTrafficStatsObject(const QJsonObject &state)
     m_sessionTraffic = QString("↓ %1 / ↑ %2").arg(formatBytes(downloadBytes), formatBytes(uploadBytes));
     m_sessionTime = QTime(0, 0).addSecs(std::max(0, seconds)).toString("hh:mm:ss");
     if (status == "running") {
-        m_trafficDetail = "Источник: " + source;
+        m_trafficDetail = QString("Источник: %1%2%3")
+            .arg(fallback ? "резерв" : "runtime")
+            .arg(metricsSource.isEmpty() ? QString() : " · " + metricsSource)
+            .arg(routePath.isEmpty() ? QString() : " · " + routePath);
     } else if (!message.isEmpty()) {
         m_trafficDetail = message;
     } else {

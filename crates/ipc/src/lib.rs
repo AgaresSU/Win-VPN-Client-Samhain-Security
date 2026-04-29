@@ -651,6 +651,11 @@ pub struct TrafficStatsState {
     pub upload_bps: u64,
     pub session_seconds: u64,
     pub source: String,
+    pub metrics_source: String,
+    pub fallback: bool,
+    pub route_path: String,
+    pub last_error: Option<String>,
+    pub last_successful_handshake: Option<String>,
     pub message: String,
 }
 
@@ -666,7 +671,41 @@ impl Default for TrafficStatsState {
             upload_bps: 0,
             session_seconds: 0,
             source: "service".to_string(),
+            metrics_source: "none".to_string(),
+            fallback: true,
+            route_path: "idle".to_string(),
+            last_error: None,
+            last_successful_handshake: None,
             message: "Traffic counters are idle.".to_string(),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RuntimeHealthState {
+    pub status: String,
+    pub engine: EngineKind,
+    pub route_path: String,
+    pub metrics_source: String,
+    pub metrics_available: bool,
+    pub last_error: Option<String>,
+    pub last_successful_handshake: Option<String>,
+    pub reconnect_reason: Option<String>,
+    pub message: String,
+}
+
+impl Default for RuntimeHealthState {
+    fn default() -> Self {
+        Self {
+            status: "idle".to_string(),
+            engine: EngineKind::Unknown,
+            route_path: "idle".to_string(),
+            metrics_source: "none".to_string(),
+            metrics_available: false,
+            last_error: None,
+            last_successful_handshake: None,
+            reconnect_reason: None,
+            message: "Runtime health is idle.".to_string(),
         }
     }
 }
@@ -729,6 +768,7 @@ pub struct ServiceState {
     pub recovery_policy: RecoveryPolicyState,
     pub audit_events: Vec<ServiceAuditEvent>,
     pub traffic_stats: TrafficStatsState,
+    pub runtime_health: RuntimeHealthState,
     pub probe_queue_active: bool,
     pub probe_results: Vec<PingProbeResult>,
     pub subscriptions: Vec<Subscription>,
@@ -753,6 +793,7 @@ impl Default for ServiceState {
             recovery_policy: RecoveryPolicyState::default(),
             audit_events: Vec::new(),
             traffic_stats: TrafficStatsState::default(),
+            runtime_health: RuntimeHealthState::default(),
             probe_queue_active: false,
             probe_results: Vec::new(),
             subscriptions: Vec::new(),
@@ -833,6 +874,11 @@ mod tests {
             upload_bps: 32,
             session_seconds: 7,
             source: "service-session".to_string(),
+            metrics_source: "service-session".to_string(),
+            fallback: true,
+            route_path: "proxy path".to_string(),
+            last_error: None,
+            last_successful_handshake: Some("Engine event: 1".to_string()),
             message: "ok".to_string(),
         };
 
