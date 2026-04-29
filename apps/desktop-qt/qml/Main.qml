@@ -266,6 +266,96 @@ ApplicationWindow {
         }
     }
 
+    Popup {
+        id: subscriptionActionsPopup
+        parent: Overlay.overlay
+        property int rowIndex: -1
+        property string subscriptionName: ""
+        width: 286
+        height: subscriptionActionsColumn.implicitHeight + 12
+        padding: 6
+        modal: false
+        focus: true
+        closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutside
+
+        function openFor(row, button, name) {
+            rowIndex = row
+            subscriptionName = name
+            var point = button.mapToItem(Overlay.overlay, button.width - subscriptionActionsPopup.width, button.height + 6)
+            x = Math.max(8, Math.min(point.x, root.width - subscriptionActionsPopup.width - 8))
+            y = Math.max(8, Math.min(point.y, root.height - subscriptionActionsPopup.height - 8))
+            open()
+        }
+
+        background: Rectangle {
+            color: "#454442"
+            radius: 6
+            border.color: "#585451"
+        }
+
+        contentItem: ColumnLayout {
+            id: subscriptionActionsColumn
+            spacing: 0
+
+            PopupAction {
+                iconText: "↻"
+                text: "Обновить"
+                onTriggered: {
+                    subscriptionActionsPopup.close()
+                    appController.refreshSubscription(subscriptionActionsPopup.rowIndex)
+                }
+            }
+            PopupDivider {}
+            PopupAction {
+                iconText: "◴"
+                text: "Тест пинга"
+                onTriggered: {
+                    subscriptionActionsPopup.close()
+                    appController.testAllPings()
+                }
+            }
+            PopupDivider {}
+            PopupAction {
+                iconText: "⌖"
+                text: "Закрепить"
+                onTriggered: {
+                    subscriptionActionsPopup.close()
+                    appController.pinSubscription(subscriptionActionsPopup.rowIndex)
+                }
+            }
+            PopupDivider {}
+            PopupAction {
+                iconText: "▤"
+                text: "Копировать URL"
+                onTriggered: {
+                    subscriptionActionsPopup.close()
+                    appController.copySubscriptionUrl(subscriptionActionsPopup.rowIndex)
+                }
+            }
+            PopupDivider {}
+            PopupAction {
+                iconText: "⚙"
+                text: "Редактировать"
+                onTriggered: {
+                    subscriptionActionsPopup.close()
+                    renameDialog.rowIndex = subscriptionActionsPopup.rowIndex
+                    renameSubscriptionNameInput.text = subscriptionActionsPopup.subscriptionName
+                    renameDialog.open()
+                }
+            }
+            PopupDivider {}
+            PopupAction {
+                iconText: "⌫"
+                text: "Удалить"
+                danger: true
+                onTriggered: {
+                    subscriptionActionsPopup.close()
+                    appController.deleteSubscription(subscriptionActionsPopup.rowIndex)
+                }
+            }
+        }
+    }
+
     FileDialog {
         id: appFileDialog
         title: "Выбрать приложение"
@@ -796,56 +886,14 @@ ApplicationWindow {
                                     Layout.fillWidth: true
                                 }
                             }
-                            ButtonIcon { label: "↻"; onClicked: appController.refreshSubscription(index) }
-                            ButtonIcon { label: "⋯"; onClicked: subscriptionActions.open() }
-
-                            Menu {
-                                id: subscriptionActions
-                                modal: true
-                                background: Rectangle {
-                                    color: "#201C1E"
-                                    radius: 8
-                                    border.color: "#3E3337"
-                                }
-                                delegate: MenuItem {
-                                    id: actionItem
-                                    implicitWidth: 188
-                                    implicitHeight: 42
-                                    contentItem: Text {
-                                        text: actionItem.text
-                                        color: actionItem.text === "Удалить" ? "#F06A72" : root.text
-                                        font.pixelSize: 15
-                                        verticalAlignment: Text.AlignVCenter
-                                        leftPadding: 10
-                                        elide: Text.ElideRight
-                                    }
-                                    background: Rectangle {
-                                        color: actionItem.highlighted ? "#302529" : "transparent"
-                                        radius: 6
-                                    }
-                                }
-                                MenuItem {
-                                    text: "Переименовать"
-                                    onTriggered: {
-                                        renameDialog.rowIndex = index
-                                        renameSubscriptionNameInput.text = name
-                                        renameDialog.open()
-                                    }
-                                }
-                                MenuItem {
-                                    text: "Диагностика"
-                                    onTriggered: appController.copySubscriptionDiagnostics(index)
-                                }
-                                MenuSeparator {
-                                    contentItem: Rectangle {
-                                        implicitHeight: 1
-                                        color: "#3A3033"
-                                    }
-                                }
-                                MenuItem {
-                                    text: "Удалить"
-                                    onTriggered: appController.deleteSubscription(index)
-                                }
+                            ButtonIcon {
+                                label: "↻"
+                                onClicked: appController.refreshSubscription(index)
+                            }
+                            ButtonIcon {
+                                id: subscriptionActionsButton
+                                label: "⋯"
+                                onClicked: subscriptionActionsPopup.openFor(index, subscriptionActionsButton, name)
                             }
                         }
 
@@ -1099,7 +1147,7 @@ ApplicationWindow {
             spacing: 18
             PageTitle { text: "О программе" }
             MetricRow { title: "Программа"; value: "Samhain Security Native" }
-            MetricRow { title: "Версия"; value: "1.0.8" }
+            MetricRow { title: "Версия"; value: "1.0.9" }
             MetricRow { title: "Интерфейс"; value: "Qt 6 / QML" }
             MetricRow { title: "Ядро"; value: "Rust workspace" }
             MetricRow { title: "Статус"; value: appController.statusText }
@@ -1363,6 +1411,59 @@ ApplicationWindow {
             font.pixelSize: 24
             horizontalAlignment: Text.AlignHCenter
             verticalAlignment: Text.AlignVCenter
+        }
+    }
+
+    component PopupDivider: Rectangle {
+        Layout.fillWidth: true
+        Layout.preferredHeight: 1
+        Layout.leftMargin: 0
+        Layout.rightMargin: 0
+        color: "#74706C"
+        opacity: 0.78
+    }
+
+    component PopupAction: Rectangle {
+        id: popupAction
+        property string iconText: ""
+        property string text: ""
+        property bool danger: false
+        signal triggered()
+        Layout.fillWidth: true
+        Layout.preferredHeight: 44
+        radius: 4
+        color: popupActionMouse.containsMouse ? "#52504D" : "transparent"
+
+        RowLayout {
+            anchors.fill: parent
+            anchors.leftMargin: 16
+            anchors.rightMargin: 16
+            spacing: 12
+
+            Text {
+                text: popupAction.iconText
+                color: popupAction.danger ? "#D9A1A3" : "#AFAAA6"
+                font.pixelSize: 22
+                Layout.preferredWidth: 28
+                horizontalAlignment: Text.AlignHCenter
+                verticalAlignment: Text.AlignVCenter
+            }
+            Text {
+                text: popupAction.text
+                color: popupAction.danger ? "#FFE0E0" : "#FFFFFF"
+                font.pixelSize: 18
+                Layout.fillWidth: true
+                elide: Text.ElideRight
+                verticalAlignment: Text.AlignVCenter
+            }
+        }
+
+        MouseArea {
+            id: popupActionMouse
+            anchors.fill: parent
+            hoverEnabled: true
+            cursorShape: Qt.PointingHandCursor
+            onClicked: popupAction.triggered()
         }
     }
 

@@ -229,6 +229,33 @@ fn handle_command(command: ClientCommand) -> ServiceEvent {
                 },
             }
         }
+        ClientCommand::PinSubscription { subscription_id } => {
+            match service_store()
+                .lock()
+                .map_err(|_| anyhow!("Service store lock is poisoned."))
+                .and_then(|mut store| store.pin_subscription(&subscription_id))
+            {
+                Ok(subscription) => ServiceEvent::SubscriptionPinned { subscription },
+                Err(error) => ServiceEvent::Error {
+                    message: format!("Не удалось закрепить подписку: {error}"),
+                },
+            }
+        }
+        ClientCommand::GetSubscriptionUrl { subscription_id } => {
+            match service_store()
+                .lock()
+                .map_err(|_| anyhow!("Service store lock is poisoned."))
+                .and_then(|store| store.subscription_url(&subscription_id))
+            {
+                Ok(url) => ServiceEvent::SubscriptionUrl {
+                    subscription_id,
+                    url,
+                },
+                Err(error) => ServiceEvent::Error {
+                    message: format!("Не удалось получить ссылку подписки: {error}"),
+                },
+            }
+        }
         ClientCommand::RenameSubscription {
             subscription_id,
             name,
@@ -935,6 +962,35 @@ impl ServiceStore {
         Ok(public)
     }
 
+    fn pin_subscription(&mut self, subscription_id: &str) -> Result<Subscription> {
+        let index = self
+            .state
+            .subscriptions
+            .iter()
+            .position(|subscription| subscription.id == subscription_id)
+            .ok_or_else(|| anyhow!("подписка не найдена"))?;
+
+        let mut subscription = self.state.subscriptions.remove(index);
+        subscription.updated_at = Some(now_label());
+        let public = subscription.to_public();
+        self.state.subscriptions.insert(0, subscription);
+        self.save()?;
+
+        Ok(public)
+    }
+
+    fn subscription_url(&self, subscription_id: &str) -> Result<String> {
+        let subscription = self
+            .state
+            .subscriptions
+            .iter()
+            .find(|subscription| subscription.id == subscription_id)
+            .ok_or_else(|| anyhow!("подписка не найдена"))?;
+
+        unprotect_stored_secret(&subscription.protected_url)
+            .map_err(|_| anyhow!("исходная ссылка недоступна"))
+    }
+
     fn rename_subscription(&mut self, subscription_id: &str, name: String) -> Result<Subscription> {
         let normalized_name = name.trim();
         if normalized_name.is_empty() {
@@ -1243,6 +1299,15 @@ fn protect_server_urls(
     }
 
     Ok((public_servers, protected_urls))
+}
+
+fn unprotect_stored_secret(value: &str) -> Result<String> {
+    secret::unprotect_string(value).or_else(|_| {
+        value
+            .strip_prefix("unprotected:")
+            .map(str::to_string)
+            .ok_or_else(|| anyhow!("stored secret unavailable"))
+    })
 }
 
 fn fetch_subscription_payloads(url: &str) -> Result<Vec<String>> {

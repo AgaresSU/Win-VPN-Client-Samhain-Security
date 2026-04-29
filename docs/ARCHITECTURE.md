@@ -1,6 +1,6 @@
 # Architecture
 
-Version: `1.0.8`
+Version: `1.0.9`
 
 ## Components
 
@@ -53,4 +53,4 @@ Ctrl+V / Add subscription
   -> show speed, traffic, session time
 ```
 
-The `1.0.8` build implements the shell, state model, versioned IPC envelopes, a Windows named-pipe service endpoint, real subscription ingestion, DPAPI-protected service storage, compact service-backed subscription groups, DNS-aware service-owned latency probes without synthetic fallback, Engine Manager V1, the first proxy path, the whole-computer TUN path foundation, the WireGuard/AmneziaWG adapter path, the app-routing policy foundation, the first protection layer, desktop integration, service-owned session traffic state, categorized log snapshots, redacted support export, responsive dark red graphite UI polish, calmer main-screen layout, dark-green connected-state indicators, real Proxy/TUN route buttons, quieter subscription actions, simplified settings, grouped advanced operations, dark title-bar styling, oval rendered country badges, custom navigation buttons, current-user package operations, repeatable package validation, stable update-manifest verification, release evidence output, signing readiness checks, and clean-machine evidence generation. Firewall enforcement remains gated for privileged service runs until the installer/service identity and WFP layer are complete.
+The `1.0.9` build implements the shell, state model, versioned IPC envelopes, a Windows named-pipe service endpoint, real subscription ingestion, DPAPI-protected service storage, compact service-backed subscription groups, DNS-aware service-owned latency probes without synthetic fallback, Engine Manager V1, the first proxy path, the whole-computer TUN path foundation, the WireGuard/AmneziaWG adapter path, the app-routing policy foundation, the first protection layer, desktop integration, service-owned session traffic state, categorized log snapshots, redacted support export, responsive dark red graphite UI polish, calmer main-screen layout, dark-green connected-state indicators, real Proxy/TUN route buttons, an overlay subscription action menu with pinning and URL copy, simplified settings, grouped advanced operations, dark title-bar styling, oval rendered country badges, custom navigation buttons, current-user package operations, repeatable package validation, stable update-manifest verification, release evidence output, signing readiness checks, and clean-machine evidence generation. Firewall enforcement remains gated for privileged service runs until the installer/service identity and WFP layer are complete.

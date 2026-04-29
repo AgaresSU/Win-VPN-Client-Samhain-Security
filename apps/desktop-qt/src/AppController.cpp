@@ -996,6 +996,74 @@ void AppController::refreshSubscription(int row)
     emit statusChanged();
 }
 
+void AppController::pinSubscription(int row)
+{
+    const auto subscriptionId = m_serverModel.subscriptionIdAtRow(row);
+    const auto subscriptionName = m_serverModel.subscriptionNameAtRow(row);
+    if (subscriptionId.isEmpty()) {
+        return;
+    }
+
+    QJsonObject command;
+    command["type"] = "pin-subscription";
+    command["subscription_id"] = subscriptionId;
+    const auto response = requestService(command, IpcRequestTimeoutMs);
+    if (response.isEmpty()) {
+        m_statusText = "Сервис недоступен для закрепления";
+        emit statusChanged();
+        return;
+    }
+
+    const auto document = QJsonDocument::fromJson(response.toUtf8());
+    const auto root = document.object();
+    const auto event = root.value("event").toObject();
+    if (!root.value("ok").toBool(false) || event.value("type").toString() == "error") {
+        const auto message = event.value("message").toString("Не удалось закрепить подписку");
+        m_statusText = message;
+        appendLog("Сервис: " + message);
+    } else {
+        loadStateFromService();
+        m_statusText = "Подписка закреплена";
+        appendLog("Закреплена подписка: " + subscriptionName);
+    }
+    updateSelectedServerProperties();
+    emit statusChanged();
+}
+
+void AppController::copySubscriptionUrl(int row)
+{
+    const auto subscriptionId = m_serverModel.subscriptionIdAtRow(row);
+    const auto subscriptionName = m_serverModel.subscriptionNameAtRow(row);
+    if (subscriptionId.isEmpty()) {
+        return;
+    }
+
+    QJsonObject command;
+    command["type"] = "get-subscription-url";
+    command["subscription_id"] = subscriptionId;
+    const auto response = requestService(command, IpcRequestTimeoutMs);
+    if (response.isEmpty()) {
+        m_statusText = "Сервис недоступен для копирования";
+        emit statusChanged();
+        return;
+    }
+
+    const auto document = QJsonDocument::fromJson(response.toUtf8());
+    const auto root = document.object();
+    const auto event = root.value("event").toObject();
+    const auto url = event.value("url").toString();
+    if (!root.value("ok").toBool(false) || event.value("type").toString() != "subscription-url" || url.isEmpty()) {
+        const auto message = event.value("message").toString("Не удалось скопировать ссылку");
+        m_statusText = message;
+        appendLog("Сервис: " + message);
+    } else {
+        QGuiApplication::clipboard()->setText(url);
+        m_statusText = "URL скопирован";
+        appendLog("Скопирован URL подписки: " + subscriptionName);
+    }
+    emit statusChanged();
+}
+
 void AppController::renameSubscription(int row, const QString &name)
 {
     const auto subscriptionId = m_serverModel.subscriptionIdAtRow(row);

@@ -1,6 +1,6 @@
 # Roadmap
 
-Current version: `1.0.8`
+Current version: `1.0.9`
 
 This roadmap is the working contract for Samhain Security. Future implementation should follow this order unless a blocker is found and documented in the same commit.
 
@@ -365,6 +365,16 @@ Done when enabled state is visually distinct without making the whole panel brig
 
 Status: shipped in `v1.0.8` with dark-green active power, status, and connection-ring indicators.
 
+### 1.0.9 - Subscription Action Menu
+
+- Replace the native subscription menu with an overlay popup that does not affect list layout.
+- Add refresh, latency check, pin, URL copy, edit, and delete actions.
+- Keep the menu compact, dark, and icon-led.
+
+Done when the actions menu opens without an empty vertical artifact and mirrors the reference structure.
+
+Status: shipped in `v1.0.9` with an overlay action menu, service-backed pinning, and protected URL copy.
+
 ## Immediate Next Build Order
 
-1. `1.0.9`: app list dialog polish and clearer per-application routing state.
+1. `1.0.10`: app list dialog polish and clearer per-application routing state.

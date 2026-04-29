@@ -185,6 +185,8 @@ public:
     Q_INVOKABLE void pasteFromClipboard();
     Q_INVOKABLE void addSubscription(const QString &name, const QString &url);
     Q_INVOKABLE void refreshSubscription(int row);
+    Q_INVOKABLE void pinSubscription(int row);
+    Q_INVOKABLE void copySubscriptionUrl(int row);
     Q_INVOKABLE void renameSubscription(int row, const QString &name);
     Q_INVOKABLE void deleteSubscription(int row);
     Q_INVOKABLE void copySubscriptionDiagnostics(int row);

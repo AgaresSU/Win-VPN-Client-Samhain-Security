@@ -1,6 +1,6 @@
 # Samhain Security Native
 
-Version: `1.0.8`
+Version: `1.0.9`
 
 Native Windows secure tunneling client prototype built from a clean base.
 
@@ -16,7 +16,7 @@ Native Windows secure tunneling client prototype built from a clean base.
 
 This release is the native foundation. It focuses on the product shell, simple daily UX, local models, persistence, and build/package flow.
 
-Implemented through `1.0.8`:
+Implemented through `1.0.9`:
 
 - Happ-inspired Qt/QML shell with servers, add, settings, statistics, logs, and about sections.
 - Compact subscription group and server rows without technical clutter.
@@ -29,7 +29,7 @@ Implemented through `1.0.8`:
 - Versioned named-pipe IPC foundation between the desktop shell and Rust service.
 - Real service-side subscription import for direct links, subscription pages, plain/base64 payloads, and AWG JSON profiles.
 - DPAPI-protected storage for subscription URLs and raw server configs.
-- Service-backed subscription groups with expand/collapse, update, rename, delete, and safe diagnostics copy actions.
+- Service-backed subscription groups with expand/collapse and an overlay menu for refresh, latency checks, pinning, URL copy, edit, and delete.
 - Persisted selected server and compact grouped server rendering in the desktop shell.
 - Service-backed latency probes with single-server and batch checks, DNS-aware TCP connect timing, stored probe timestamps, compact row results, and no synthetic fallback.
 - Engine manager V1: bundled-engine discovery, lifecycle IPC, redacted config preview, process start/stop/restart hooks, log capture, and one-step crash retry.
@@ -77,7 +77,7 @@ Not implemented yet:
 The package is written to:
 
 ```text
-dist\SamhainSecurityNative-1.0.8-win-x64
+dist\SamhainSecurityNative-1.0.9-win-x64
 ```
 
 ## Local Operations
@@ -96,8 +96,8 @@ See `docs\LOCAL_OPERATIONS.md` and `docs\SIGNING.md` for install scope, storage,
 ## Package Checks
 
 ```powershell
-.\scripts\validate-package.ps1 -ExpectedVersion 1.0.8 -RunServiceStatus
-.\scripts\smoke-package.ps1 -ExpectedVersion 1.0.8
+.\scripts\validate-package.ps1 -ExpectedVersion 1.0.9 -RunServiceStatus
+.\scripts\smoke-package.ps1 -ExpectedVersion 1.0.9
 ```
 
 See `docs\BETA_CHECKLIST.md` for the manual Windows and protocol matrix.
@@ -105,10 +105,10 @@ See `docs\BETA_CHECKLIST.md` for the manual Windows and protocol matrix.
 ## Stable Checks
 
 ```powershell
-.\scripts\verify-update-manifest.ps1 -ExpectedVersion 1.0.8 -RequireStableChannel
-.\scripts\test-signing-readiness.ps1 -ExpectedVersion 1.0.8
-.\scripts\write-clean-machine-evidence.ps1 -ExpectedVersion 1.0.8 -SkipLaunch
-.\scripts\write-release-evidence.ps1 -ExpectedVersion 1.0.8
+.\scripts\verify-update-manifest.ps1 -ExpectedVersion 1.0.9 -RequireStableChannel
+.\scripts\test-signing-readiness.ps1 -ExpectedVersion 1.0.9
+.\scripts\write-clean-machine-evidence.ps1 -ExpectedVersion 1.0.9 -SkipLaunch
+.\scripts\write-release-evidence.ps1 -ExpectedVersion 1.0.9
 ```
 
 See `docs\STABLE_RELEASE.md` and `docs\CLEAN_MACHINE_EVIDENCE.md` for the stable release checklist and external test evidence flow.

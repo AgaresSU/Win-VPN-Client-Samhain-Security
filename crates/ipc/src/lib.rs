@@ -75,6 +75,12 @@ pub enum ClientCommand {
     RefreshSubscription {
         subscription_id: String,
     },
+    PinSubscription {
+        subscription_id: String,
+    },
+    GetSubscriptionUrl {
+        subscription_id: String,
+    },
     RenameSubscription {
         subscription_id: String,
         name: String,
@@ -137,6 +143,11 @@ pub enum ServiceEvent {
     State(ServiceState),
     SubscriptionAdded { subscription: Subscription },
     SubscriptionRefreshed { subscription: Subscription },
+    SubscriptionPinned { subscription: Subscription },
+    SubscriptionUrl {
+        subscription_id: String,
+        url: String,
+    },
     SubscriptionRenamed { subscription: Subscription },
     SubscriptionDeleted { subscription_id: String },
     ServerSelected { server: Server },
