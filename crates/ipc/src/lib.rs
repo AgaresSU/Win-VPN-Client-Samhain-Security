@@ -235,10 +235,20 @@ impl Default for EngineKind {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct EngineCatalogEntry {
     pub kind: EngineKind,
+    pub runtime_id: String,
     pub name: String,
     pub executable_path: Option<String>,
+    pub bundled_path: String,
+    pub expected_paths: Vec<String>,
     pub search_paths: Vec<String>,
     pub available: bool,
+    pub status: String,
+    pub protocols: Vec<String>,
+    pub sha256: Option<String>,
+    pub file_size_bytes: Option<u64>,
+    pub version: Option<String>,
+    pub version_status: String,
+    pub message: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

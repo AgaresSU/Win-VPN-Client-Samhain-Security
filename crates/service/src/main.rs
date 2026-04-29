@@ -13,6 +13,7 @@ use samhain_ipc::{
     TrafficStatsState, TunLifecycleState, decode_request, encode_event, encode_response,
 };
 use serde::{Deserialize, Serialize};
+use sha2::{Digest, Sha256};
 use std::collections::BTreeSet;
 use std::fs;
 use std::io::{BufRead, BufReader, Read};
@@ -773,6 +774,7 @@ impl ServiceStore {
                 "manifest.json",
                 "state.json",
                 "logs.json",
+                "engine-inventory.json",
                 "service-self-check.json",
                 "service-audit.json",
                 "health.txt"
@@ -804,6 +806,10 @@ impl ServiceStore {
             (
                 "logs.json",
                 redact_support_text(&serde_json::to_string_pretty(&logs)?),
+            ),
+            (
+                "engine-inventory.json",
+                redact_support_text(&serde_json::to_string_pretty(&state.engine_catalog)?),
             ),
             (
                 "service-self-check.json",
@@ -2575,10 +2581,26 @@ impl EngineManager {
         let generated = generate_engine_config(server, raw_url, route_mode)?;
         self.traffic.start(server, generated.path);
         let catalog = discover_engines();
-        let Some(engine) = catalog
+        let engine_entry = catalog
             .iter()
             .find(|entry| entry.kind == generated.engine && entry.available)
-        else {
+            .cloned()
+            .or_else(|| {
+                catalog
+                    .iter()
+                    .find(|entry| entry.kind == generated.engine)
+                    .cloned()
+            });
+        let Some(engine) = engine_entry.clone().filter(|entry| entry.available) else {
+            let contract_message = engine_entry
+                .as_ref()
+                .map(|entry| entry.message.clone())
+                .unwrap_or_else(|| {
+                    format!(
+                        "{} runtime is not part of the current package contract.",
+                        engine_name(generated.engine)
+                    )
+                });
             self.state = EngineLifecycleState {
                 status: "missing".to_string(),
                 engine: generated.engine,
@@ -2594,8 +2616,9 @@ impl EngineManager {
                         .to_string(),
                 ),
                 message: format!(
-                    "Движок {} не найден. Поместите бинарник в папку engines рядом с приложением.",
-                    engine_name(generated.engine)
+                    "Движок {} недоступен по контракту пакета. {}",
+                    engine_name(generated.engine),
+                    contract_message
                 ),
                 log_tail: self.log_tail(),
             };
@@ -2603,7 +2626,11 @@ impl EngineManager {
                 &self.logs,
                 "warn",
                 "manager",
-                &format!("Missing engine for {}", server.name),
+                &format!(
+                    "Missing engine for {}: {}",
+                    server.name,
+                    redact_support_text(&contract_message)
+                ),
             );
             self.traffic.stop();
             return Ok(self.snapshot());
@@ -4133,31 +4160,93 @@ fn discover_engines() -> Vec<EngineCatalogEntry> {
 }
 
 fn discover_engine(kind: EngineKind) -> EngineCatalogEntry {
-    let dirs = engine_search_dirs();
-    let names = engine_binary_names(kind);
-    let executable_path = dirs
-        .iter()
-        .flat_map(|dir| names.iter().map(move |name| dir.join(name)))
-        .find(|candidate| candidate.is_file());
+    let expected_paths = engine_candidate_paths(kind);
+    let search_paths = engine_search_dirs_for(kind);
+    let executable_path = expected_paths.iter().find(|candidate| candidate.is_file());
+    let sha256 = executable_path.and_then(|path| file_sha256(path).ok());
+    let file_size_bytes = executable_path
+        .and_then(|path| fs::metadata(path).ok())
+        .map(|metadata| metadata.len());
+    let (version, version_status) = match executable_path {
+        Some(path) => probe_engine_version(kind, path),
+        None => (None, "missing".to_string()),
+    };
+    let available = executable_path.is_some();
+    let status = if available { "available" } else { "missing" }.to_string();
+    let message = if let Some(path) = executable_path {
+        format!(
+            "{} runtime available at {}.",
+            engine_name(kind),
+            path.display()
+        )
+    } else {
+        format!(
+            "{} runtime missing. Expected bundled path: {}.",
+            engine_name(kind),
+            engine_bundle_relative_path(kind)
+        )
+    };
 
     EngineCatalogEntry {
         kind,
+        runtime_id: engine_runtime_id(kind).to_string(),
         name: engine_name(kind).to_string(),
-        executable_path: executable_path
-            .as_ref()
-            .map(|path| path.display().to_string()),
-        search_paths: dirs.iter().map(|path| path.display().to_string()).collect(),
-        available: executable_path.is_some(),
+        executable_path: executable_path.map(|path| path.display().to_string()),
+        bundled_path: engine_bundle_relative_path(kind).to_string(),
+        expected_paths: expected_paths
+            .iter()
+            .map(|path| path.display().to_string())
+            .collect(),
+        search_paths: search_paths
+            .iter()
+            .map(|path| path.display().to_string())
+            .collect(),
+        available,
+        status,
+        protocols: engine_protocols(kind)
+            .iter()
+            .map(|protocol| (*protocol).to_string())
+            .collect(),
+        sha256,
+        file_size_bytes,
+        version,
+        version_status,
+        message,
     }
 }
 
 fn engine_search_dirs() -> Vec<PathBuf> {
+    let mut dirs = engine_base_dirs();
+    for kind in [
+        EngineKind::SingBox,
+        EngineKind::Xray,
+        EngineKind::WireGuard,
+        EngineKind::AmneziaWg,
+    ] {
+        dirs.extend(engine_search_dirs_for(kind));
+    }
+    unique_paths(dirs)
+}
+
+fn engine_search_dirs_for(kind: EngineKind) -> Vec<PathBuf> {
+    let mut dirs = Vec::new();
+    for base in engine_base_dirs() {
+        dirs.push(base.join(engine_bundle_dir_name(kind)));
+        dirs.push(base);
+    }
+    unique_paths(dirs)
+}
+
+fn engine_base_dirs() -> Vec<PathBuf> {
     let mut dirs = Vec::new();
     if let Some(value) = std::env::var_os("SAMHAIN_ENGINE_DIR") {
         dirs.extend(std::env::split_paths(&value));
     }
     if let Ok(exe) = std::env::current_exe() {
         if let Some(parent) = exe.parent() {
+            if let Some(package_root) = parent.parent() {
+                dirs.push(package_root.join("app").join("engines"));
+            }
             dirs.push(parent.join("engines"));
             dirs.push(parent.to_path_buf());
         }
@@ -4167,13 +4256,154 @@ fn engine_search_dirs() -> Vec<PathBuf> {
         dirs.push(cwd);
     }
 
+    unique_paths(dirs)
+}
+
+fn unique_paths(paths: Vec<PathBuf>) -> Vec<PathBuf> {
     let mut unique = Vec::new();
-    for dir in dirs {
-        if !unique.iter().any(|existing: &PathBuf| existing == &dir) {
-            unique.push(dir);
+    for path in paths {
+        if !unique.iter().any(|existing: &PathBuf| existing == &path) {
+            unique.push(path);
         }
     }
     unique
+}
+
+fn engine_candidate_paths(kind: EngineKind) -> Vec<PathBuf> {
+    let mut candidates = Vec::new();
+    let primary = engine_primary_binary_name(kind);
+    for base in engine_base_dirs() {
+        candidates.push(base.join(engine_bundle_dir_name(kind)).join(primary));
+        for name in engine_binary_names(kind) {
+            candidates.push(base.join(engine_bundle_dir_name(kind)).join(name));
+            candidates.push(base.join(name));
+        }
+    }
+    unique_paths(candidates)
+}
+
+fn engine_runtime_id(kind: EngineKind) -> &'static str {
+    match kind {
+        EngineKind::SingBox => "sing-box",
+        EngineKind::Xray => "xray",
+        EngineKind::WireGuard => "wireguard",
+        EngineKind::AmneziaWg => "amneziawg",
+        EngineKind::Unknown => "unknown",
+    }
+}
+
+fn engine_bundle_dir_name(kind: EngineKind) -> &'static str {
+    match kind {
+        EngineKind::SingBox => "sing-box",
+        EngineKind::Xray => "xray",
+        EngineKind::WireGuard => "wireguard",
+        EngineKind::AmneziaWg => "amneziawg",
+        EngineKind::Unknown => "unknown",
+    }
+}
+
+fn engine_primary_binary_name(kind: EngineKind) -> &'static str {
+    match kind {
+        EngineKind::SingBox => "sing-box.exe",
+        EngineKind::Xray => "xray.exe",
+        EngineKind::WireGuard => "wireguard.exe",
+        EngineKind::AmneziaWg => "awg-quick.exe",
+        EngineKind::Unknown => "",
+    }
+}
+
+fn engine_bundle_relative_path(kind: EngineKind) -> &'static str {
+    match kind {
+        EngineKind::SingBox => "app\\engines\\sing-box\\sing-box.exe",
+        EngineKind::Xray => "app\\engines\\xray\\xray.exe",
+        EngineKind::WireGuard => "app\\engines\\wireguard\\wireguard.exe",
+        EngineKind::AmneziaWg => "app\\engines\\amneziawg\\awg-quick.exe",
+        EngineKind::Unknown => "app\\engines\\unknown",
+    }
+}
+
+fn engine_protocols(kind: EngineKind) -> &'static [&'static str] {
+    match kind {
+        EngineKind::SingBox => &[
+            "vless-tcp-reality",
+            "trojan",
+            "shadowsocks",
+            "hysteria2",
+            "tuic",
+            "sing-box",
+        ],
+        EngineKind::Xray => &["vless-tcp-reality", "trojan"],
+        EngineKind::WireGuard => &["wireguard"],
+        EngineKind::AmneziaWg => &["amneziawg"],
+        EngineKind::Unknown => &[],
+    }
+}
+
+fn file_sha256(path: &Path) -> Result<String> {
+    let mut file = fs::File::open(path)
+        .with_context(|| format!("Could not open runtime {}", path.display()))?;
+    let mut hasher = Sha256::new();
+    let mut buffer = [0_u8; 8192];
+    loop {
+        let read = file
+            .read(&mut buffer)
+            .with_context(|| format!("Could not read runtime {}", path.display()))?;
+        if read == 0 {
+            break;
+        }
+        hasher.update(&buffer[..read]);
+    }
+    Ok(format!("{:x}", hasher.finalize()))
+}
+
+fn probe_engine_version(kind: EngineKind, path: &Path) -> (Option<String>, String) {
+    let args = engine_version_probe_args(kind);
+    if args.is_empty() {
+        return (None, "not-supported".to_string());
+    }
+
+    match Command::new(path)
+        .args(args)
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .output()
+    {
+        Ok(output) => {
+            let combined = format!(
+                "{}\n{}",
+                String::from_utf8_lossy(&output.stdout),
+                String::from_utf8_lossy(&output.stderr)
+            );
+            let line = combined
+                .lines()
+                .map(str::trim)
+                .find(|line| !line.is_empty())
+                .map(|line| {
+                    redact_support_text(line)
+                        .chars()
+                        .take(160)
+                        .collect::<String>()
+                });
+
+            if output.status.success() {
+                (line, "ok".to_string())
+            } else {
+                (line, format!("exit-{}", output.status.code().unwrap_or(-1)))
+            }
+        }
+        Err(error) => (
+            None,
+            format!("probe-error: {}", redact_support_text(&error.to_string())),
+        ),
+    }
+}
+
+fn engine_version_probe_args(kind: EngineKind) -> &'static [&'static str] {
+    match kind {
+        EngineKind::SingBox | EngineKind::Xray => &["version"],
+        EngineKind::WireGuard | EngineKind::AmneziaWg => &["--version"],
+        EngineKind::Unknown => &[],
+    }
 }
 
 fn engine_binary_names(kind: EngineKind) -> &'static [&'static str] {
@@ -5034,6 +5264,41 @@ mod tests {
                 .iter()
                 .all(|entry| !entry.name.is_empty() && !entry.search_paths.is_empty())
         );
+        assert!(catalog.iter().all(|entry| !entry.runtime_id.is_empty()
+            && !entry.bundled_path.is_empty()
+            && !entry.expected_paths.is_empty()
+            && !entry.status.is_empty()
+            && !entry.version_status.is_empty()
+            && !entry.protocols.is_empty()
+            && !entry.message.is_empty()));
+        for entry in catalog.iter().filter(|entry| entry.available) {
+            assert_eq!(entry.status, "available");
+            assert!(entry.executable_path.is_some());
+            assert!(entry.sha256.as_ref().is_some_and(|hash| hash.len() == 64));
+            assert!(entry.file_size_bytes.unwrap_or_default() > 0);
+        }
+    }
+
+    #[test]
+    fn engine_contract_declares_exact_bundle_layout() {
+        let catalog = discover_engines();
+        let expected = [
+            ("sing-box", "app\\engines\\sing-box\\sing-box.exe"),
+            ("xray", "app\\engines\\xray\\xray.exe"),
+            ("wireguard", "app\\engines\\wireguard\\wireguard.exe"),
+            ("amneziawg", "app\\engines\\amneziawg\\awg-quick.exe"),
+        ];
+
+        for (runtime_id, bundled_path) in expected {
+            let entry = catalog
+                .iter()
+                .find(|entry| entry.runtime_id == runtime_id)
+                .expect("runtime entry");
+            assert_eq!(entry.bundled_path, bundled_path);
+            assert!(entry.expected_paths.iter().any(|path| {
+                path.ends_with(&bundled_path.replace("app\\", "")) || path.ends_with(bundled_path)
+            }));
+        }
     }
 
     #[test]

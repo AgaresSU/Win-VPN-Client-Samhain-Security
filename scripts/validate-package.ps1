@@ -69,6 +69,7 @@ $requiredPaths = @(
     "README.md",
     "VERSION",
     "release-manifest.json",
+    "engine-inventory.json",
     "checksums.txt"
 )
 
@@ -105,6 +106,9 @@ if (Test-Path $manifestPath) {
         Add-Check "manifest:service-self-check" ($manifest.operations.serviceSelfCheck.command -eq "service\samhain-service.exe self-check") ([string]$manifest.operations.serviceSelfCheck.command)
         Add-Check "manifest:enforcement-transaction" ($manifest.operations.enforcementTransaction.model -eq "typed-apply-rollback") ([string]$manifest.operations.enforcementTransaction.model)
         Add-Check "manifest:enforcement-snapshots" ([bool]$manifest.operations.enforcementTransaction.beforeAfterSnapshots) ([string]$manifest.operations.enforcementTransaction.beforeAfterSnapshots)
+        Add-Check "manifest:runtime-contract" ($manifest.operations.runtimeContract.inventory -eq "engine-inventory.json") ([string]$manifest.operations.runtimeContract.inventory)
+        Add-Check "manifest:runtime-source" ($manifest.operations.runtimeContract.availabilitySource -eq "package-inventory") ([string]$manifest.operations.runtimeContract.availabilitySource)
+        Add-Check "manifest:runtime-layout" ($manifest.operations.runtimeContract.layout.Count -ge 4) "entries=$($manifest.operations.runtimeContract.layout.Count)"
         Add-Check "manifest:smoke" ($manifest.quality.smokeScript -eq "tools\smoke-package.ps1") ([string]$manifest.quality.smokeScript)
         Add-Check "manifest:update-verifier" ($manifest.quality.updateManifestVerifier -eq "tools\verify-update-manifest.ps1") ([string]$manifest.quality.updateManifestVerifier)
         Add-Check "manifest:release-evidence" ($manifest.quality.releaseEvidenceScript -eq "tools\write-release-evidence.ps1") ([string]$manifest.quality.releaseEvidenceScript)
@@ -114,6 +118,31 @@ if (Test-Path $manifestPath) {
     }
     catch {
         Add-Check "manifest:json" $false $_.Exception.Message
+    }
+}
+
+$engineInventoryPath = Join-Path $PackageRoot "engine-inventory.json"
+if (Test-Path $engineInventoryPath) {
+    try {
+        $engineInventory = @(Get-Content -LiteralPath $engineInventoryPath -Raw | ConvertFrom-Json)
+        Add-Check "engine-inventory:json" $true "entries=$($engineInventory.Count)"
+        $requiredRuntimeIds = @("sing-box", "xray", "wireguard", "amneziawg")
+        foreach ($runtimeId in $requiredRuntimeIds) {
+            $entry = $engineInventory | Where-Object { $_.runtimeId -eq $runtimeId } | Select-Object -First 1
+            Add-Check "engine-inventory:$runtimeId" ($null -ne $entry) "present=$($null -ne $entry)"
+            if ($null -ne $entry) {
+                Add-Check "engine-inventory:$runtimeId-path" (-not [string]::IsNullOrWhiteSpace([string]$entry.bundledPath)) ([string]$entry.bundledPath)
+                Add-Check "engine-inventory:$runtimeId-protocols" ($entry.protocols.Count -gt 0) "protocols=$($entry.protocols.Count)"
+                Add-Check "engine-inventory:$runtimeId-status" ([string]$entry.status -in @("available", "missing")) ([string]$entry.status)
+                if ([bool]$entry.available) {
+                    Add-Check "engine-inventory:$runtimeId-sha256" (([string]$entry.sha256) -match '^[a-f0-9]{64}$') ([string]$entry.sha256)
+                    Add-Check "engine-inventory:$runtimeId-size" ([int64]$entry.fileSizeBytes -gt 0) "size=$($entry.fileSizeBytes)"
+                }
+            }
+        }
+    }
+    catch {
+        Add-Check "engine-inventory:json" $false $_.Exception.Message
     }
 }
 
@@ -168,6 +197,11 @@ if ($RunServiceStatus) {
             }
             Add-Check "service:recovery-policy" (($null -ne $serviceState.recovery_policy) -and ($serviceState.recovery_policy.owner -eq "service")) "owner=$($serviceState.recovery_policy.owner)"
             Add-Check "service:audit-events" ($null -ne $serviceState.audit_events) "count=$($serviceState.audit_events.Count)"
+            Add-Check "service:engine-inventory" (($null -ne $serviceState.engine_catalog) -and ($serviceState.engine_catalog.Count -ge 4)) "count=$($serviceState.engine_catalog.Count)"
+            if (($null -ne $serviceState.engine_catalog) -and ($serviceState.engine_catalog.Count -ge 4)) {
+                $singBox = $serviceState.engine_catalog | Where-Object { $_.runtime_id -eq "sing-box" } | Select-Object -First 1
+                Add-Check "service:engine-contract-sing-box" (($null -ne $singBox) -and (-not [string]::IsNullOrWhiteSpace([string]$singBox.bundled_path))) ([string]$singBox.bundled_path)
+            }
             $transaction = $serviceState.protection_policy.transaction
             Add-Check "service:protection-transaction" ($null -ne $transaction) "status=$($transaction.status)"
             if ($null -ne $transaction) {

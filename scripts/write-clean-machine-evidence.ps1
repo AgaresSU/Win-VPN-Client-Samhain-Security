@@ -160,6 +160,7 @@ $failed = $false
 $serviceReadiness = $null
 $serviceSelfCheck = $null
 $protectionTransaction = $null
+$engineInventory = $null
 
 Invoke-ScriptStep -Name "validate-package" -ScriptPath $validateScript -Parameters @{
     PackageRoot = $PackageRoot
@@ -241,9 +242,11 @@ else {
         $serviceReadiness = $serviceState.service_readiness
         $serviceSelfCheck = $serviceState.service_self_check
         $protectionTransaction = $serviceState.protection_policy.transaction
+        $engineInventory = $serviceState.engine_catalog
         Add-Step "service:status" (($serviceExitCode -eq 0) -and ($serviceState.version -eq $ExpectedVersion)) "exit=$serviceExitCode version=$($serviceState.version) readiness=$($serviceReadiness.status)"
         Add-Step "service:self-check-state" ($null -ne $serviceSelfCheck) "status=$($serviceSelfCheck.status)"
         Add-Step "service:recovery-policy" (($null -ne $serviceState.recovery_policy) -and ($serviceState.recovery_policy.owner -eq "service")) "owner=$($serviceState.recovery_policy.owner)"
+        Add-Step "service:engine-inventory" (($null -ne $engineInventory) -and ($engineInventory.Count -ge 4)) "count=$($engineInventory.Count)"
         Add-Step "service:protection-transaction" (($null -ne $protectionTransaction) -and ($protectionTransaction.steps.Count -gt 0)) "status=$($protectionTransaction.status) steps=$($protectionTransaction.steps.Count)"
     }
     catch {
@@ -318,6 +321,7 @@ $evidence = [PSCustomObject]@{
     serviceReadiness = $serviceReadiness
     serviceSelfCheck = $serviceSelfCheck
     protectionTransaction = $protectionTransaction
+    engineInventory = $engineInventory
     packageRoot = $PackageRoot
     steps = $steps
 }

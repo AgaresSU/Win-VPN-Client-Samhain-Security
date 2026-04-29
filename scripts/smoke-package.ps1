@@ -208,6 +208,7 @@ else {
         Add-Step "service:status" (($serviceExitCode -eq 0) -and ($serviceState.version -eq $ExpectedVersion)) "exit=$serviceExitCode version=$($serviceState.version)"
         Add-Step "service:self-check-state" ($null -ne $serviceState.service_self_check) "status=$($serviceState.service_self_check.status)"
         Add-Step "service:recovery-policy" (($null -ne $serviceState.recovery_policy) -and ($serviceState.recovery_policy.owner -eq "service")) "owner=$($serviceState.recovery_policy.owner)"
+        Add-Step "service:engine-inventory" (($null -ne $serviceState.engine_catalog) -and ($serviceState.engine_catalog.Count -ge 4)) "count=$($serviceState.engine_catalog.Count)"
         Add-Step "service:protection-transaction" (($null -ne $serviceState.protection_policy.transaction) -and ($serviceState.protection_policy.transaction.steps.Count -gt 0)) "status=$($serviceState.protection_policy.transaction.status) steps=$($serviceState.protection_policy.transaction.steps.Count)"
     }
     catch {

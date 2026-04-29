@@ -1,6 +1,6 @@
 # Roadmap
 
-Current version: `1.2.2`
+Current version: `1.2.3`
 
 This roadmap is the working contract for Samhain Security. Future implementation should follow this order unless a blocker is found and documented in the same commit.
 
@@ -529,7 +529,7 @@ Status: shipped in `v1.2.2` with typed protection apply/rollback transactions, t
 
 Done when protocol availability is determined by package inventory rather than assumptions.
 
-Status: planned.
+Status: shipped in `v1.2.3` with exact packaged runtime layout, package and service engine inventories, SHA256 and size evidence for present binaries, version probes, protocol availability by runtime contract, clear missing-runtime errors, and operator docs for runtime replacement.
 
 ### 1.2.4 - Runtime Health And Counters
 
@@ -661,15 +661,14 @@ Status: planned.
 
 ## Immediate Next Build Order
 
-1. `1.2.3`: production engine bundle contract.
-2. `1.2.4`: runtime health and counters.
-3. `1.2.5`: subscription operations hardening.
-4. `1.3.0`: daily UX freeze.
-5. `1.3.1`: connection reliability pass.
-6. `1.3.2`: app-routing design gate.
-7. `1.3.3`: app-routing enforcement V1.
-8. `1.3.4`: diagnostics and support final.
-9. `1.3.5`: tray, startup, and link ownership.
-10. `1.3.6`: update and rollback hardening.
-11. `1.3.7`: security review and abuse resistance.
-12. `1.4.0`: release-ready competitive build.
+1. `1.2.4`: runtime health and counters.
+2. `1.2.5`: subscription operations hardening.
+3. `1.3.0`: daily UX freeze.
+4. `1.3.1`: connection reliability pass.
+5. `1.3.2`: app-routing design gate.
+6. `1.3.3`: app-routing enforcement V1.
+7. `1.3.4`: diagnostics and support final.
+8. `1.3.5`: tray, startup, and link ownership.
+9. `1.3.6`: update and rollback hardening.
+10. `1.3.7`: security review and abuse resistance.
+11. `1.4.0`: release-ready competitive build.

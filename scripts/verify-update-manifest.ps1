@@ -82,6 +82,9 @@ if ($RequireStableChannel) {
     Add-Check "manifest:stable-channel" ($manifest.channel -eq "stable") ([string]$manifest.channel)
 }
 Add-Check "manifest:algorithm" ($manifest.package.algorithm -eq "SHA256") ([string]$manifest.package.algorithm)
+Add-Check "manifest:runtime-contract" ($manifest.install.runtimeContract.inventory -eq "engine-inventory.json") ([string]$manifest.install.runtimeContract.inventory)
+Add-Check "manifest:runtime-source" ($manifest.install.runtimeContract.availabilitySource -eq "package-inventory") ([string]$manifest.install.runtimeContract.availabilitySource)
+Add-Check "manifest:engine-inventory" ($manifest.verification.engineInventory -eq "engine-inventory.json") ([string]$manifest.verification.engineInventory)
 
 if (-not [string]::IsNullOrWhiteSpace($ExpectedVersion)) {
     Add-Check "manifest:expected-version" ($manifest.version -eq $ExpectedVersion) "expected=$ExpectedVersion actual=$($manifest.version)"

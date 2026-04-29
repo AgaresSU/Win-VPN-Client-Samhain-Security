@@ -2855,9 +2855,15 @@ void AppController::applyEngineCatalogArray(const QJsonArray &catalog)
         const auto item = value.toObject();
         const auto name = item.value("name").toString("unknown");
         const auto available = item.value("available").toBool(false);
+        const auto bundledPath = item.value("bundled_path").toString();
         const auto path = item.value("executable_path").toString();
-        lines.push_back(name + ": " + (available ? "найден" : "не найден")
-            + (path.isEmpty() ? QString() : " · " + path));
+        const auto versionStatus = item.value("version_status").toString();
+        QString line = name + ": " + (available ? "найден" : "не найден");
+        line += " · " + (path.isEmpty() ? bundledPath : path);
+        if (!versionStatus.isEmpty()) {
+            line += " · probe: " + versionStatus;
+        }
+        lines.push_back(line);
     }
     m_engineCatalog = lines;
 }

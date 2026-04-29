@@ -1,5 +1,5 @@
 param(
-    [string]$Version = "1.2.2",
+    [string]$Version = "1.2.3",
     [string]$Configuration = "Release"
 )
 
@@ -29,6 +29,94 @@ function Invoke-Checked {
     & $FilePath @Arguments
     if ($LASTEXITCODE -ne 0) {
         throw "$FilePath failed with exit code $LASTEXITCODE"
+    }
+}
+
+$EngineContracts = @(
+    [PSCustomObject]@{
+        runtimeId = "sing-box"
+        name = "sing-box"
+        kind = "sing-box"
+        bundledPath = "app\engines\sing-box\sing-box.exe"
+        protocols = @("vless-tcp-reality", "trojan", "shadowsocks", "hysteria2", "tuic", "sing-box")
+        versionArgs = @("version")
+    },
+    [PSCustomObject]@{
+        runtimeId = "xray"
+        name = "Xray"
+        kind = "xray"
+        bundledPath = "app\engines\xray\xray.exe"
+        protocols = @("vless-tcp-reality", "trojan")
+        versionArgs = @("version")
+    },
+    [PSCustomObject]@{
+        runtimeId = "wireguard"
+        name = "WireGuard"
+        kind = "wire-guard"
+        bundledPath = "app\engines\wireguard\wireguard.exe"
+        protocols = @("wireguard")
+        versionArgs = @("--version")
+    },
+    [PSCustomObject]@{
+        runtimeId = "amneziawg"
+        name = "AmneziaWG"
+        kind = "amnezia-wg"
+        bundledPath = "app\engines\amneziawg\awg-quick.exe"
+        protocols = @("amneziawg")
+        versionArgs = @("--version")
+    }
+)
+
+function New-EngineInventory {
+    param([string]$Root)
+
+    foreach ($contract in $EngineContracts) {
+        $path = Join-Path $Root $contract.bundledPath
+        $exists = Test-Path -LiteralPath $path
+        $hash = $null
+        $size = $null
+        $version = $null
+        $versionStatus = "missing"
+
+        if ($exists) {
+            $file = Get-Item -LiteralPath $path
+            $hash = (Get-FileHash -Algorithm SHA256 -LiteralPath $path).Hash.ToLowerInvariant()
+            $size = $file.Length
+            $versionStatus = "not-probed"
+            try {
+                $probeOutput = & $path @($contract.versionArgs) 2>&1
+                if ($LASTEXITCODE -eq 0) {
+                    $versionStatus = "ok"
+                }
+                else {
+                    $versionStatus = "exit-$LASTEXITCODE"
+                }
+                $version = (($probeOutput | Where-Object { -not [string]::IsNullOrWhiteSpace($_) } | Select-Object -First 1) -as [string])
+                if ($version -and $version.Length -gt 160) {
+                    $version = $version.Substring(0, 160)
+                }
+            }
+            catch {
+                $versionStatus = "probe-error"
+            }
+        }
+
+        [PSCustomObject]@{
+            runtimeId = $contract.runtimeId
+            kind = $contract.kind
+            name = $contract.name
+            bundledPath = $contract.bundledPath
+            executablePath = if ($exists) { $path } else { $null }
+            expectedPaths = @($contract.bundledPath)
+            available = $exists
+            status = if ($exists) { "available" } else { "missing" }
+            protocols = $contract.protocols
+            sha256 = $hash
+            fileSizeBytes = $size
+            version = $version
+            versionStatus = $versionStatus
+            message = if ($exists) { "$($contract.name) runtime available in package inventory." } else { "$($contract.name) runtime missing from $($contract.bundledPath)." }
+        }
     }
 }
 
@@ -69,6 +157,9 @@ if (Test-Path (Join-Path $RepoRoot "engines")) {
     Copy-Item -Path (Join-Path $RepoRoot "engines\*") -Destination $EnginesOut -Recurse -Force
 }
 
+$engineInventory = @(New-EngineInventory -Root $PackageRoot)
+$engineInventory | ConvertTo-Json -Depth 5 | Set-Content -LiteralPath (Join-Path $PackageRoot "engine-inventory.json") -Encoding UTF8
+
 Invoke-Checked "windeployqt" @(
     "--qmldir",
     (Join-Path $RepoRoot "apps\desktop-qt\qml"),
@@ -107,6 +198,17 @@ $manifest = [PSCustomObject]@{
             transactionIds = $true
             beforeAfterSnapshots = $true
         }
+        runtimeContract = [PSCustomObject]@{
+            inventory = "engine-inventory.json"
+            availabilitySource = "package-inventory"
+            layout = @($EngineContracts | ForEach-Object {
+                [PSCustomObject]@{
+                    runtimeId = $_.runtimeId
+                    bundledPath = $_.bundledPath
+                    protocols = $_.protocols
+                }
+            })
+        }
     }
     signing = [PSCustomObject]@{
         status = "unsigned-dev"
@@ -123,6 +225,7 @@ $manifest = [PSCustomObject]@{
         cleanMachineEvidenceScript = "tools\write-clean-machine-evidence.ps1"
         serviceSelfCheckCommand = "service\samhain-service.exe self-check"
         enforcementTransactionEvidence = "service.protection_policy.transaction"
+        engineInventory = "engine-inventory.json"
         gates = @(
             "cargo test --workspace",
             "scripts\build.ps1",
@@ -142,7 +245,7 @@ $manifest = [PSCustomObject]@{
     }
     createdAtUtc = (Get-Date).ToUniversalTime().ToString("O")
 }
-$manifest | ConvertTo-Json -Depth 4 | Set-Content -LiteralPath (Join-Path $PackageRoot "release-manifest.json") -Encoding UTF8
+$manifest | ConvertTo-Json -Depth 6 | Set-Content -LiteralPath (Join-Path $PackageRoot "release-manifest.json") -Encoding UTF8
 
 $checksumTargets = @(
     "app\SamhainSecurityNative.exe",
@@ -155,6 +258,7 @@ $checksumTargets = @(
     "tools\test-signing-readiness.ps1",
     "tools\write-clean-machine-evidence.ps1",
     "release-manifest.json",
+    "engine-inventory.json",
     "README.md",
     "VERSION"
 )
@@ -198,6 +302,10 @@ $updateManifest = [PSCustomObject]@{
             model = "typed-apply-rollback"
             beforeAfterSnapshots = $true
         }
+        runtimeContract = [PSCustomObject]@{
+            inventory = "engine-inventory.json"
+            availabilitySource = "package-inventory"
+        }
     }
     verification = [PSCustomObject]@{
         packageValidationScript = "tools\validate-package.ps1"
@@ -208,6 +316,7 @@ $updateManifest = [PSCustomObject]@{
         cleanMachineEvidenceScript = "tools\write-clean-machine-evidence.ps1"
         serviceSelfCheckCommand = "service\samhain-service.exe self-check"
         enforcementTransactionEvidence = "service.protection_policy.transaction"
+        engineInventory = "engine-inventory.json"
         signingStatus = "unsigned-dev"
         expectedPublisher = "Samhain Security"
     }
