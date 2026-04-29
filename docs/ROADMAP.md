@@ -1,6 +1,6 @@
 # Roadmap
 
-Current version: `1.0.3`
+Current version: `1.0.4`
 
 This roadmap is the working contract for Samhain Security. Future implementation should follow this order unless a blocker is found and documented in the same commit.
 
@@ -309,6 +309,17 @@ Done when the subscription list no longer feels like a technical control panel.
 
 Status: shipped in `v1.0.3` with compact subscription actions, a dark add-subscription dialog, safer disabled add state, and versioned package validation.
 
+### 1.0.4 - Settings Simplification
+
+- Keep the daily settings page focused on mode, app list, autostart, and link handling.
+- Hide service, engine, path, restore, and diagnostic actions under advanced settings.
+- Group advanced settings by purpose instead of showing one long technical control row.
+- Keep the dark red graphite style consistent across settings controls.
+
+Done when a non-technical user can change the work mode without scanning service internals.
+
+Status: shipped in `v1.0.4` with a simplified settings page, a dark combo and switch, and grouped advanced service operations.
+
 ## Immediate Next Build Order
 
-1. `1.0.4`: settings page simplification and advanced settings grouping.
+1. `1.0.5`: app list dialog polish and clearer per-application routing state.

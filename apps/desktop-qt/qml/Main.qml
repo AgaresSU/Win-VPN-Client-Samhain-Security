@@ -982,11 +982,14 @@ ApplicationWindow {
                 anchors.top: parent.top
 
                 PageTitle { text: "Настройки" }
+                SettingsSectionTitle { text: "Основное" }
                 SettingsCard {
-                    title: "Режим"
-                    ComboBox {
+                    title: "Режим работы"
+                    subtitle: appController.routePolicyStatus
+                    DarkComboBox {
                         id: routeCombo
                         Layout.fillWidth: true
+                        Layout.maximumWidth: 390
                         model: ["Весь компьютер", "Только выбранные приложения", "Кроме выбранных приложений"]
                         currentIndex: appController.routeModeIndex
                         onActivated: appController.routeModeIndex = currentIndex
@@ -994,57 +997,38 @@ ApplicationWindow {
                 }
                 SettingsCard {
                     title: "Приложения"
+                    subtitle: appController.routeAppCountLabel
+                    visible: appController.routeModeIndex !== 0
                     Text {
-                        text: appController.routeAppCountLabel + " · " + appController.routePolicyStatus
+                        text: appController.routePolicyDetail
                         color: root.muted
-                        font.pixelSize: 16
+                        font.pixelSize: 14
                         elide: Text.ElideRight
                         Layout.fillWidth: true
+                        Layout.maximumWidth: parent.width * 0.44
                     }
-                    Button {
+                    QuietButton {
                         text: "Изменить"
                         Layout.preferredWidth: 120
                         onClicked: appRoutingDialog.open()
-                        background: Rectangle { color: "#333333"; radius: 8 }
-                        contentItem: Text { text: parent.text; color: root.text; horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter }
                     }
                 }
+                SettingsSectionTitle { text: "Запуск" }
                 SettingsCard {
-                    title: "Защита"
-                    Text {
-                        text: appController.protectionStatus
-                        color: root.muted
-                        font.pixelSize: 16
-                        elide: Text.ElideRight
-                        Layout.fillWidth: true
-                    }
-                    Button {
-                        text: "Обновить"
-                        Layout.preferredWidth: 120
-                        onClicked: appController.refreshProtectionPolicy()
-                        background: Rectangle { color: "#333333"; radius: 8 }
-                        contentItem: Text { text: parent.text; color: root.text; horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter }
-                    }
-                }
-                SettingsCard {
-                    title: "Интеграция"
-                    Text {
-                        text: appController.desktopIntegrationStatus
-                        color: root.muted
-                        font.pixelSize: 16
-                        elide: Text.ElideRight
-                        Layout.fillWidth: true
-                    }
-                    Switch {
+                    title: "Автозапуск"
+                    subtitle: appController.desktopIntegrationStatus
+                    DarkSwitch {
                         checked: appController.autostartEnabled
                         onToggled: appController.setAutostartEnabled(checked)
                     }
-                    Button {
-                        text: "Ссылки"
+                }
+                SettingsCard {
+                    title: "Ссылки Samhain"
+                    subtitle: "samhain://"
+                    QuietButton {
+                        text: "Включить"
                         Layout.preferredWidth: 104
                         onClicked: appController.registerLinkHandler()
-                        background: Rectangle { color: "#333333"; radius: 8 }
-                        contentItem: Text { text: parent.text; color: root.text; horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter }
                     }
                 }
                 AdvancedSettingsBox {}
@@ -1159,7 +1143,7 @@ ApplicationWindow {
             spacing: 18
             PageTitle { text: "О программе" }
             MetricRow { title: "Программа"; value: "Samhain Security Native" }
-            MetricRow { title: "Версия"; value: "1.0.3" }
+            MetricRow { title: "Версия"; value: "1.0.4" }
             MetricRow { title: "Интерфейс"; value: "Qt 6 / QML" }
             MetricRow { title: "Ядро"; value: "Rust workspace" }
             MetricRow { title: "Статус"; value: appController.statusText }
@@ -1328,11 +1312,22 @@ ApplicationWindow {
         }
     }
 
+    component SettingsSectionTitle: Text {
+        Layout.fillWidth: true
+        text: ""
+        color: root.text
+        font.pixelSize: 20
+        font.bold: true
+        topPadding: 6
+        bottomPadding: 0
+    }
+
     component SettingsCard: Rectangle {
         default property alias content: contentRow.data
         property string title: ""
+        property string subtitle: ""
         Layout.fillWidth: true
-        Layout.preferredHeight: 72
+        Layout.preferredHeight: subtitle.length > 0 ? 86 : 72
         color: root.fieldHot
         radius: 6
         border.color: root.line
@@ -1342,14 +1337,191 @@ ApplicationWindow {
             anchors.leftMargin: 20
             anchors.rightMargin: 20
             spacing: 16
-            Text { text: title; color: root.text; font.pixelSize: 18; Layout.fillWidth: true }
+            ColumnLayout {
+                Layout.fillWidth: true
+                spacing: 4
+                Text {
+                    text: title
+                    color: root.text
+                    font.pixelSize: 18
+                    font.bold: true
+                    Layout.fillWidth: true
+                    elide: Text.ElideRight
+                }
+                Text {
+                    visible: subtitle.length > 0
+                    text: subtitle
+                    color: root.muted
+                    font.pixelSize: 14
+                    Layout.fillWidth: true
+                    elide: Text.ElideRight
+                }
+            }
+        }
+    }
+
+    component QuietButton: Button {
+        id: quietButton
+        property bool accentButton: false
+        property bool danger: false
+        Layout.preferredHeight: 42
+        background: Rectangle {
+            color: quietButton.down
+                ? (danger ? "#3A1E22" : (accentButton ? "#8F2F36" : "#231B1E"))
+                : (quietButton.hovered ? (danger ? "#312024" : "#211B1D") : (accentButton ? root.accent : "#171516"))
+            radius: 6
+            border.color: quietButton.hovered ? (danger ? "#5C2D34" : "#4A3C41") : "#30292C"
+        }
+        contentItem: Text {
+            text: quietButton.text
+            color: danger ? "#F06A72" : root.text
+            font.pixelSize: 15
+            font.bold: accentButton
+            horizontalAlignment: Text.AlignHCenter
+            verticalAlignment: Text.AlignVCenter
+            elide: Text.ElideRight
+        }
+    }
+
+    component DarkComboBox: ComboBox {
+        id: darkCombo
+        Layout.preferredHeight: 44
+        background: Rectangle {
+            color: root.field
+            radius: 6
+            border.color: darkCombo.activeFocus ? root.accent : "#463B3F"
+        }
+        contentItem: Text {
+            text: darkCombo.displayText
+            color: root.text
+            font.pixelSize: 15
+            verticalAlignment: Text.AlignVCenter
+            leftPadding: 14
+            rightPadding: 38
+            elide: Text.ElideRight
+        }
+        indicator: Text {
+            x: darkCombo.width - width - 12
+            y: Math.round((darkCombo.height - height) / 2)
+            text: "⌄"
+            color: root.muted
+            font.pixelSize: 22
+        }
+        delegate: ItemDelegate {
+            width: darkCombo.width
+            height: 42
+            highlighted: darkCombo.highlightedIndex === index
+            contentItem: Text {
+                text: modelData
+                color: root.text
+                font.pixelSize: 15
+                verticalAlignment: Text.AlignVCenter
+                leftPadding: 12
+                elide: Text.ElideRight
+            }
+            background: Rectangle {
+                color: highlighted ? "#302529" : "#201C1E"
+            }
+        }
+        popup: Popup {
+            y: darkCombo.height + 4
+            width: darkCombo.width
+            implicitHeight: contentItem.implicitHeight + 8
+            padding: 4
+            contentItem: ListView {
+                clip: true
+                implicitHeight: contentHeight
+                model: darkCombo.popup.visible ? darkCombo.delegateModel : null
+                currentIndex: darkCombo.highlightedIndex
+            }
+            background: Rectangle {
+                color: "#201C1E"
+                radius: 8
+                border.color: "#3E3337"
+            }
+        }
+    }
+
+    component DarkSwitch: Switch {
+        id: darkSwitch
+        Layout.preferredWidth: 58
+        Layout.preferredHeight: 32
+        padding: 0
+        indicator: Rectangle {
+            implicitWidth: 58
+            implicitHeight: 32
+            radius: 16
+            color: darkSwitch.checked ? root.accent : "#171516"
+            border.color: darkSwitch.checked ? "#D15B63" : "#4A3C41"
+            Rectangle {
+                x: darkSwitch.checked ? parent.width - width - 4 : 4
+                anchors.verticalCenter: parent.verticalCenter
+                width: 24
+                height: 24
+                radius: 12
+                color: darkSwitch.checked ? "#FFFFFF" : root.muted
+            }
+        }
+        contentItem: Item {}
+    }
+
+    component AdvancedGroupTitle: Text {
+        Layout.fillWidth: true
+        text: ""
+        color: root.muted
+        font.pixelSize: 14
+        font.bold: true
+        topPadding: 6
+    }
+
+    component AdvancedStatusRow: Rectangle {
+        property string title: ""
+        property string value: ""
+        property string detail: ""
+        Layout.fillWidth: true
+        Layout.preferredHeight: detail.length > 0 ? 76 : 56
+        color: "#211C1E"
+        radius: 6
+        border.color: "#342B2F"
+        ColumnLayout {
+            anchors.fill: parent
+            anchors.leftMargin: 16
+            anchors.rightMargin: 16
+            spacing: 4
+            RowLayout {
+                Layout.fillWidth: true
+                Text {
+                    text: title
+                    color: root.text
+                    font.pixelSize: 15
+                    font.bold: true
+                    Layout.fillWidth: true
+                    elide: Text.ElideRight
+                }
+                Text {
+                    text: value
+                    color: root.muted
+                    font.pixelSize: 15
+                    horizontalAlignment: Text.AlignRight
+                    Layout.maximumWidth: parent.width * 0.48
+                    elide: Text.ElideRight
+                }
+            }
+            Text {
+                visible: detail.length > 0
+                text: detail
+                color: root.muted
+                font.pixelSize: 13
+                Layout.fillWidth: true
+                elide: Text.ElideRight
+            }
         }
     }
 
     component AdvancedSettingsBox: Rectangle {
         property bool expanded: false
         Layout.fillWidth: true
-        Layout.preferredHeight: expanded ? 860 : 72
+        Layout.preferredHeight: expanded ? 930 : 72
         color: root.fieldHot
         radius: 6
         border.color: root.line
@@ -1357,7 +1529,7 @@ ApplicationWindow {
 
         ColumnLayout {
             anchors.fill: parent
-            spacing: 14
+            spacing: 0
 
             Rectangle {
                 Layout.fillWidth: true
@@ -1383,181 +1555,120 @@ ApplicationWindow {
                 Layout.leftMargin: 20
                 Layout.rightMargin: 20
                 Layout.bottomMargin: 18
-                spacing: 12
+                spacing: 10
 
-                Text {
-                    text: "Статус: " + appController.engineStatus
-                    color: root.text
-                    font.pixelSize: 17
-                    font.bold: true
-                    Layout.fillWidth: true
-                    elide: Text.ElideRight
-                }
-                Text {
-                    text: appController.engineDetail
-                    color: root.muted
-                    font.pixelSize: 14
-                    wrapMode: Text.WordWrap
-                    Layout.fillWidth: true
-                    maximumLineCount: 3
-                    elide: Text.ElideRight
-                }
-                Text {
-                    text: "Proxy path: " + appController.proxyStatus
-                    color: root.text
-                    font.pixelSize: 16
-                    font.bold: true
-                    Layout.fillWidth: true
-                    elide: Text.ElideRight
-                }
-                Text {
-                    text: appController.proxyDetail
-                    color: root.muted
-                    font.pixelSize: 13
-                    wrapMode: Text.WordWrap
-                    Layout.fillWidth: true
-                    maximumLineCount: 2
-                    elide: Text.ElideRight
-                }
-                Text {
-                    text: "TUN path: " + appController.tunStatus
-                    color: root.text
-                    font.pixelSize: 16
-                    font.bold: true
-                    Layout.fillWidth: true
-                    elide: Text.ElideRight
-                }
-                Text {
-                    text: appController.tunDetail
-                    color: root.muted
-                    font.pixelSize: 13
-                    wrapMode: Text.WordWrap
-                    Layout.fillWidth: true
-                    maximumLineCount: 2
-                    elide: Text.ElideRight
-                }
-                Text {
-                    text: "Защита: " + appController.protectionStatus
-                    color: root.text
-                    font.pixelSize: 16
-                    font.bold: true
-                    Layout.fillWidth: true
-                    elide: Text.ElideRight
-                }
-                Text {
-                    text: appController.protectionDetail
-                    color: root.muted
-                    font.pixelSize: 13
-                    wrapMode: Text.WordWrap
-                    Layout.fillWidth: true
-                    maximumLineCount: 3
-                    elide: Text.ElideRight
-                }
+                AdvancedGroupTitle { text: "Движок" }
+                AdvancedStatusRow { title: "Состояние"; value: appController.engineStatus; detail: appController.engineDetail }
                 RowLayout {
                     Layout.fillWidth: true
                     spacing: 10
-                    Button {
+                    QuietButton {
                         text: "Обновить"
                         Layout.preferredWidth: 118
                         onClicked: appController.refreshEngineStatus()
-                        background: Rectangle { color: "#242424"; radius: 8 }
-                        contentItem: Text { text: parent.text; color: root.text; horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter }
                     }
-                    Button {
-                        text: "Preview"
+                    QuietButton {
+                        text: "Конфиг"
                         Layout.preferredWidth: 118
                         onClicked: appController.previewSelectedEngineConfig()
-                        background: Rectangle { color: "#242424"; radius: 8 }
-                        contentItem: Text { text: parent.text; color: root.text; horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter }
                     }
-                    Button {
-                        text: "Restart"
+                    QuietButton {
+                        text: "Перезапуск"
                         Layout.preferredWidth: 118
                         onClicked: appController.restartEngine()
-                        background: Rectangle { color: "#242424"; radius: 8 }
-                        contentItem: Text { text: parent.text; color: root.text; horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter }
                     }
-                    Button {
+                    QuietButton {
                         text: "Stop"
                         Layout.preferredWidth: 90
+                        danger: true
                         onClicked: appController.stopEngine()
-                        background: Rectangle { color: "#3B2020"; radius: 8 }
-                        contentItem: Text { text: parent.text; color: root.text; horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter }
                     }
                     Item { Layout.fillWidth: true }
                 }
+
+                AdvancedGroupTitle { text: "Пути подключения" }
+                AdvancedStatusRow { title: "Proxy"; value: appController.proxyStatus; detail: appController.proxyDetail }
+                AdvancedStatusRow { title: "TUN"; value: appController.tunStatus; detail: appController.tunDetail }
                 RowLayout {
                     Layout.fillWidth: true
                     spacing: 10
-                    Button {
+                    QuietButton {
                         text: "Proxy"
                         Layout.preferredWidth: 118
                         onClicked: appController.refreshProxyStatus()
-                        background: Rectangle { color: "#242424"; radius: 8 }
-                        contentItem: Text { text: parent.text; color: root.text; horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter }
                     }
-                    Button {
+                    QuietButton {
                         text: "Restore"
                         Layout.preferredWidth: 118
+                        danger: true
                         onClicked: appController.restoreProxyPolicy()
-                        background: Rectangle { color: "#3B2020"; radius: 8 }
-                        contentItem: Text { text: parent.text; color: root.text; horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter }
                     }
-                    Button {
+                    QuietButton {
                         text: "TUN"
                         Layout.preferredWidth: 118
                         onClicked: appController.refreshTunStatus()
-                        background: Rectangle { color: "#242424"; radius: 8 }
-                        contentItem: Text { text: parent.text; color: root.text; horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter }
                     }
-                    Button {
+                    QuietButton {
                         text: "Restore TUN"
                         Layout.preferredWidth: 132
+                        danger: true
                         onClicked: appController.restoreTunPolicy()
-                        background: Rectangle { color: "#3B2020"; radius: 8 }
-                        contentItem: Text { text: parent.text; color: root.text; horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter }
                     }
                     Item { Layout.fillWidth: true }
                 }
+
+                AdvancedGroupTitle { text: "Маршрутизация и защита" }
+                AdvancedStatusRow { title: "Приложения"; value: appController.routePolicyStatus; detail: appController.routePolicyDetail }
+                AdvancedStatusRow { title: "Защита"; value: appController.protectionStatus; detail: appController.protectionDetail }
                 RowLayout {
                     Layout.fillWidth: true
                     spacing: 10
-                    Button {
+                    QuietButton {
+                        text: "Маршрут"
+                        Layout.preferredWidth: 118
+                        onClicked: appController.refreshAppRoutingPolicy()
+                    }
+                    QuietButton {
+                        text: "Сброс маршрута"
+                        Layout.preferredWidth: 142
+                        danger: true
+                        onClicked: appController.restoreAppRoutingPolicy()
+                    }
+                    QuietButton {
                         text: "Защита"
                         Layout.preferredWidth: 118
                         onClicked: appController.refreshProtectionPolicy()
-                        background: Rectangle { color: "#242424"; radius: 8 }
-                        contentItem: Text { text: parent.text; color: root.text; horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter }
                     }
-                    Button {
-                        text: "Восстановить"
-                        Layout.preferredWidth: 118
+                    QuietButton {
+                        text: "Сброс защиты"
+                        Layout.preferredWidth: 132
+                        danger: true
                         onClicked: appController.restoreProtectionPolicy()
-                        background: Rectangle { color: "#3B2020"; radius: 8 }
-                        contentItem: Text { text: parent.text; color: root.text; horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter }
                     }
-                    Button {
-                        text: "Восстановить всё"
-                        Layout.preferredWidth: 170
+                    QuietButton {
+                        text: "Сбросить всё"
+                        Layout.preferredWidth: 132
+                        danger: true
                         onClicked: appController.emergencyRestore()
-                        background: Rectangle { color: "#4A2020"; radius: 8 }
-                        contentItem: Text { text: parent.text; color: root.text; horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter }
                     }
                     Item { Layout.fillWidth: true }
                 }
-                Text {
-                    text: "Каталог:\n" + (appController.engineCatalog.length > 0 ? appController.engineCatalog.join("\n") : "нет данных")
-                    color: root.muted
-                    font.pixelSize: 13
-                    wrapMode: Text.WordWrap
-                    Layout.fillWidth: true
-                    maximumLineCount: 5
-                    elide: Text.ElideRight
+
+                AdvancedGroupTitle { text: "Диагностика" }
+                AdvancedStatusRow {
+                    title: "Каталог"
+                    value: appController.engineCatalog.length > 0 ? appController.engineCatalog.length + " записей" : "нет данных"
+                    detail: appController.engineCatalog.length > 0 ? appController.engineCatalog.join(" · ") : ""
                 }
                 ScrollView {
                     Layout.fillWidth: true
                     Layout.fillHeight: true
                     clip: true
+                    background: Rectangle {
+                        color: "#171415"
+                        radius: 6
+                        border.color: "#342B2F"
+                    }
                     Text {
                         width: parent.width
                         text: appController.engineConfigPreview
