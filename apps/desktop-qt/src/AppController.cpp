@@ -30,7 +30,7 @@
 namespace {
 constexpr int IpcProtocolVersion = 1;
 constexpr int IpcRequestTimeoutMs = 350;
-constexpr int IpcEngineTimeoutMs = 1500;
+constexpr int IpcEngineTimeoutMs = 8000;
 constexpr auto IpcPipeName = L"\\\\.\\pipe\\SamhainSecurity.Native.Ipc";
 constexpr auto AutostartRegistryPath = "HKEY_CURRENT_USER\\Software\\Microsoft\\Windows\\CurrentVersion\\Run";
 constexpr auto AutostartRegistryName = "Samhain Security";
@@ -796,34 +796,56 @@ void AppController::toggleConnection()
         return;
     }
 
+    const auto wasConnected = m_connected;
     QJsonObject command;
-    if (m_connected) {
+    if (wasConnected) {
         command["type"] = "disconnect";
+        m_statusText = "Отключение...";
     } else {
         command["type"] = "connect";
         command["server_id"] = server->id;
         command["route_mode"] = routeModeWireValue();
+        m_statusText = "Подключение...";
     }
+    emit statusChanged();
 
     const auto response = requestService(command, IpcEngineTimeoutMs);
+    if (response.isEmpty()) {
+        m_statusText = wasConnected
+            ? "Сервис недоступен. Текущее подключение не изменялось."
+            : "Сервис недоступен. Подключение не запускалось.";
+        appendLog("Сервис: команда подключения не подтверждена");
+        emit statusChanged();
+        updateTrayState();
+        return;
+    }
+
     if (!response.isEmpty()) {
         const auto document = QJsonDocument::fromJson(response.toUtf8());
         const auto root = document.object();
         const auto event = root.value("event").toObject();
         if (!root.value("ok").toBool(false) || event.value("type").toString() == "error") {
             const auto message = event.value("message").toString("Команда не выполнена");
-            m_statusText = message;
+            m_statusText = wasConnected
+                ? "Отключение не подтверждено: " + message
+                : "Подключение не выполнено: " + message;
             appendLog("Сервис: " + message);
             emit statusChanged();
+            updateTrayState();
             return;
         }
 
         if (applyEngineStatusEvent(event)) {
             const auto engineReady = m_engineStatus == "Запущен";
-            if (!m_connected && !engineReady) {
-                m_statusText = m_engineDetail;
+            if (!wasConnected && !engineReady) {
+                m_connected = false;
+                m_statsTimer.stop();
+                refreshTrafficStats();
+                m_statusText = "Подключение не выполнено: " + m_engineDetail;
                 emit statusChanged();
+                emit connectionChanged();
                 emit engineChanged();
+                updateTrayState();
                 return;
             }
             refreshProxyStatus();
@@ -832,11 +854,9 @@ void AppController::toggleConnection()
             refreshProtectionPolicy();
             appendLog("Сервис: состояние движка обновлено");
         }
-    } else {
-        appendLog("Сервис: недоступен, локальный режим интерфейса");
     }
 
-    m_connected = !m_connected;
+    m_connected = !wasConnected;
     if (m_connected) {
         m_connectedAt = QDateTime::currentDateTime();
         m_statusText = "Подключён";
@@ -1991,6 +2011,14 @@ void AppController::restoreProxyPolicy()
 void AppController::setRouteModeIndex(int routeModeIndex)
 {
     if (m_routeModeIndex == routeModeIndex) {
+        return;
+    }
+
+    if (m_connected) {
+        m_statusText = "Сначала отключитесь, затем смените режим работы";
+        appendLog("Режим маршрутизации: смена заблокирована во время подключения");
+        emit statusChanged();
+        emit routeModeChanged();
         return;
     }
 

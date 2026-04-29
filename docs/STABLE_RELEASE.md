@@ -1,6 +1,6 @@
 # Stable Release Gates
 
-Version: `1.3.0`
+Version: `1.3.1`
 
 The stable package uses the `stable` update channel, SHA256 package integrity, extracted-package validation, packaged smoke checks, and a release evidence JSON file.
 
@@ -12,29 +12,29 @@ Run before tagging:
 cargo test --workspace
 .\scripts\build.ps1
 .\scripts\package.ps1
-.\scripts\validate-package.ps1 -ExpectedVersion 1.3.0 -RunServiceStatus
-.\scripts\verify-update-manifest.ps1 -ExpectedVersion 1.3.0 -RequireStableChannel
-.\scripts\test-signing-readiness.ps1 -ExpectedVersion 1.3.0
-.\scripts\write-clean-machine-evidence.ps1 -ExpectedVersion 1.3.0 -SkipLaunch
-.\scripts\smoke-package.ps1 -ExpectedVersion 1.3.0
+.\scripts\validate-package.ps1 -ExpectedVersion 1.3.1 -RunServiceStatus
+.\scripts\verify-update-manifest.ps1 -ExpectedVersion 1.3.1 -RequireStableChannel
+.\scripts\test-signing-readiness.ps1 -ExpectedVersion 1.3.1
+.\scripts\write-clean-machine-evidence.ps1 -ExpectedVersion 1.3.1 -SkipLaunch
+.\scripts\smoke-package.ps1 -ExpectedVersion 1.3.1
 ```
 
 After the release commit is tagged, generate release evidence:
 
 ```powershell
-.\scripts\write-release-evidence.ps1 -ExpectedVersion 1.3.0 -Tag v1.3.0
+.\scripts\write-release-evidence.ps1 -ExpectedVersion 1.3.1 -Tag v1.3.1
 ```
 
 The evidence file is written next to the package as:
 
 ```text
-dist\SamhainSecurityNative-1.3.0-win-x64.release-evidence.json
+dist\SamhainSecurityNative-1.3.1-win-x64.release-evidence.json
 ```
 
 Clean-machine evidence is written next to the package as:
 
 ```text
-dist\SamhainSecurityNative-1.3.0-win-x64.clean-machine-evidence.json
+dist\SamhainSecurityNative-1.3.1-win-x64.clean-machine-evidence.json
 ```
 
 ## Evidence Contents
@@ -57,4 +57,4 @@ dist\SamhainSecurityNative-1.3.0-win-x64.clean-machine-evidence.json
 
 ## Signing Status
 
-The `1.3.0` package is stable-channel and integrity-verified, but it remains marked as `unsigned-dev` until a production certificate is available. The package and update manifests keep that status explicit so operator tooling does not mistake it for a signed public installer.
+The `1.3.1` package is stable-channel and integrity-verified, but it remains marked as `unsigned-dev` until a production certificate is available. The package and update manifests keep that status explicit so operator tooling does not mistake it for a signed public installer.

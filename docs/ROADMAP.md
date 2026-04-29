@@ -1,6 +1,6 @@
 # Roadmap
 
-Current version: `1.3.0`
+Current version: `1.3.1`
 
 This roadmap is the working contract for Samhain Security. Future implementation should follow this order unless a blocker is found and documented in the same commit.
 
@@ -575,7 +575,7 @@ Status: shipped in `v1.3.0` with a frozen simple daily surface, plain-language r
 
 Done when failed connects leave the system in a known state and the UI never pretends that a failed path is connected.
 
-Status: planned.
+Status: shipped in `v1.3.1` with service-confirmed connect/disconnect transitions, explicit progress and failure messages, no local fake connected state when the service is unavailable, an 8-second engine command timeout, route-mode switching blocked during active sessions, and a connection reliability checklist.
 
 ### 1.3.2 - App Routing Design Gate
 
@@ -661,11 +661,10 @@ Status: planned.
 
 ## Immediate Next Build Order
 
-1. `1.3.1`: connection reliability pass.
-2. `1.3.2`: app-routing design gate.
-3. `1.3.3`: app-routing enforcement V1.
-4. `1.3.4`: diagnostics and support final.
-5. `1.3.5`: tray, startup, and link ownership.
-6. `1.3.6`: update and rollback hardening.
-7. `1.3.7`: security review and abuse resistance.
-8. `1.4.0`: release-ready competitive build.
+1. `1.3.2`: app-routing design gate.
+2. `1.3.3`: app-routing enforcement V1.
+3. `1.3.4`: diagnostics and support final.
+4. `1.3.5`: tray, startup, and link ownership.
+5. `1.3.6`: update and rollback hardening.
+6. `1.3.7`: security review and abuse resistance.
+7. `1.4.0`: release-ready competitive build.
