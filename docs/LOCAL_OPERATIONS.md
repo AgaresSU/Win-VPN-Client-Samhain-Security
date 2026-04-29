@@ -1,6 +1,6 @@
 # Local Operations
 
-Version: `0.9.5`
+Version: `1.0.0`
 
 The Windows package includes `tools\local-ops.ps1` for current-user install, repair, uninstall, and status checks before the signed privileged installer is ready.
 

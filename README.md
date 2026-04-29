@@ -1,6 +1,6 @@
 # Samhain Security Native
 
-Version: `0.9.5`
+Version: `1.0.0`
 
 Native Windows secure tunneling client prototype built from a clean base.
 
@@ -16,7 +16,7 @@ Native Windows secure tunneling client prototype built from a clean base.
 
 This release is the native foundation. It focuses on the product shell, simple daily UX, local models, persistence, and build/package flow.
 
-Implemented through `0.9.5`:
+Implemented through `1.0.0`:
 
 - Happ-inspired Qt/QML shell with servers, add, settings, statistics, logs, and about sections.
 - Compact subscription group and server rows without technical clutter.
@@ -44,7 +44,7 @@ Implemented through `0.9.5`:
 - Package script for a local Windows distributable.
 - Local operations script for current-user install, repair, uninstall, status, migration backup, and package integrity files.
 - Beta hardening scripts for package validation, SHA256 verification, operation dry-runs, service status, and packaged desktop smoke launch.
-- Release candidate update manifest, archive hash/size verification, extracted-package validation, and RC gate documentation.
+- Stable update manifest, archive hash/size verification, extracted-package validation, release evidence output, and packaged gate tooling.
 
 Not implemented yet:
 
@@ -52,7 +52,7 @@ Not implemented yet:
 - Production protocol runtime bundle.
 - Production WFP app-routing enforcement layer.
 - Installer-managed service identity and full privileged enforcement.
-- Code signing and online updater.
+- Production code signing certificate and online updater service rollout.
 
 ## Build
 
@@ -69,7 +69,7 @@ Not implemented yet:
 The package is written to:
 
 ```text
-dist\SamhainSecurityNative-0.9.5-win-x64
+dist\SamhainSecurityNative-1.0.0-win-x64
 ```
 
 ## Local Operations
@@ -85,20 +85,20 @@ After extracting the package, use:
 
 See `docs\LOCAL_OPERATIONS.md` and `docs\SIGNING.md` for install scope, storage, migration, and integrity notes.
 
-## Beta Checks
+## Package Checks
 
 ```powershell
-.\scripts\validate-package.ps1 -ExpectedVersion 0.9.5 -RunServiceStatus
-.\scripts\smoke-package.ps1 -ExpectedVersion 0.9.5
+.\scripts\validate-package.ps1 -ExpectedVersion 1.0.0 -RunServiceStatus
+.\scripts\smoke-package.ps1 -ExpectedVersion 1.0.0
 ```
 
 See `docs\BETA_CHECKLIST.md` for the manual Windows and protocol matrix.
 
-## Release Candidate Checks
+## Stable Checks
 
 ```powershell
-.\scripts\verify-update-manifest.ps1 -ExpectedVersion 0.9.5
-.\scripts\smoke-package.ps1 -ExpectedVersion 0.9.5
+.\scripts\verify-update-manifest.ps1 -ExpectedVersion 1.0.0 -RequireStableChannel
+.\scripts\write-release-evidence.ps1 -ExpectedVersion 1.0.0
 ```
 
-See `docs\RELEASE_CANDIDATE.md` for the RC evidence checklist.
+See `docs\STABLE_RELEASE.md` for the stable release checklist.

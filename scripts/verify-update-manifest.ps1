@@ -2,6 +2,7 @@ param(
     [string]$ManifestPath = "",
     [string]$ArchivePath = "",
     [string]$ExpectedVersion = "",
+    [switch]$RequireStableChannel,
     [switch]$SkipExtractedPackageValidation,
     [switch]$Json
 )
@@ -77,6 +78,9 @@ function Add-Check {
 
 Add-Check "manifest:product" ($manifest.product -eq "Samhain Security Native") ([string]$manifest.product)
 Add-Check "manifest:channel" ($manifest.channel -in @("release-candidate", "stable")) ([string]$manifest.channel)
+if ($RequireStableChannel) {
+    Add-Check "manifest:stable-channel" ($manifest.channel -eq "stable") ([string]$manifest.channel)
+}
 Add-Check "manifest:algorithm" ($manifest.package.algorithm -eq "SHA256") ([string]$manifest.package.algorithm)
 
 if (-not [string]::IsNullOrWhiteSpace($ExpectedVersion)) {

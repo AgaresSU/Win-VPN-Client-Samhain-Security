@@ -1,0 +1,47 @@
+# Stable Release Gates
+
+Version: `1.0.0`
+
+The stable package uses the `stable` update channel, SHA256 package integrity, extracted-package validation, packaged smoke checks, and a release evidence JSON file.
+
+## Automated Gates
+
+Run before tagging:
+
+```powershell
+cargo test --workspace
+.\scripts\build.ps1
+.\scripts\package.ps1
+.\scripts\validate-package.ps1 -ExpectedVersion 1.0.0 -RunServiceStatus
+.\scripts\verify-update-manifest.ps1 -ExpectedVersion 1.0.0 -RequireStableChannel
+.\scripts\smoke-package.ps1 -ExpectedVersion 1.0.0
+```
+
+After the release commit is tagged, generate release evidence:
+
+```powershell
+.\scripts\write-release-evidence.ps1 -ExpectedVersion 1.0.0 -Tag v1.0.0
+```
+
+The evidence file is written next to the package as:
+
+```text
+dist\SamhainSecurityNative-1.0.0-win-x64.release-evidence.json
+```
+
+## Evidence Contents
+
+- release commit SHA;
+- release tag;
+- package folder path;
+- archive path;
+- update manifest path;
+- archive SHA256 and size;
+- package validation result;
+- update-manifest verification result;
+- packaged smoke result;
+- signing status.
+
+## Signing Status
+
+The `1.0.0` package is stable-channel and integrity-verified, but it remains marked as `unsigned-dev` until a production certificate is available. The package and update manifests keep that status explicit so operator tooling does not mistake it for a signed public installer.

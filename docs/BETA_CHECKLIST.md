@@ -1,6 +1,6 @@
 # Beta Checklist
 
-Version: `0.9.5`
+Version: `1.0.0`
 
 This checklist keeps beta readiness visible without adding complexity to the desktop UI.
 
@@ -12,9 +12,9 @@ Run before tagging a release:
 cargo test --workspace
 .\scripts\build.ps1
 .\scripts\package.ps1
-.\scripts\validate-package.ps1 -ExpectedVersion 0.9.5 -RunServiceStatus
-.\scripts\verify-update-manifest.ps1 -ExpectedVersion 0.9.5
-.\scripts\smoke-package.ps1 -ExpectedVersion 0.9.5
+.\scripts\validate-package.ps1 -ExpectedVersion 1.0.0 -RunServiceStatus
+.\scripts\verify-update-manifest.ps1 -ExpectedVersion 1.0.0 -RequireStableChannel
+.\scripts\smoke-package.ps1 -ExpectedVersion 1.0.0
 ```
 
 The smoke script validates package structure, SHA256 hashes, service status, current-user operations in dry-run mode, and packaged desktop launch.
@@ -43,5 +43,5 @@ The smoke script validates package structure, SHA256 hashes, service status, cur
 - Signed privileged installer and service identity.
 - Production runtime bundle for engines and adapters.
 - Production WFP app-routing enforcement.
-- Signed update manifest verification.
+- Production-signed update manifest verification.
 - External Windows 10/11 matrix evidence from clean machines.

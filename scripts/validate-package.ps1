@@ -61,6 +61,7 @@ $requiredPaths = @(
     "tools\validate-package.ps1",
     "tools\smoke-package.ps1",
     "tools\verify-update-manifest.ps1",
+    "tools\write-release-evidence.ps1",
     "assets",
     "docs",
     "README.md",
@@ -96,6 +97,7 @@ if (Test-Path $manifestPath) {
         Add-Check "manifest:operations" ($manifest.operations.script -eq "tools\local-ops.ps1") ([string]$manifest.operations.script)
         Add-Check "manifest:smoke" ($manifest.quality.smokeScript -eq "tools\smoke-package.ps1") ([string]$manifest.quality.smokeScript)
         Add-Check "manifest:update-verifier" ($manifest.quality.updateManifestVerifier -eq "tools\verify-update-manifest.ps1") ([string]$manifest.quality.updateManifestVerifier)
+        Add-Check "manifest:release-evidence" ($manifest.quality.releaseEvidenceScript -eq "tools\write-release-evidence.ps1") ([string]$manifest.quality.releaseEvidenceScript)
         Add-Check "manifest:signing" ($manifest.signing.digestAlgorithm -eq "SHA256") ([string]$manifest.signing.digestAlgorithm)
     }
     catch {
@@ -106,7 +108,7 @@ if (Test-Path $manifestPath) {
 $checksumPath = Join-Path $PackageRoot "checksums.txt"
 if (Test-Path $checksumPath) {
     $checksumLines = Get-Content -LiteralPath $checksumPath | Where-Object { -not [string]::IsNullOrWhiteSpace($_) }
-    Add-Check "checksums:present" ($checksumLines.Count -ge 9) "entries=$($checksumLines.Count)"
+    Add-Check "checksums:present" ($checksumLines.Count -ge 10) "entries=$($checksumLines.Count)"
 
     foreach ($line in $checksumLines) {
         if ($line -notmatch '^(?<hash>[a-fA-F0-9]{64})\s+(?<relative>.+)$') {

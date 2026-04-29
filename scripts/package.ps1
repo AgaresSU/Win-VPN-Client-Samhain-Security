@@ -1,5 +1,5 @@
 param(
-    [string]$Version = "0.9.5",
+    [string]$Version = "1.0.0",
     [string]$Configuration = "Release"
 )
 
@@ -61,6 +61,7 @@ Copy-Item -LiteralPath (Join-Path $RepoRoot "scripts\local-ops.ps1") -Destinatio
 Copy-Item -LiteralPath (Join-Path $RepoRoot "scripts\validate-package.ps1") -Destination $ToolsOut -Force
 Copy-Item -LiteralPath (Join-Path $RepoRoot "scripts\smoke-package.ps1") -Destination $ToolsOut -Force
 Copy-Item -LiteralPath (Join-Path $RepoRoot "scripts\verify-update-manifest.ps1") -Destination $ToolsOut -Force
+Copy-Item -LiteralPath (Join-Path $RepoRoot "scripts\write-release-evidence.ps1") -Destination $ToolsOut -Force
 Copy-Item -LiteralPath (Join-Path $RepoRoot "assets") -Destination $PackageRoot -Recurse -Force
 if (Test-Path (Join-Path $RepoRoot "engines")) {
     Copy-Item -Path (Join-Path $RepoRoot "engines\*") -Destination $EnginesOut -Recurse -Force
@@ -89,17 +90,19 @@ $manifest = [PSCustomObject]@{
         digestAlgorithm = "SHA256"
     }
     quality = [PSCustomObject]@{
-        channel = "release-candidate"
+        channel = "stable"
         validationScript = "tools\validate-package.ps1"
         smokeScript = "tools\smoke-package.ps1"
         updateManifestVerifier = "tools\verify-update-manifest.ps1"
+        releaseEvidenceScript = "tools\write-release-evidence.ps1"
         gates = @(
             "cargo test --workspace",
             "scripts\build.ps1",
             "scripts\package.ps1",
             "tools\validate-package.ps1",
             "tools\smoke-package.ps1",
-            "tools\verify-update-manifest.ps1"
+            "tools\verify-update-manifest.ps1",
+            "tools\write-release-evidence.ps1"
         )
     }
     updates = [PSCustomObject]@{
@@ -118,6 +121,7 @@ $checksumTargets = @(
     "tools\validate-package.ps1",
     "tools\smoke-package.ps1",
     "tools\verify-update-manifest.ps1",
+    "tools\write-release-evidence.ps1",
     "release-manifest.json",
     "README.md",
     "VERSION"
@@ -139,7 +143,7 @@ $archiveHash = (Get-FileHash -Algorithm SHA256 -LiteralPath $ArchivePath).Hash.T
 $updateManifest = [PSCustomObject]@{
     product = "Samhain Security Native"
     version = $Version
-    channel = "release-candidate"
+    channel = "stable"
     runtime = "win-x64"
     package = [PSCustomObject]@{
         fileName = Split-Path -Leaf $ArchivePath
@@ -155,6 +159,7 @@ $updateManifest = [PSCustomObject]@{
         packageValidationScript = "tools\validate-package.ps1"
         smokeScript = "tools\smoke-package.ps1"
         updateManifestVerifier = "tools\verify-update-manifest.ps1"
+        releaseEvidenceScript = "tools\write-release-evidence.ps1"
         signingStatus = "unsigned-dev"
         expectedPublisher = "Samhain Security"
     }

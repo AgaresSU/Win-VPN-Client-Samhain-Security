@@ -1,6 +1,6 @@
 # Release Candidate Gates
 
-Version: `0.9.5`
+Version: `1.0.0`
 
 The release candidate build adds update-manifest verification and repeatable evidence for package integrity.
 
@@ -12,9 +12,9 @@ Run before tagging:
 cargo test --workspace
 .\scripts\build.ps1
 .\scripts\package.ps1
-.\scripts\validate-package.ps1 -ExpectedVersion 0.9.5 -RunServiceStatus
-.\scripts\verify-update-manifest.ps1 -ExpectedVersion 0.9.5
-.\scripts\smoke-package.ps1 -ExpectedVersion 0.9.5
+.\scripts\validate-package.ps1 -ExpectedVersion 1.0.0 -RunServiceStatus
+.\scripts\verify-update-manifest.ps1 -ExpectedVersion 1.0.0 -RequireStableChannel
+.\scripts\smoke-package.ps1 -ExpectedVersion 1.0.0
 ```
 
 The update manifest verifier checks the published zip hash and size, extracts the archive into a temporary folder, and runs package validation against the extracted files.
