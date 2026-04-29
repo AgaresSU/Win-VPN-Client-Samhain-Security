@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.24)
 
-project(SamhainSecurityNativeDesktop VERSION 1.1.7 LANGUAGES CXX)
+project(SamhainSecurityNativeDesktop VERSION 1.1.8 LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -25,6 +25,12 @@ qt_add_qml_module(SamhainSecurityNative
     RESOURCES
         resources/app-icon.png
         resources/tray-icon.png
+        resources/action-copy.svg
+        resources/action-delete.svg
+        resources/action-edit.svg
+        resources/action-latency.svg
+        resources/action-pin.svg
+        resources/action-refresh.svg
 )
 
 target_link_libraries(SamhainSecurityNative

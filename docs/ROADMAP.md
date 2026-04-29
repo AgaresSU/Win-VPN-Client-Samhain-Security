@@ -1,6 +1,6 @@
 # Roadmap
 
-Current version: `1.1.7`
+Current version: `1.1.8`
 
 This roadmap is the working contract for Samhain Security. Future implementation should follow this order unless a blocker is found and documented in the same commit.
 
@@ -458,6 +458,16 @@ Done when every popup menu action uses the same readable reference-style glyph f
 
 Status: shipped in `v1.1.7` with reference-matched subscription action glyphs.
 
+### 1.1.8 - SVG Action Icons
+
+- Replace hand-drawn Canvas popup action icons with packaged SVG resources.
+- Use stable SVG path geometry for refresh, latency, pin, clipboard copy, sliders/edit, and delete.
+- Keep the menu behavior unchanged while avoiding hand-tuned Canvas arc drift.
+
+Done when popup icons render from resource files instead of ad hoc Canvas geometry.
+
+Status: shipped in `v1.1.8` with SVG-backed subscription action icons.
+
 ## Immediate Next Build Order
 
-1. `1.1.8`: installer-managed privileged service registration plan and dry-run operation surface.
+1. `1.1.9`: installer-managed privileged service registration plan and dry-run operation surface.
