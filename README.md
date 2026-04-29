@@ -1,6 +1,6 @@
 # Samhain Security Native
 
-Version: `1.0.6`
+Version: `1.0.7`
 
 Native Windows secure tunneling client prototype built from a clean base.
 
@@ -16,14 +16,14 @@ Native Windows secure tunneling client prototype built from a clean base.
 
 This release is the native foundation. It focuses on the product shell, simple daily UX, local models, persistence, and build/package flow.
 
-Implemented through `1.0.6`:
+Implemented through `1.0.7`:
 
 - Happ-inspired Qt/QML shell with servers, add, settings, statistics, logs, and about sections.
 - Compact subscription group and server rows without technical clutter.
 - Global `Ctrl+V` import flow that recognizes subscription-like URLs from the clipboard.
 - Add-subscription dialog with name and URL fields.
 - Route mode selector: whole computer, selected apps only, or whole computer except selected apps.
-- Mock ping, connection state, speed, traffic, and session timer.
+- Connection state, speed, traffic, session timer, and service-backed latency checks.
 - Rust core data models for subscriptions, servers, protocols, route modes, and basic URL parsing.
 - Rust IPC and service skeleton crates for the future privileged core.
 - Versioned named-pipe IPC foundation between the desktop shell and Rust service.
@@ -31,7 +31,7 @@ Implemented through `1.0.6`:
 - DPAPI-protected storage for subscription URLs and raw server configs.
 - Service-backed subscription groups with expand/collapse, update, rename, delete, and safe diagnostics copy actions.
 - Persisted selected server and compact grouped server rendering in the desktop shell.
-- Service-backed latency probes with single-server and batch checks, stored probe timestamps, compact row results, and local fallback.
+- Service-backed latency probes with single-server and batch checks, DNS-aware TCP connect timing, stored probe timestamps, compact row results, and no synthetic fallback.
 - Engine manager V1: bundled-engine discovery, lifecycle IPC, redacted config preview, process start/stop/restart hooks, log capture, and one-step crash retry.
 - First proxy path: service-owned system proxy snapshot/apply/rollback, local mixed inbound on `127.0.0.1:20808`, advanced proxy status, and packaged `app/engines` discovery.
 - Whole-computer TUN path foundation: sing-box TUN config generation, DNS hijack policy, TUN lifecycle IPC state, advanced TUN status, and rollback on stop or unrecovered crash.
@@ -51,6 +51,7 @@ Implemented through `1.0.6`:
 - Simplified settings with daily controls up front and technical service actions grouped under advanced settings.
 - Visual polish for navigation buttons, the connection power control, dark Windows title bar, and rendered country badges.
 - Refined flag rendering, removed native navigation highlight bleed, and cleaned the power icon artifact.
+- Calmer right connection panel with real Proxy/TUN route buttons, a flatter power control, and honest `n/a` latency when the service cannot measure.
 
 Not implemented yet:
 
@@ -75,7 +76,7 @@ Not implemented yet:
 The package is written to:
 
 ```text
-dist\SamhainSecurityNative-1.0.6-win-x64
+dist\SamhainSecurityNative-1.0.7-win-x64
 ```
 
 ## Local Operations
@@ -94,8 +95,8 @@ See `docs\LOCAL_OPERATIONS.md` and `docs\SIGNING.md` for install scope, storage,
 ## Package Checks
 
 ```powershell
-.\scripts\validate-package.ps1 -ExpectedVersion 1.0.6 -RunServiceStatus
-.\scripts\smoke-package.ps1 -ExpectedVersion 1.0.6
+.\scripts\validate-package.ps1 -ExpectedVersion 1.0.7 -RunServiceStatus
+.\scripts\smoke-package.ps1 -ExpectedVersion 1.0.7
 ```
 
 See `docs\BETA_CHECKLIST.md` for the manual Windows and protocol matrix.
@@ -103,10 +104,10 @@ See `docs\BETA_CHECKLIST.md` for the manual Windows and protocol matrix.
 ## Stable Checks
 
 ```powershell
-.\scripts\verify-update-manifest.ps1 -ExpectedVersion 1.0.6 -RequireStableChannel
-.\scripts\test-signing-readiness.ps1 -ExpectedVersion 1.0.6
-.\scripts\write-clean-machine-evidence.ps1 -ExpectedVersion 1.0.6 -SkipLaunch
-.\scripts\write-release-evidence.ps1 -ExpectedVersion 1.0.6
+.\scripts\verify-update-manifest.ps1 -ExpectedVersion 1.0.7 -RequireStableChannel
+.\scripts\test-signing-readiness.ps1 -ExpectedVersion 1.0.7
+.\scripts\write-clean-machine-evidence.ps1 -ExpectedVersion 1.0.7 -SkipLaunch
+.\scripts\write-release-evidence.ps1 -ExpectedVersion 1.0.7
 ```
 
 See `docs\STABLE_RELEASE.md` and `docs\CLEAN_MACHINE_EVIDENCE.md` for the stable release checklist and external test evidence flow.

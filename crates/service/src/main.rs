@@ -15,7 +15,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::BTreeSet;
 use std::fs;
 use std::io::{BufRead, BufReader, Read};
-use std::net::{IpAddr, SocketAddr, TcpStream};
+use std::net::{IpAddr, SocketAddr, TcpStream, ToSocketAddrs};
 use std::path::PathBuf;
 use std::process::{Child, Command, Stdio};
 use std::sync::{Arc, Mutex, OnceLock};
@@ -1420,18 +1420,34 @@ fn probe_server(server: &Server) -> PingProbeResult {
         };
     };
 
-    let Ok(ip) = server.host.parse::<IpAddr>() else {
-        return PingProbeResult {
-            server_id: server.id.clone(),
-            ping_ms: server.ping_ms,
-            status: "unresolved".to_string(),
-            checked_at,
-            source: "stored".to_string(),
-            stale: server.ping_ms.is_some(),
-        };
+    let endpoint = match server.host.parse::<IpAddr>() {
+        Ok(ip) => SocketAddr::new(ip, port),
+        Err(_) => match (server.host.as_str(), port).to_socket_addrs() {
+            Ok(mut addrs) => match addrs.next() {
+                Some(endpoint) => endpoint,
+                None => {
+                    return PingProbeResult {
+                        server_id: server.id.clone(),
+                        ping_ms: None,
+                        status: "unresolved".to_string(),
+                        checked_at,
+                        source: "tcp-connect".to_string(),
+                        stale: false,
+                    };
+                }
+            },
+            Err(_) => {
+                return PingProbeResult {
+                    server_id: server.id.clone(),
+                    ping_ms: None,
+                    status: "unresolved".to_string(),
+                    checked_at,
+                    source: "tcp-connect".to_string(),
+                    stale: false,
+                };
+            }
+        },
     };
-
-    let endpoint = SocketAddr::new(ip, port);
     let started = Instant::now();
     match TcpStream::connect_timeout(&endpoint, PROBE_TIMEOUT) {
         Ok(stream) => {

@@ -1,6 +1,6 @@
 # Roadmap
 
-Current version: `1.0.6`
+Current version: `1.0.7`
 
 This roadmap is the working contract for Samhain Security. Future implementation should follow this order unless a blocker is found and documented in the same commit.
 
@@ -343,6 +343,18 @@ Done when the review screenshots no longer show circular flag outlines, blue nav
 
 Status: shipped in `v1.0.6` with Canvas-rendered oval flags, custom navigation hit states, a cleaned power glyph, and quieter selected rows.
 
+### 1.0.7 - Connection Panel And Honest Latency
+
+- Reduce the right-panel glow and remove extra power-control circles.
+- Make the Proxy and TUN chips real route-mode controls.
+- Keep the power glyph in Samhain red instead of white.
+- Remove synthetic latency values when the service cannot measure.
+- Resolve DNS names before TCP latency probes.
+
+Done when the connection panel reads darker, the route chips click, and latency shows only measured values or `n/a`.
+
+Status: shipped in `v1.0.7` with a flatter connection dial, real Proxy/TUN route buttons, DNS-aware TCP latency checks, and no pseudo-ping fallback.
+
 ## Immediate Next Build Order
 
-1. `1.0.7`: app list dialog polish and clearer per-application routing state.
+1. `1.0.8`: app list dialog polish and clearer per-application routing state.

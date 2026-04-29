@@ -283,7 +283,6 @@ private:
     QString routePolicyStatusLabel(const QString &status, bool supported) const;
     QString protectionStatusLabel(const QString &status, bool supported, bool enforcing) const;
     QString pingLabelFromProbe(const QJsonObject &probe) const;
-    QString fallbackPingLabel(const QString &serverId) const;
     QString formatBytes(qint64 bytes) const;
     QString formatRate(qint64 bytesPerSecond) const;
     void appendLog(const QString &message);

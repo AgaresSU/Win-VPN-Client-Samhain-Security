@@ -71,7 +71,7 @@ int main(int argc, char *argv[])
     QApplication app(argc, argv);
     app.setApplicationName("Samhain Security");
     app.setOrganizationName("Samhain Security");
-    app.setApplicationVersion("1.0.6");
+    app.setApplicationVersion("1.0.7");
     app.setWindowIcon(QIcon(":/qt/qml/SamhainSecurityNative/resources/app-icon.png"));
 
     const auto activationArguments = app.arguments().mid(1);

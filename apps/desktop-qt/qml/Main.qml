@@ -552,8 +552,8 @@ ApplicationWindow {
                 Rectangle {
                     anchors.fill: parent
                     gradient: Gradient {
-                        GradientStop { position: 0.0; color: "#1B171A" }
-                        GradientStop { position: 1.0; color: "#101012" }
+                        GradientStop { position: 0.0; color: "#141113" }
+                        GradientStop { position: 1.0; color: "#0C0D0F" }
                     }
                 }
                 Rectangle {
@@ -563,8 +563,8 @@ ApplicationWindow {
                     y: parent.height * 0.36
                     rotation: 38
                     radius: 80
-                    color: "#151214"
-                    opacity: 0.68
+                    color: "#100E10"
+                    opacity: 0.38
                 }
 
                 ColumnLayout {
@@ -577,12 +577,12 @@ ApplicationWindow {
                         Layout.preferredWidth: 178
                         Layout.preferredHeight: 38
                         radius: 6
-                        color: appController.connected ? "#2C171B" : "#211C1E"
-                        border.color: appController.connected ? root.accent : "#44363A"
+                        color: appController.connected ? "#211417" : "#191719"
+                        border.color: appController.connected ? "#7F2B33" : "#342B2E"
                         Text {
                             anchors.centerIn: parent
                             text: appController.connected ? "Подключён" : "Ожидание"
-                            color: appController.connected ? "#F4D9DC" : root.muted
+                            color: appController.connected ? "#D86E76" : root.muted
                             font.pixelSize: 15
                             font.bold: true
                         }
@@ -594,43 +594,24 @@ ApplicationWindow {
                         property int dialSize: root.tight ? 230 : 306
 
                         Rectangle {
-                            width: parent.dialSize
+                            width: parent.dialSize * 0.88
                             height: width
                             radius: width / 2
                             anchors.centerIn: parent
                             color: "transparent"
-                            border.color: appController.connected ? "#5A2028" : "#33252A"
-                            border.width: 2
-                            opacity: 0.62
-                        }
-                        Rectangle {
-                            width: parent.dialSize * 0.78
-                            height: width
-                            radius: width / 2
-                            anchors.centerIn: parent
-                            color: "#222027"
-                            border.color: "#343141"
-                            border.width: 2
-                            opacity: 0.42
-                        }
-                        Rectangle {
-                            width: parent.dialSize * 0.56
-                            height: width
-                            radius: width / 2
-                            anchors.centerIn: parent
-                            color: "transparent"
-                            border.color: appController.connected ? root.accent : "#5C3339"
-                            border.width: 2
-                            opacity: 0.88
-                        }
-                        Rectangle {
-                            width: parent.dialSize * 0.36
-                            height: width
-                            radius: width / 2
-                            anchors.centerIn: parent
-                            color: "transparent"
-                            border.color: "#2F2930"
+                            border.color: appController.connected ? "#4A1C23" : "#272025"
                             border.width: 1
+                            opacity: 0.74
+                        }
+                        Rectangle {
+                            width: parent.dialSize * 0.66
+                            height: width
+                            radius: width / 2
+                            anchors.centerIn: parent
+                            color: "transparent"
+                            border.color: appController.connected ? "#33404F" : "#26242C"
+                            border.width: root.tight ? 26 : 34
+                            opacity: appController.connected ? 0.52 : 0.34
                         }
                         PowerButton {
                             width: root.tight ? 96 : 118
@@ -645,8 +626,8 @@ ApplicationWindow {
                     Rectangle {
                         Layout.fillWidth: true
                         Layout.preferredHeight: root.tight ? 124 : 140
-                        color: "#171517"
-                        border.color: "#2F292C"
+                        color: "#131112"
+                        border.color: "#2A2225"
                         radius: 8
                         ColumnLayout {
                             anchors.fill: parent
@@ -678,32 +659,34 @@ ApplicationWindow {
                         }
                     }
 
-                    Button {
+                    RightActionButton {
                         text: "Тест пинга"
                         Layout.preferredWidth: 288
                         Layout.preferredHeight: root.tight ? 42 : 48
                         Layout.alignment: Qt.AlignHCenter
                         onClicked: appController.testPing()
-                        background: Rectangle {
-                            radius: 6
-                            color: parent.down ? "#8F2F36" : root.accent
-                            border.color: "#D15B63"
-                        }
-                        contentItem: Text { text: parent.text; color: "white"; font.pixelSize: 18; horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter }
                     }
 
                     RowLayout {
                         Layout.alignment: Qt.AlignHCenter
                         spacing: 8
-                        Chip { text: "Proxy" }
-                        Chip { text: "TUN" }
+                        PathChip {
+                            text: "Proxy"
+                            active: appController.routeModeIndex !== 0
+                            onClicked: appController.routeModeIndex = 1
+                        }
+                        PathChip {
+                            text: "TUN"
+                            active: appController.routeModeIndex === 0
+                            onClicked: appController.routeModeIndex = 0
+                        }
                     }
 
                     Rectangle {
                         Layout.fillWidth: true
                         Layout.preferredHeight: root.tight ? 80 : 92
-                        color: "#171517"
-                        border.color: "#31292D"
+                        color: "#131112"
+                        border.color: "#2B2326"
                         radius: 8
                         RowLayout {
                             anchors.fill: parent
@@ -1116,7 +1099,7 @@ ApplicationWindow {
             spacing: 18
             PageTitle { text: "О программе" }
             MetricRow { title: "Программа"; value: "Samhain Security Native" }
-            MetricRow { title: "Версия"; value: "1.0.6" }
+            MetricRow { title: "Версия"; value: "1.0.7" }
             MetricRow { title: "Интерфейс"; value: "Qt 6 / QML" }
             MetricRow { title: "Ядро"; value: "Rust workspace" }
             MetricRow { title: "Статус"; value: appController.statusText }
@@ -1184,20 +1167,12 @@ ApplicationWindow {
         property bool connected: false
         property string label: ""
         signal clicked()
-        radius: width / 2
-        color: connected ? Qt.rgba(0.72, 0.16, 0.22, 0.34) : Qt.rgba(0.28, 0.12, 0.16, 0.34)
-        border.color: connected ? "#E04A56" : "#7A3841"
-        border.width: 2
+        color: "transparent"
+        border.width: 0
+        onConnectedChanged: powerCanvas.requestPaint()
+        onWidthChanged: powerCanvas.requestPaint()
+        onHeightChanged: powerCanvas.requestPaint()
 
-        Rectangle {
-            anchors.centerIn: parent
-            width: parent.width * 0.70
-            height: width
-            radius: width / 2
-            color: connected ? Qt.rgba(0.72, 0.16, 0.22, 0.18) : Qt.rgba(0.12, 0.09, 0.10, 0.44)
-            border.color: connected ? "#B83A43" : "#4A3036"
-            border.width: 1
-        }
         Canvas {
             id: powerCanvas
             anchors.fill: parent
@@ -1207,13 +1182,13 @@ ApplicationWindow {
                 var w = width
                 var h = height
                 var cx = w / 2
-                var cy = h / 2 - h * 0.04
-                var r = Math.min(w, h) * 0.21
+                var cy = h * 0.38
+                var r = Math.min(w, h) * 0.18
                 ctx.clearRect(0, 0, w, h)
                 ctx.lineCap = "round"
                 ctx.lineJoin = "round"
-                ctx.strokeStyle = "#FFFFFF"
-                ctx.lineWidth = Math.max(5, w * 0.055)
+                ctx.strokeStyle = powerButton.connected ? "#D34A55" : "#B83A43"
+                ctx.lineWidth = Math.max(5, w * 0.06)
                 ctx.beginPath()
                 ctx.arc(cx, cy, r, Math.PI * 1.75, Math.PI * 3.25, false)
                 ctx.stroke()
@@ -1226,9 +1201,9 @@ ApplicationWindow {
         Text {
             anchors.horizontalCenter: parent.horizontalCenter
             anchors.bottom: parent.bottom
-            anchors.bottomMargin: 16
+            anchors.bottomMargin: 17
             text: powerButton.label
-            color: "#F1EDEE"
+            color: powerButton.connected ? "#F1EDEE" : "#C8BFC2"
             opacity: 0.92
             font.pixelSize: 12
         }
@@ -1236,6 +1211,30 @@ ApplicationWindow {
             anchors.fill: parent
             cursorShape: Qt.PointingHandCursor
             onClicked: powerButton.clicked()
+        }
+    }
+
+    component RightActionButton: Rectangle {
+        id: actionButton
+        property string text: ""
+        signal clicked()
+        radius: 8
+        color: actionMouse.pressed ? "#64242A" : (actionMouse.containsMouse ? "#7A2A32" : "#6B242B")
+        border.color: actionMouse.containsMouse ? "#B54650" : "#8C333B"
+        border.width: 1
+        Text {
+            anchors.centerIn: parent
+            text: actionButton.text
+            color: "#F1EDEE"
+            font.pixelSize: 17
+            font.bold: true
+        }
+        MouseArea {
+            id: actionMouse
+            anchors.fill: parent
+            hoverEnabled: true
+            cursorShape: Qt.PointingHandCursor
+            onClicked: actionButton.clicked()
         }
     }
 
@@ -1398,20 +1397,32 @@ ApplicationWindow {
         }
     }
 
-    component Chip: Rectangle {
+    component PathChip: Rectangle {
         id: chip
         property string text: ""
+        property bool active: false
+        signal clicked()
         width: chipLabel.implicitWidth + 28
         height: 34
         radius: 6
-        color: "#191719"
-        border.color: "#4A3036"
+        color: active ? "#251519" : "#151315"
+        border.color: active
+            ? (chipMouse.containsMouse ? "#B83A43" : "#9E3740")
+            : (chipMouse.containsMouse ? "#68404A" : "#493038")
+        border.width: 1
         Text {
             id: chipLabel
             anchors.centerIn: parent
             text: chip.text
-            color: "#D7C8CC"
+            color: chip.active ? "#F1D1D5" : "#D7C8CC"
             font.pixelSize: 16
+        }
+        MouseArea {
+            id: chipMouse
+            anchors.fill: parent
+            hoverEnabled: true
+            cursorShape: Qt.PointingHandCursor
+            onClicked: chip.clicked()
         }
     }
 

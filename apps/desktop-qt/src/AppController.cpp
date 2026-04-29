@@ -1,7 +1,6 @@
 #include "AppController.h"
 
 #include <algorithm>
-#include <numeric>
 
 #include <QAction>
 #include <QApplication>
@@ -820,13 +819,12 @@ void AppController::testPing()
         }
     }
 
-    QTimer::singleShot(350, this, [this, serverId, serverName]() {
-        const auto ping = fallbackPingLabel(serverId);
-        m_serverModel.setPingByServerId(serverId, ping);
-        updateSelectedServerProperties();
-        saveState();
-        appendLog("Пинг: " + serverName + " - " + ping);
-    });
+    m_serverModel.setPingByServerId(serverId, "n/a");
+    updateSelectedServerProperties();
+    saveState();
+    m_statusText = "Пинг недоступен";
+    emit statusChanged();
+    appendLog("Пинг: " + serverName + " - n/a");
 }
 
 void AppController::testAllPings()
@@ -861,15 +859,14 @@ void AppController::testAllPings()
         }
     }
 
-    QTimer::singleShot(350, this, [this, serverIds]() {
-        for (const auto &serverId : serverIds) {
-            m_serverModel.setPingByServerId(serverId, fallbackPingLabel(serverId));
-        }
-        updateSelectedServerProperties();
-        saveState();
-        m_statusText = "Проверка задержки завершена локально";
-        emit statusChanged();
-    });
+    for (const auto &serverId : serverIds) {
+        m_serverModel.setPingByServerId(serverId, "n/a");
+    }
+    updateSelectedServerProperties();
+    saveState();
+    m_statusText = "Пинг недоступен";
+    emit statusChanged();
+    appendLog("Пинг: сервис недоступен, псевдо-оценка отключена");
 }
 
 void AppController::pasteFromClipboard()
@@ -2644,14 +2641,6 @@ QString AppController::pingLabelFromProbe(const QJsonObject &probe) const
         return "n/a";
     }
     return QString::number(ping) + "ms";
-}
-
-QString AppController::fallbackPingLabel(const QString &serverId) const
-{
-    const auto checksum = std::accumulate(serverId.begin(), serverId.end(), 0u, [](uint acc, QChar ch) {
-        return acc + ch.unicode();
-    });
-    return QString::number(45 + checksum % 380) + "ms";
 }
 
 QString AppController::formatBytes(qint64 bytes) const
