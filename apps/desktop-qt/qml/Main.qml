@@ -577,12 +577,12 @@ ApplicationWindow {
                         Layout.preferredWidth: 178
                         Layout.preferredHeight: 38
                         radius: 6
-                        color: appController.connected ? "#211417" : "#191719"
-                        border.color: appController.connected ? "#7F2B33" : "#342B2E"
+                        color: appController.connected ? "#14211B" : "#191719"
+                        border.color: appController.connected ? "#2F6F55" : "#342B2E"
                         Text {
                             anchors.centerIn: parent
                             text: appController.connected ? "Подключён" : "Ожидание"
-                            color: appController.connected ? "#D86E76" : root.muted
+                            color: appController.connected ? "#75B28F" : root.muted
                             font.pixelSize: 15
                             font.bold: true
                         }
@@ -599,7 +599,7 @@ ApplicationWindow {
                             radius: width / 2
                             anchors.centerIn: parent
                             color: "transparent"
-                            border.color: appController.connected ? "#4A1C23" : "#272025"
+                            border.color: appController.connected ? "#173628" : "#272025"
                             border.width: 1
                             opacity: 0.74
                         }
@@ -609,9 +609,9 @@ ApplicationWindow {
                             radius: width / 2
                             anchors.centerIn: parent
                             color: "transparent"
-                            border.color: appController.connected ? "#33404F" : "#26242C"
+                            border.color: appController.connected ? "#28463B" : "#26242C"
                             border.width: root.tight ? 26 : 34
-                            opacity: appController.connected ? 0.52 : 0.34
+                            opacity: appController.connected ? 0.58 : 0.34
                         }
                         PowerButton {
                             width: root.tight ? 96 : 118
@@ -1099,7 +1099,7 @@ ApplicationWindow {
             spacing: 18
             PageTitle { text: "О программе" }
             MetricRow { title: "Программа"; value: "Samhain Security Native" }
-            MetricRow { title: "Версия"; value: "1.0.7" }
+            MetricRow { title: "Версия"; value: "1.0.8" }
             MetricRow { title: "Интерфейс"; value: "Qt 6 / QML" }
             MetricRow { title: "Ядро"; value: "Rust workspace" }
             MetricRow { title: "Статус"; value: appController.statusText }
@@ -1187,7 +1187,7 @@ ApplicationWindow {
                 ctx.clearRect(0, 0, w, h)
                 ctx.lineCap = "round"
                 ctx.lineJoin = "round"
-                ctx.strokeStyle = powerButton.connected ? "#D34A55" : "#B83A43"
+                ctx.strokeStyle = powerButton.connected ? "#2F7A5D" : "#B83A43"
                 ctx.lineWidth = Math.max(5, w * 0.06)
                 ctx.beginPath()
                 ctx.arc(cx, cy, r, Math.PI * 1.75, Math.PI * 3.25, false)

@@ -325,7 +325,7 @@ dependencies = [
 
 [[package]]
 name = "samhain-core"
-version = "1.0.7"
+version = "1.0.8"
 dependencies = [
  "base64",
  "serde",
@@ -336,7 +336,7 @@ dependencies = [
 
 [[package]]
 name = "samhain-ipc"
-version = "1.0.7"
+version = "1.0.8"
 dependencies = [
  "samhain-core",
  "serde",
@@ -345,7 +345,7 @@ dependencies = [
 
 [[package]]
 name = "samhain-service"
-version = "1.0.7"
+version = "1.0.8"
 dependencies = [
  "anyhow",
  "base64",

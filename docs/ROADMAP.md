@@ -1,6 +1,6 @@
 # Roadmap
 
-Current version: `1.0.7`
+Current version: `1.0.8`
 
 This roadmap is the working contract for Samhain Security. Future implementation should follow this order unless a blocker is found and documented in the same commit.
 
@@ -355,6 +355,16 @@ Done when the connection panel reads darker, the route chips click, and latency 
 
 Status: shipped in `v1.0.7` with a flatter connection dial, real Proxy/TUN route buttons, DNS-aware TCP latency checks, and no pseudo-ping fallback.
 
+### 1.0.8 - Connected State Color
+
+- Switch the active power glyph from Samhain red to dark green.
+- Switch the connected connection ring from gray to dark green.
+- Keep the disconnected and action states in the red graphite palette.
+
+Done when enabled state is visually distinct without making the whole panel bright.
+
+Status: shipped in `v1.0.8` with dark-green active power, status, and connection-ring indicators.
+
 ## Immediate Next Build Order
 
-1. `1.0.8`: app list dialog polish and clearer per-application routing state.
+1. `1.0.9`: app list dialog polish and clearer per-application routing state.
