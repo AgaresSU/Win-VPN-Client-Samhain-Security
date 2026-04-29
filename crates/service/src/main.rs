@@ -58,7 +58,7 @@ fn main() -> Result<()> {
 
 fn print_stub(command: &str) {
     println!(
-        "Samhain Security Native service skeleton: '{command}' is reserved for the privileged Rust service."
+        "Samhain Security service command '{command}' is reserved for the signed privileged service. Use tools\\local-ops.ps1 for the current package operations."
     );
 }
 

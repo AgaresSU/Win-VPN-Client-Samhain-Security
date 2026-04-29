@@ -1,5 +1,5 @@
 param(
-    [string]$Version = "0.8.4",
+    [string]$Version = "0.8.5",
     [string]$Configuration = "Release"
 )
 
@@ -13,6 +13,7 @@ $PackageRoot = Join-Path $RepoRoot "dist\SamhainSecurityNative-$Version-win-x64"
 $AppOut = Join-Path $PackageRoot "app"
 $ServiceOut = Join-Path $PackageRoot "service"
 $DocsOut = Join-Path $PackageRoot "docs"
+$ToolsOut = Join-Path $PackageRoot "tools"
 $EnginesOut = Join-Path $AppOut "engines"
 $QtExe = Join-Path $RepoRoot "build\desktop-qt\SamhainSecurityNative.exe"
 $ServiceExe = Join-Path $RepoRoot "target\release\samhain-service.exe"
@@ -48,12 +49,13 @@ if (Test-Path $PackageRoot) {
     Remove-Item -LiteralPath $PackageRoot -Recurse -Force
 }
 
-New-Item -ItemType Directory -Force -Path $AppOut, $ServiceOut, $DocsOut, $EnginesOut | Out-Null
+New-Item -ItemType Directory -Force -Path $AppOut, $ServiceOut, $DocsOut, $ToolsOut, $EnginesOut | Out-Null
 Copy-Item -LiteralPath $QtExe -Destination $AppOut -Force
 Copy-Item -LiteralPath $ServiceExe -Destination $ServiceOut -Force
 Copy-Item -LiteralPath (Join-Path $RepoRoot "README.md") -Destination $PackageRoot -Force
 Copy-Item -LiteralPath (Join-Path $RepoRoot "VERSION") -Destination $PackageRoot -Force
 Copy-Item -Path (Join-Path $RepoRoot "docs\*") -Destination $DocsOut -Recurse -Force
+Copy-Item -LiteralPath (Join-Path $RepoRoot "scripts\local-ops.ps1") -Destination $ToolsOut -Force
 Copy-Item -LiteralPath (Join-Path $RepoRoot "assets") -Destination $PackageRoot -Recurse -Force
 if (Test-Path (Join-Path $RepoRoot "engines")) {
     Copy-Item -Path (Join-Path $RepoRoot "engines\*") -Destination $EnginesOut -Recurse -Force
@@ -71,9 +73,36 @@ $manifest = [PSCustomObject]@{
     runtime = "win-x64"
     ui = "Qt 6 / QML"
     core = "Rust"
+    operations = [PSCustomObject]@{
+        scope = "CurrentUser"
+        script = "tools\local-ops.ps1"
+        actions = @("Install", "Repair", "Uninstall", "Status")
+    }
+    signing = [PSCustomObject]@{
+        status = "unsigned-dev"
+        expectedPublisher = "Samhain Security"
+        digestAlgorithm = "SHA256"
+    }
     createdAtUtc = (Get-Date).ToUniversalTime().ToString("O")
 }
 $manifest | ConvertTo-Json -Depth 4 | Set-Content -LiteralPath (Join-Path $PackageRoot "release-manifest.json") -Encoding UTF8
+
+$checksumTargets = @(
+    "app\SamhainSecurityNative.exe",
+    "service\samhain-service.exe",
+    "tools\local-ops.ps1",
+    "release-manifest.json",
+    "VERSION"
+)
+
+$checksums = foreach ($relative in $checksumTargets) {
+    $path = Join-Path $PackageRoot $relative
+    if (Test-Path $path) {
+        $hash = Get-FileHash -Algorithm SHA256 -LiteralPath $path
+        "{0}  {1}" -f $hash.Hash.ToLowerInvariant(), $relative
+    }
+}
+$checksums | Set-Content -LiteralPath (Join-Path $PackageRoot "checksums.txt") -Encoding ASCII
 
 Compress-Archive -Path (Join-Path $PackageRoot "*") -DestinationPath "$PackageRoot.zip" -Force
 

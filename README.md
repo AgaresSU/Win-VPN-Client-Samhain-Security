@@ -1,6 +1,6 @@
 # Samhain Security Native
 
-Version: `0.8.4`
+Version: `0.8.5`
 
 Native Windows secure tunneling client prototype built from a clean base.
 
@@ -16,7 +16,7 @@ Native Windows secure tunneling client prototype built from a clean base.
 
 This release is the native foundation. It focuses on the product shell, simple daily UX, local models, persistence, and build/package flow.
 
-Implemented in `0.7.0`:
+Implemented through `0.8.5`:
 
 - Happ-inspired Qt/QML shell with servers, add, settings, statistics, logs, and about sections.
 - Compact subscription group and server rows without technical clutter.
@@ -42,10 +42,11 @@ Implemented in `0.7.0`:
 - Service telemetry: per-session traffic state, categorized service/engine logs, and redacted support export for diagnostics.
 - UX polish: dark red graphite theme pass, responsive compact navigation, bundled app icon in the shell, and empty states for quiet screens.
 - Package script for a local Windows distributable.
+- Local operations script for current-user install, repair, uninstall, status, migration backup, and package integrity files.
 
 Not implemented yet:
 
-- Real service installation.
+- Installer-managed privileged service installation.
 - Production protocol runtime bundle.
 - Production WFP app-routing enforcement layer.
 - Installer-managed service identity and full privileged enforcement.
@@ -66,5 +67,18 @@ Not implemented yet:
 The package is written to:
 
 ```text
-dist\SamhainSecurityNative-0.8.4-win-x64
+dist\SamhainSecurityNative-0.8.5-win-x64
 ```
+
+## Local Operations
+
+After extracting the package, use:
+
+```powershell
+.\tools\local-ops.ps1 -Action Install
+.\tools\local-ops.ps1 -Action Status
+.\tools\local-ops.ps1 -Action Repair
+.\tools\local-ops.ps1 -Action Uninstall
+```
+
+See `docs\LOCAL_OPERATIONS.md` and `docs\SIGNING.md` for install scope, storage, migration, and integrity notes.

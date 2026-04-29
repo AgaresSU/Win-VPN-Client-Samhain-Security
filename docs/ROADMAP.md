@@ -1,6 +1,6 @@
 # Roadmap
 
-Current version: `0.8.4`
+Current version: `0.8.5`
 
 This roadmap is the working contract for Samhain Security. Future implementation should follow this order unless a blocker is found and documented in the same commit.
 
@@ -233,6 +233,8 @@ Status: shipped in `v0.8.4` with the dark red graphite theme pass, responsive co
 
 Done when a non-developer machine can install, run, repair, and uninstall the app.
 
+Status: shipped in `v0.8.5` with a package-bundled local operations script, current-user install/repair/uninstall/status flow, startup/link/task registration, conservative migration backup, storage decisions, unsigned-dev manifest metadata, and SHA256 package checksums. Signed privileged installer work remains for release candidate hardening.
+
 ### 0.9.0 - Beta
 
 - Freeze core UX.
@@ -264,7 +266,6 @@ Done when Samhain Security is ready for normal users.
 
 ## Immediate Next Build Order
 
-1. `0.8.5`: installer and local operations.
-2. `0.9.0`: beta hardening.
-3. `0.9.5`: release candidate hardening.
-4. `1.0.0`: stable packaging and release.
+1. `0.9.0`: beta hardening.
+2. `0.9.5`: release candidate hardening.
+3. `1.0.0`: stable packaging and release.
