@@ -2030,6 +2030,11 @@ impl AppRoutingManager {
         state.enforcement_requested = app_routing_enforce();
         state.enforcement_available = app_routing_enforcement_available();
         state.evidence = app_routing_evidence(route_mode, state.applications.len());
+        let (release_supported, experimental, compatibility) =
+            app_routing_mode_matrix(route_mode, state.enforcement_available);
+        state.release_supported = release_supported;
+        state.experimental = experimental;
+        state.compatibility = compatibility;
         if matches!(state.status.as_str(), "inactive" | "restored")
             && route_mode != RouteMode::WholeComputer
         {
@@ -2084,6 +2089,9 @@ impl AppRoutingManager {
                 applications,
                 rule_names: Vec::new(),
                 evidence: app_routing_evidence(route_mode, 0),
+                release_supported: app_routing_release_supported(route_mode),
+                experimental: app_routing_experimental(route_mode, false),
+                compatibility: app_routing_compatibility(route_mode, false),
                 applied_at: None,
                 restored_at: None,
                 message: "Режим всего компьютера не требует списка приложений.".to_string(),
@@ -2101,6 +2109,9 @@ impl AppRoutingManager {
                 applications,
                 rule_names: Vec::new(),
                 evidence: app_routing_evidence(route_mode, 0),
+                release_supported: app_routing_release_supported(route_mode),
+                experimental: app_routing_experimental(route_mode, false),
+                compatibility: app_routing_compatibility(route_mode, false),
                 applied_at: None,
                 restored_at: None,
                 message: "Добавьте приложения для выбранного режима.".to_string(),
@@ -2131,6 +2142,9 @@ impl AppRoutingManager {
             applications,
             rule_names,
             evidence: app_routing_evidence(route_mode, enabled_apps.len()),
+            release_supported: app_routing_release_supported(route_mode),
+            experimental: app_routing_experimental(route_mode, enforcement_available),
+            compatibility: app_routing_compatibility(route_mode, enforcement_available),
             applied_at: Some(now_engine_label()),
             restored_at: None,
             message: if dry_run {
@@ -3825,7 +3839,67 @@ fn app_routing_evidence(route_mode: RouteMode, enabled_count: usize) -> Vec<Stri
     evidence.push(format!("requested={}", app_routing_enforce()));
     evidence.push("wfp_layer=not-implemented".to_string());
     evidence.push(format!("available={}", app_routing_enforcement_available()));
+    evidence.push("transparent_per_app=blocked".to_string());
+    evidence.push("release_supported_proxy_aware_apps=true".to_string());
     evidence
+}
+
+fn app_routing_mode_matrix(
+    route_mode: RouteMode,
+    enforcement_available: bool,
+) -> (Vec<String>, Vec<String>, Vec<String>) {
+    (
+        app_routing_release_supported(route_mode),
+        app_routing_experimental(route_mode, enforcement_available),
+        app_routing_compatibility(route_mode, enforcement_available),
+    )
+}
+
+fn app_routing_release_supported(route_mode: RouteMode) -> Vec<String> {
+    match route_mode {
+        RouteMode::WholeComputer => vec![
+            "whole-computer: TUN path for sing-box/Xray when runtime permits".to_string(),
+            "whole-computer: WireGuard and AmneziaWG adapter profiles".to_string(),
+            "proxy-aware apps: local mixed proxy can be used manually".to_string(),
+        ],
+        RouteMode::SelectedAppsOnly => vec![
+            "proxy-aware selected apps: route only apps configured to use local proxy".to_string(),
+        ],
+        RouteMode::ExcludeSelectedApps => Vec::new(),
+    }
+}
+
+fn app_routing_experimental(route_mode: RouteMode, enforcement_available: bool) -> Vec<String> {
+    let mut lines = Vec::new();
+    if route_mode != RouteMode::WholeComputer {
+        lines.push(if enforcement_available {
+            "transparent per-app routing: privileged WFP path is available".to_string()
+        } else {
+            "transparent per-app routing: blocked until signed privileged WFP layer".to_string()
+        });
+        lines.push("TUN and adapter bypass by process: not release-supported".to_string());
+    }
+    if route_mode == RouteMode::ExcludeSelectedApps {
+        lines
+            .push("except-selected mode: configured only; transparent bypass is gated".to_string());
+    }
+    lines
+}
+
+fn app_routing_compatibility(route_mode: RouteMode, enforcement_available: bool) -> Vec<String> {
+    let mut lines = vec![
+        "Windows 10/11: whole-computer path supported with required runtime and rights".to_string(),
+        "Current-user run: proxy-aware app routing only".to_string(),
+        "Admin alone does not enable transparent per-process routing".to_string(),
+    ];
+    if route_mode != RouteMode::WholeComputer {
+        lines.push(if enforcement_available {
+            "Selected/excluded apps: WFP enforcement available for validation".to_string()
+        } else {
+            "Selected/excluded apps: transparent enforcement disabled in this build".to_string()
+        });
+    }
+    lines
 }
 
 fn protection_dry_run() -> bool {
@@ -5848,6 +5922,65 @@ mod tests {
         let configured = fresh_manager.snapshot(RouteMode::SelectedAppsOnly, state.applications);
         assert_eq!(configured.status, "configured");
         assert_eq!(configured.rule_names.len(), 1);
+    }
+
+    #[test]
+    fn app_routing_matrix_keeps_transparent_modes_honest() {
+        let mut manager = AppRoutingManager::new();
+        let selected = manager.apply(
+            RouteMode::SelectedAppsOnly,
+            vec![RouteApplication {
+                id: "browser".to_string(),
+                name: "browser.exe".to_string(),
+                path: "C:\\Program Files\\Browser\\browser.exe".to_string(),
+                enabled: true,
+            }],
+        );
+
+        assert_eq!(selected.status, "limited");
+        assert!(!selected.supported);
+        assert!(
+            selected
+                .release_supported
+                .iter()
+                .any(|item| item.contains("proxy-aware selected apps"))
+        );
+        assert!(
+            selected
+                .experimental
+                .iter()
+                .any(|item| item.contains("transparent per-app routing: blocked"))
+        );
+        assert!(
+            selected
+                .compatibility
+                .iter()
+                .any(|item| item.contains("Current-user run: proxy-aware app routing only"))
+        );
+        assert!(
+            selected
+                .evidence
+                .iter()
+                .any(|item| item == "transparent_per_app=blocked")
+        );
+
+        let excluded = manager.apply(
+            RouteMode::ExcludeSelectedApps,
+            vec![RouteApplication {
+                id: "game".to_string(),
+                name: "game.exe".to_string(),
+                path: "C:\\Games\\game.exe".to_string(),
+                enabled: true,
+            }],
+        );
+        assert!(!excluded.supported);
+        assert!(excluded.release_supported.is_empty());
+        assert!(
+            excluded
+                .experimental
+                .iter()
+                .any(|item| item.contains("except-selected mode"))
+        );
     }
 
     #[test]

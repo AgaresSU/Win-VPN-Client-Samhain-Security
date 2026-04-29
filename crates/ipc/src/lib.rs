@@ -377,6 +377,12 @@ pub struct AppRoutingPolicyState {
     pub applications: Vec<RouteApplication>,
     pub rule_names: Vec<String>,
     pub evidence: Vec<String>,
+    #[serde(default)]
+    pub release_supported: Vec<String>,
+    #[serde(default)]
+    pub experimental: Vec<String>,
+    #[serde(default)]
+    pub compatibility: Vec<String>,
     pub applied_at: Option<String>,
     pub restored_at: Option<String>,
     pub message: String,
@@ -393,6 +399,9 @@ impl Default for AppRoutingPolicyState {
             applications: Vec::new(),
             rule_names: Vec::new(),
             evidence: Vec::new(),
+            release_supported: Vec::new(),
+            experimental: Vec::new(),
+            compatibility: Vec::new(),
             applied_at: None,
             restored_at: None,
             message: "App routing policy is inactive.".to_string(),

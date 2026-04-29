@@ -2755,6 +2755,9 @@ void AppController::applyAppRoutingPolicyObject(const QJsonObject &state)
     const auto enforcementAvailable = state.value("enforcement_available").toBool(false);
     const auto message = state.value("message").toString();
     const auto mode = state.value("route_mode").toString(routeModeWireValue());
+    const auto releaseSupported = state.value("release_supported").toArray();
+    const auto experimental = state.value("experimental").toArray();
+    const auto compatibility = state.value("compatibility").toArray();
     m_routeModeIndex = routeModeIndexFromWire(mode);
 
     m_routeApplications.clear();
@@ -2773,8 +2776,17 @@ void AppController::applyAppRoutingPolicyObject(const QJsonObject &state)
     m_routePolicyStatus = routePolicyStatusLabel(status, supported);
     QStringList detail;
     detail.push_back(routeAppCountLabel());
+    if (!releaseSupported.isEmpty()) {
+        detail.push_back("Релиз: " + releaseSupported.first().toString());
+    }
+    if (!experimental.isEmpty()) {
+        detail.push_back("Экспериментально: " + experimental.first().toString());
+    }
+    if (!compatibility.isEmpty()) {
+        detail.push_back("Совместимость: " + compatibility.first().toString());
+    }
     if (enforcementRequested) {
-        detail.push_back(enforcementAvailable ? "Enforcement: готов" : "Enforcement: ожидает WFP");
+        detail.push_back(enforcementAvailable ? "Контур: готов" : "Контур: ожидает WFP");
     }
     if (!supported && m_routeModeIndex != 0) {
         detail.push_back("Требуется WFP-слой для прозрачного режима");
