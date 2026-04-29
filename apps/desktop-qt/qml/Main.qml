@@ -1279,7 +1279,7 @@ ApplicationWindow {
             spacing: 18
             PageTitle { text: "О программе" }
             MetricRow { title: "Программа"; value: "Samhain Security Native" }
-            MetricRow { title: "Версия"; value: "1.1.4" }
+            MetricRow { title: "Версия"; value: "1.1.5" }
             MetricRow { title: "Интерфейс"; value: "Qt 6 / QML" }
             MetricRow { title: "Ядро"; value: "Rust workspace" }
             MetricRow { title: "Статус"; value: appController.statusText }
@@ -1402,10 +1402,12 @@ ApplicationWindow {
                 ctx.lineTo(26, 23.5)
                 ctx.stroke()
             } else if (iconKind === "settings") {
+                ctx.lineWidth = 1.9
                 ctx.beginPath()
-                for (var i = 0; i < 8; ++i) {
-                    var a = -Math.PI / 2 + i * Math.PI / 4
-                    var r1 = i % 2 === 0 ? 13 : 10.2
+                for (var i = 0; i < 24; ++i) {
+                    var a = -Math.PI / 2 + i * Math.PI / 12
+                    var tooth = i % 3 === 0
+                    var r1 = tooth ? 13 : 10.2
                     var x = 17 + Math.cos(a) * r1
                     var y = 17 + Math.sin(a) * r1
                     if (i === 0) {
@@ -1417,7 +1419,7 @@ ApplicationWindow {
                 ctx.closePath()
                 ctx.stroke()
                 ctx.beginPath()
-                ctx.arc(17, 17, 4.6, 0, Math.PI * 2)
+                ctx.arc(17, 17, 5.1, 0, Math.PI * 2)
                 ctx.stroke()
             } else if (iconKind === "stats") {
                 roundedRect(6, 7, 22, 20, 5)

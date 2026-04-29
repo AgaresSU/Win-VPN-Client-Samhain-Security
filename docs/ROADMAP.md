@@ -1,6 +1,6 @@
 # Roadmap
 
-Current version: `1.1.4`
+Current version: `1.1.5`
 
 This roadmap is the working contract for Samhain Security. Future implementation should follow this order unless a blocker is found and documented in the same commit.
 
@@ -428,6 +428,16 @@ Done when subscription and sidebar actions read clearly without explaining the i
 
 Status: shipped in `v1.1.4` with polished menu and navigation action glyphs.
 
+### 1.1.5 - Settings Gear Icon
+
+- Replace the settings navigation glyph with a clearly recognizable gear.
+- Keep the icon in the same thin white line style as the rest of the sidebar.
+- Preserve the dark graphite active-row styling without native light hover artifacts.
+
+Done when the settings entry reads as a gear immediately in the sidebar.
+
+Status: shipped in `v1.1.5` with a gear-shaped settings icon.
+
 ## Immediate Next Build Order
 
-1. `1.1.5`: installer-managed privileged service registration plan and dry-run operation surface.
+1. `1.1.6`: installer-managed privileged service registration plan and dry-run operation surface.
