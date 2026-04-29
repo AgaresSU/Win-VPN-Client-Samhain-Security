@@ -300,3 +300,5 @@ switch ($Action) {
         Get-LocalStatus | ConvertTo-Json -Depth 4
     }
 }
+
+exit 0

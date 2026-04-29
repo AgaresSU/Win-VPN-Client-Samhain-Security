@@ -1,5 +1,5 @@
 param(
-    [string]$Version = "0.8.5",
+    [string]$Version = "0.9.0",
     [string]$Configuration = "Release"
 )
 
@@ -56,6 +56,8 @@ Copy-Item -LiteralPath (Join-Path $RepoRoot "README.md") -Destination $PackageRo
 Copy-Item -LiteralPath (Join-Path $RepoRoot "VERSION") -Destination $PackageRoot -Force
 Copy-Item -Path (Join-Path $RepoRoot "docs\*") -Destination $DocsOut -Recurse -Force
 Copy-Item -LiteralPath (Join-Path $RepoRoot "scripts\local-ops.ps1") -Destination $ToolsOut -Force
+Copy-Item -LiteralPath (Join-Path $RepoRoot "scripts\validate-package.ps1") -Destination $ToolsOut -Force
+Copy-Item -LiteralPath (Join-Path $RepoRoot "scripts\smoke-package.ps1") -Destination $ToolsOut -Force
 Copy-Item -LiteralPath (Join-Path $RepoRoot "assets") -Destination $PackageRoot -Recurse -Force
 if (Test-Path (Join-Path $RepoRoot "engines")) {
     Copy-Item -Path (Join-Path $RepoRoot "engines\*") -Destination $EnginesOut -Recurse -Force
@@ -83,6 +85,18 @@ $manifest = [PSCustomObject]@{
         expectedPublisher = "Samhain Security"
         digestAlgorithm = "SHA256"
     }
+    quality = [PSCustomObject]@{
+        channel = "beta"
+        validationScript = "tools\validate-package.ps1"
+        smokeScript = "tools\smoke-package.ps1"
+        gates = @(
+            "cargo test --workspace",
+            "scripts\build.ps1",
+            "scripts\package.ps1",
+            "tools\validate-package.ps1",
+            "tools\smoke-package.ps1"
+        )
+    }
     createdAtUtc = (Get-Date).ToUniversalTime().ToString("O")
 }
 $manifest | ConvertTo-Json -Depth 4 | Set-Content -LiteralPath (Join-Path $PackageRoot "release-manifest.json") -Encoding UTF8
@@ -91,7 +105,10 @@ $checksumTargets = @(
     "app\SamhainSecurityNative.exe",
     "service\samhain-service.exe",
     "tools\local-ops.ps1",
+    "tools\validate-package.ps1",
+    "tools\smoke-package.ps1",
     "release-manifest.json",
+    "README.md",
     "VERSION"
 )
 

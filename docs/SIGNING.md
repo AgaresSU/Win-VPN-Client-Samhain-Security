@@ -1,6 +1,6 @@
 # Signing And Integrity
 
-Version: `0.8.5`
+Version: `0.9.0`
 
 Current status: `unsigned-dev`.
 
@@ -16,7 +16,10 @@ The package is prepared for a future signing pipeline but is not production-sign
 - `app\SamhainSecurityNative.exe`
 - `service\samhain-service.exe`
 - `tools\local-ops.ps1`
+- `tools\validate-package.ps1`
+- `tools\smoke-package.ps1`
 - `release-manifest.json`
+- `README.md`
 - `VERSION`
 
 ## Production Signing Target

@@ -1,6 +1,6 @@
 # Roadmap
 
-Current version: `0.8.5`
+Current version: `0.9.0`
 
 This roadmap is the working contract for Samhain Security. Future implementation should follow this order unless a blocker is found and documented in the same commit.
 
@@ -21,6 +21,8 @@ Each release commit should pass:
 - `cargo test --workspace`
 - `.\scripts\build.ps1`
 - `.\scripts\package.ps1` before release tags
+- `.\scripts\validate-package.ps1 -RunServiceStatus`
+- `.\scripts\smoke-package.ps1`
 - packaged app smoke launch
 - `samhain-service.exe status`
 - no build output committed from `build`, `target`, or `dist`
@@ -245,6 +247,8 @@ Status: shipped in `v0.8.5` with a package-bundled local operations script, curr
 
 Done when daily use is stable enough for controlled external testers.
 
+Status: shipped in `v0.9.0` as the first beta hardening pass with package validation, checksum verification, operation dry-runs, service status checks, packaged desktop smoke launch, beta checklist, and protocol/Windows matrix tracking. Clean-machine external evidence remains required before release candidate.
+
 ### 0.9.5 - Release Candidate
 
 - Complete security review.
@@ -266,6 +270,5 @@ Done when Samhain Security is ready for normal users.
 
 ## Immediate Next Build Order
 
-1. `0.9.0`: beta hardening.
-2. `0.9.5`: release candidate hardening.
-3. `1.0.0`: stable packaging and release.
+1. `0.9.5`: release candidate hardening.
+2. `1.0.0`: stable packaging and release.
