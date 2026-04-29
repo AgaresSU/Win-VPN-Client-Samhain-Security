@@ -378,6 +378,8 @@ pub struct AppRoutingPolicyState {
     pub rule_names: Vec<String>,
     pub evidence: Vec<String>,
     #[serde(default)]
+    pub transaction: AppRoutingTransactionState,
+    #[serde(default)]
     pub release_supported: Vec<String>,
     #[serde(default)]
     pub experimental: Vec<String>,
@@ -399,12 +401,57 @@ impl Default for AppRoutingPolicyState {
             applications: Vec::new(),
             rule_names: Vec::new(),
             evidence: Vec::new(),
+            transaction: AppRoutingTransactionState::default(),
             release_supported: Vec::new(),
             experimental: Vec::new(),
             compatibility: Vec::new(),
             applied_at: None,
             restored_at: None,
             message: "App routing policy is inactive.".to_string(),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AppRoutingTransactionStep {
+    pub id: String,
+    pub action: String,
+    pub target: String,
+    pub status: String,
+    pub evidence: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AppRoutingTransactionState {
+    pub id: String,
+    pub kind: String,
+    pub status: String,
+    pub dry_run: bool,
+    pub applied: bool,
+    pub rollback_available: bool,
+    pub before_snapshot: Vec<String>,
+    pub after_snapshot: Vec<String>,
+    pub applied_at: Option<String>,
+    pub rolled_back_at: Option<String>,
+    pub steps: Vec<AppRoutingTransactionStep>,
+    pub message: String,
+}
+
+impl Default for AppRoutingTransactionState {
+    fn default() -> Self {
+        Self {
+            id: "none".to_string(),
+            kind: "app-routing".to_string(),
+            status: "none".to_string(),
+            dry_run: false,
+            applied: false,
+            rollback_available: false,
+            before_snapshot: Vec::new(),
+            after_snapshot: Vec::new(),
+            applied_at: None,
+            rolled_back_at: None,
+            steps: Vec::new(),
+            message: "No app routing transaction has been prepared.".to_string(),
         }
     }
 }

@@ -4,14 +4,14 @@ use samhain_core::{
     parse_server_url, parse_subscription_payload, sample_subscription,
 };
 use samhain_ipc::{
-    AppRoutingPolicyState, ClientCommand, EngineCatalogEntry, EngineConfigPreview, EngineKind,
-    EngineLifecycleState, EngineLogEntry, IPC_PROTOCOL_VERSION, Ipv6Policy, LogSnapshotState,
-    PingProbeResult, ProtectionPolicyState, ProtectionSettings, ProtectionTransactionState,
-    ProtectionTransactionStep, ProxyLifecycleState, RecoveryPolicyState, RequestEnvelope,
-    ResponseEnvelope, RouteApplication, RuntimeHealthState, ServiceAuditEvent, ServiceCheckItem,
-    ServiceEvent, ServiceReadinessState, ServiceSelfCheckState, ServiceState,
-    SubscriptionOperationState, SupportBundleState, TrafficStatsState, TunLifecycleState,
-    decode_request, encode_event, encode_response,
+    AppRoutingPolicyState, AppRoutingTransactionState, AppRoutingTransactionStep, ClientCommand,
+    EngineCatalogEntry, EngineConfigPreview, EngineKind, EngineLifecycleState, EngineLogEntry,
+    IPC_PROTOCOL_VERSION, Ipv6Policy, LogSnapshotState, PingProbeResult, ProtectionPolicyState,
+    ProtectionSettings, ProtectionTransactionState, ProtectionTransactionStep, ProxyLifecycleState,
+    RecoveryPolicyState, RequestEnvelope, ResponseEnvelope, RouteApplication, RuntimeHealthState,
+    ServiceAuditEvent, ServiceCheckItem, ServiceEvent, ServiceReadinessState,
+    ServiceSelfCheckState, ServiceState, SubscriptionOperationState, SupportBundleState,
+    TrafficStatsState, TunLifecycleState, decode_request, encode_event, encode_response,
 };
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
@@ -814,22 +814,27 @@ impl ServiceStore {
                 "state.json",
                 "logs.json",
                 "engine-inventory.json",
+                "app-routing.json",
                 "service-self-check.json",
                 "service-audit.json",
                 "health.txt"
             ],
             "service_readiness": state.service_readiness.status,
             "recovery_policy": state.recovery_policy.owner,
-            "subscription_operations": state.subscription_operations.status
+            "subscription_operations": state.subscription_operations.status,
+            "app_routing": state.app_routing_policy.status,
+            "app_routing_transaction": state.app_routing_policy.transaction.status
         });
         let health = format!(
-            "Samhain Security diagnostics\nversion: {}\nengine: {}\nruntime-health: {}\nmetrics-source: {}\nsubscription-ops: {}\ntraffic: {}\nservice: {}\nself-check: {}\nrecovery: {}\naudit-events: {}\nentries: {}\nredacted: true\n",
+            "Samhain Security diagnostics\nversion: {}\nengine: {}\nruntime-health: {}\nmetrics-source: {}\nsubscription-ops: {}\ntraffic: {}\nrouting: {}\nrouting-tx: {}\nservice: {}\nself-check: {}\nrecovery: {}\naudit-events: {}\nentries: {}\nredacted: true\n",
             env!("CARGO_PKG_VERSION"),
             state.engine_state.status,
             state.runtime_health.status,
             state.runtime_health.metrics_source,
             state.subscription_operations.status,
             state.traffic_stats.status,
+            state.app_routing_policy.status,
+            state.app_routing_policy.transaction.status,
             state.service_readiness.status,
             state.service_self_check.status,
             state.recovery_policy.owner,
@@ -853,6 +858,10 @@ impl ServiceStore {
             (
                 "engine-inventory.json",
                 redact_support_text(&serde_json::to_string_pretty(&state.engine_catalog)?),
+            ),
+            (
+                "app-routing.json",
+                redact_support_text(&serde_json::to_string_pretty(&state.app_routing_policy)?),
             ),
             (
                 "service-self-check.json",
@@ -909,18 +918,35 @@ impl ServiceStore {
         let raw_url = self
             .raw_url_for_server(&server.id)
             .ok_or_else(|| anyhow!("исходная ссылка сервера недоступна"))?;
-        let state = self.engine_manager.start(&server, &raw_url, route_mode)?;
         self.state.route_mode = route_mode;
         let route_applications = self.public_route_applications();
         let policy = self
             .engine_manager
             .apply_app_routing_policy(route_mode, route_applications);
-        if route_mode != RouteMode::WholeComputer && policy.applications.is_empty() {
-            self.engine_manager.stop()?;
+        if route_mode != RouteMode::WholeComputer
+            && !policy
+                .applications
+                .iter()
+                .any(|application| application.enabled)
+        {
             self.state.connected_server_id = None;
             self.save()?;
             return Err(anyhow!("выберите приложения для этого режима"));
         }
+        if route_mode != RouteMode::WholeComputer && !policy.supported {
+            self.state.connected_server_id = None;
+            self.save()?;
+            return Err(anyhow!("{}", policy.message));
+        }
+        let state = match self.engine_manager.start(&server, &raw_url, route_mode) {
+            Ok(state) => state,
+            Err(error) => {
+                let _ = self.engine_manager.restore_app_routing_policy();
+                self.state.connected_server_id = None;
+                self.save()?;
+                return Err(error);
+            }
+        };
         if state.status == "running" || state.status == "starting" {
             let _ = self
                 .engine_manager
@@ -928,6 +954,7 @@ impl ServiceStore {
             self.state.connected_server_id = Some(server.id.clone());
             self.state.selected_server_id = Some(server.id);
         } else {
+            let _ = self.engine_manager.restore_app_routing_policy();
             self.state.connected_server_id = None;
         }
         self.save()?;
@@ -1767,11 +1794,15 @@ fn dedupe_route_applications(
     unique
 }
 
-fn now_label() -> String {
-    let seconds = SystemTime::now()
+fn now_epoch_seconds() -> u64 {
+    SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .map(|value| value.as_secs())
-        .unwrap_or_default();
+        .unwrap_or_default()
+}
+
+fn now_label() -> String {
+    let seconds = now_epoch_seconds();
     format!("Обновлено через сервис: {seconds}")
 }
 
@@ -2028,36 +2059,59 @@ impl AppRoutingManager {
         state.route_mode = route_mode;
         state.applications = applications;
         state.enforcement_requested = app_routing_enforce();
-        state.enforcement_available = app_routing_enforcement_available();
-        state.evidence = app_routing_evidence(route_mode, state.applications.len());
+        let enabled_count = state
+            .applications
+            .iter()
+            .filter(|application| application.enabled)
+            .count();
+        let proxy_aware_available = app_routing_proxy_aware_available(route_mode, enabled_count);
+        state.enforcement_available = app_routing_enforcement_available() || proxy_aware_available;
+        state.evidence = app_routing_evidence(route_mode, enabled_count);
         let (release_supported, experimental, compatibility) =
-            app_routing_mode_matrix(route_mode, state.enforcement_available);
+            app_routing_mode_matrix(route_mode, app_routing_enforcement_available());
         state.release_supported = release_supported;
         state.experimental = experimental;
         state.compatibility = compatibility;
         if matches!(state.status.as_str(), "inactive" | "restored")
             && route_mode != RouteMode::WholeComputer
         {
-            let enabled_count = state
-                .applications
-                .iter()
-                .filter(|application| application.enabled)
-                .count();
             if enabled_count == 0 {
                 state.status = "needs-apps".to_string();
                 state.supported = false;
                 state.enforcement_available = false;
+                state.transaction = app_routing_transaction(
+                    route_mode,
+                    &[],
+                    "blocked",
+                    false,
+                    false,
+                    false,
+                    "Application routing requires at least one enabled application.",
+                );
                 state.message = "Добавьте приложения для выбранного режима.".to_string();
             } else {
                 state.status = "configured".to_string();
-                state.supported = state.enforcement_available;
-                state.rule_names = state
+                state.supported = proxy_aware_available || app_routing_enforcement_available();
+                let enabled_apps = state
                     .applications
                     .iter()
                     .filter(|application| application.enabled)
-                    .map(|application| format!("Samhain Security App Route {}", application.id))
-                    .collect();
-                state.message = if state.enforcement_available {
+                    .cloned()
+                    .collect::<Vec<_>>();
+                state.rule_names = app_routing_rule_names(route_mode, &enabled_apps);
+                state.transaction = app_routing_transaction(
+                    route_mode,
+                    &enabled_apps,
+                    "planned",
+                    false,
+                    false,
+                    false,
+                    "Application routing transaction is configured but not applied.",
+                );
+                state.message = if proxy_aware_available {
+                    "Приложения сохранены. При подключении будет включен локальный proxy-контур без системного proxy."
+                        .to_string()
+                } else if app_routing_enforcement_available() {
                     "Приложения сохранены. Прозрачный режим готов к enforcement.".to_string()
                 } else {
                     "Приложения сохранены. Применение при подключении остаётся ограниченным до WFP-слоя."
@@ -2089,6 +2143,15 @@ impl AppRoutingManager {
                 applications,
                 rule_names: Vec::new(),
                 evidence: app_routing_evidence(route_mode, 0),
+                transaction: app_routing_transaction(
+                    route_mode,
+                    &[],
+                    "none",
+                    false,
+                    false,
+                    false,
+                    "Whole-computer mode does not require app routing.",
+                ),
                 release_supported: app_routing_release_supported(route_mode),
                 experimental: app_routing_experimental(route_mode, false),
                 compatibility: app_routing_compatibility(route_mode, false),
@@ -2109,6 +2172,15 @@ impl AppRoutingManager {
                 applications,
                 rule_names: Vec::new(),
                 evidence: app_routing_evidence(route_mode, 0),
+                transaction: app_routing_transaction(
+                    route_mode,
+                    &[],
+                    "blocked",
+                    false,
+                    false,
+                    false,
+                    "Application routing requires at least one enabled application.",
+                ),
                 release_supported: app_routing_release_supported(route_mode),
                 experimental: app_routing_experimental(route_mode, false),
                 compatibility: app_routing_compatibility(route_mode, false),
@@ -2119,35 +2191,66 @@ impl AppRoutingManager {
             return self.state.clone();
         }
 
-        let rule_names = enabled_apps
-            .iter()
-            .map(|application| format!("Samhain Security App Route {}", application.id))
-            .collect::<Vec<_>>();
+        let rule_names = app_routing_rule_names(route_mode, &enabled_apps);
         let dry_run = app_routing_dry_run();
         let enforcement_requested = app_routing_enforce();
         let enforcement_available = app_routing_enforcement_available();
+        let proxy_aware_available =
+            app_routing_proxy_aware_available(route_mode, enabled_apps.len());
+        let supported = enforcement_available || proxy_aware_available;
         self.state = AppRoutingPolicyState {
             status: if dry_run {
                 "dry-run"
-            } else if enforcement_available {
+            } else if supported {
                 "active"
             } else {
                 "limited"
             }
             .to_string(),
             route_mode,
-            supported: enforcement_available,
+            supported,
             enforcement_requested,
-            enforcement_available,
+            enforcement_available: supported,
             applications,
             rule_names,
             evidence: app_routing_evidence(route_mode, enabled_apps.len()),
+            transaction: app_routing_transaction(
+                route_mode,
+                &enabled_apps,
+                if dry_run {
+                    "dry-run"
+                } else if supported {
+                    "applied"
+                } else {
+                    "blocked"
+                },
+                dry_run,
+                !dry_run && supported,
+                !dry_run && supported,
+                if proxy_aware_available {
+                    "Proxy-aware application routing is active. Selected apps must use the local proxy endpoint."
+                } else if enforcement_available {
+                    "Transparent WFP application routing transaction is active."
+                } else {
+                    "Transparent application routing is blocked until the signed WFP layer ships."
+                },
+            ),
             release_supported: app_routing_release_supported(route_mode),
             experimental: app_routing_experimental(route_mode, enforcement_available),
             compatibility: app_routing_compatibility(route_mode, enforcement_available),
             applied_at: Some(now_engine_label()),
             restored_at: None,
-            message: if dry_run {
+            message: if proxy_aware_available && dry_run {
+                format!(
+                    "Proxy-aware маршрут проверен в dry-run. Локальная точка: {}.",
+                    local_proxy_endpoint()
+                )
+            } else if proxy_aware_available {
+                format!(
+                    "Proxy-aware маршрут активен: системный proxy не включается, выбранные приложения должны использовать {}.",
+                    local_proxy_endpoint()
+                )
+            } else if dry_run {
                 "Политика приложений проверена в dry-run. Прозрачная маршрутизация требует WFP-слой."
                     .to_string()
             } else if enforcement_available {
@@ -2165,6 +2268,18 @@ impl AppRoutingManager {
         self.state.supported = self.state.route_mode == RouteMode::WholeComputer;
         self.state.rule_names.clear();
         self.state.restored_at = Some(now_engine_label());
+        if self.state.transaction.applied || self.state.transaction.rollback_available {
+            self.state.transaction.status = "rolled-back".to_string();
+            self.state.transaction.applied = false;
+            self.state.transaction.rollback_available = false;
+            self.state.transaction.rolled_back_at = self.state.restored_at.clone();
+            self.state
+                .transaction
+                .after_snapshot
+                .push("rollback=completed".to_string());
+            self.state.transaction.message =
+                "Application routing transaction was rolled back.".to_string();
+        }
         self.state.message = "Политика приложений восстановлена.".to_string();
         self.state.clone()
     }
@@ -3001,28 +3116,49 @@ impl EngineManager {
         };
         self.spawn_plan(plan, 0)?;
         match generated.path {
-            EnginePath::Proxy => match self.proxy.apply(&local_proxy_endpoint()) {
-                Ok(proxy_state) => {
+            EnginePath::Proxy => {
+                if route_mode == RouteMode::SelectedAppsOnly {
+                    let _ = self.proxy.restore();
                     self.tun.restore();
                     self.state.message = format!(
-                        "Движок {} запущен. Proxy: {}.",
+                        "Движок {} запущен. Локальный proxy для выбранных приложений: {}.",
                         engine_name(generated.engine),
-                        proxy_state
-                            .endpoint
-                            .unwrap_or_else(|| local_proxy_endpoint())
+                        local_proxy_endpoint()
                     );
                     push_engine_log(
                         &self.logs,
                         "info",
                         "proxy",
-                        &format!("Applied system proxy {}", local_proxy_endpoint()),
+                        &format!(
+                            "Local proxy ready for selected apps at {}; system proxy unchanged",
+                            local_proxy_endpoint()
+                        ),
                     );
+                } else {
+                    match self.proxy.apply(&local_proxy_endpoint()) {
+                        Ok(proxy_state) => {
+                            self.tun.restore();
+                            self.state.message = format!(
+                                "Движок {} запущен. Proxy: {}.",
+                                engine_name(generated.engine),
+                                proxy_state
+                                    .endpoint
+                                    .unwrap_or_else(|| local_proxy_endpoint())
+                            );
+                            push_engine_log(
+                                &self.logs,
+                                "info",
+                                "proxy",
+                                &format!("Applied system proxy {}", local_proxy_endpoint()),
+                            );
+                        }
+                        Err(error) => {
+                            let _ = self.stop();
+                            return Err(anyhow!("не удалось применить системный proxy: {error}"));
+                        }
+                    }
                 }
-                Err(error) => {
-                    let _ = self.stop();
-                    return Err(anyhow!("не удалось применить системный proxy: {error}"));
-                }
-            },
+            }
             EnginePath::Tun => {
                 let _ = self.proxy.restore();
                 let tun_state = self.tun.apply();
@@ -3832,15 +3968,130 @@ fn app_routing_enforcement_available() -> bool {
     false
 }
 
+fn app_routing_proxy_aware_available(route_mode: RouteMode, enabled_count: usize) -> bool {
+    route_mode == RouteMode::SelectedAppsOnly && enabled_count > 0
+}
+
+fn app_routing_rule_names(route_mode: RouteMode, enabled_apps: &[RouteApplication]) -> Vec<String> {
+    enabled_apps
+        .iter()
+        .map(|application| {
+            if app_routing_proxy_aware_available(route_mode, enabled_apps.len()) {
+                format!("Samhain Security Proxy-Aware App Route {}", application.id)
+            } else {
+                format!("Samhain Security App Route {}", application.id)
+            }
+        })
+        .collect()
+}
+
+fn app_routing_transaction(
+    route_mode: RouteMode,
+    enabled_apps: &[RouteApplication],
+    status: &str,
+    dry_run: bool,
+    applied: bool,
+    rollback_available: bool,
+    message: &str,
+) -> AppRoutingTransactionState {
+    let endpoint = local_proxy_endpoint();
+    let proxy_aware = app_routing_proxy_aware_available(route_mode, enabled_apps.len());
+    let mut steps = Vec::new();
+    if proxy_aware {
+        steps.push(AppRoutingTransactionStep {
+            id: "local-proxy-endpoint".to_string(),
+            action: "prepare-local-proxy".to_string(),
+            target: endpoint.clone(),
+            status: if applied || dry_run {
+                status.to_string()
+            } else {
+                "planned".to_string()
+            },
+            evidence: vec![
+                "system_proxy_global=false".to_string(),
+                format!("endpoint={endpoint}"),
+                "selected_apps_use_proxy_manually_or_by_app_settings=true".to_string(),
+            ],
+        });
+    }
+
+    for application in enabled_apps {
+        let exists = Path::new(&application.path).exists();
+        steps.push(AppRoutingTransactionStep {
+            id: application.id.clone(),
+            action: if proxy_aware {
+                "validate-proxy-aware-app".to_string()
+            } else {
+                "validate-transparent-app".to_string()
+            },
+            target: application.path.clone(),
+            status: if exists { "present" } else { "path-missing" }.to_string(),
+            evidence: vec![
+                format!("name={}", application.name),
+                format!("enabled={}", application.enabled),
+                format!("path_exists={exists}"),
+            ],
+        });
+    }
+
+    AppRoutingTransactionState {
+        id: if status == "none" {
+            "none".to_string()
+        } else {
+            format!("app-routing-{}", now_epoch_seconds())
+        },
+        kind: if proxy_aware {
+            "proxy-aware-app-routing".to_string()
+        } else {
+            "transparent-app-routing".to_string()
+        },
+        status: status.to_string(),
+        dry_run,
+        applied,
+        rollback_available,
+        before_snapshot: vec![
+            format!("route_mode={route_mode:?}"),
+            format!("enabled_applications={}", enabled_apps.len()),
+            "system_proxy_global=false".to_string(),
+        ],
+        after_snapshot: vec![
+            format!("route_mode={route_mode:?}"),
+            format!("rules={}", enabled_apps.len()),
+            if proxy_aware {
+                format!("local_proxy_endpoint={endpoint}")
+            } else {
+                "wfp_layer=not-implemented".to_string()
+            },
+        ],
+        applied_at: if applied || dry_run {
+            Some(now_engine_label())
+        } else {
+            None
+        },
+        rolled_back_at: None,
+        steps,
+        message: message.to_string(),
+    }
+}
+
 fn app_routing_evidence(route_mode: RouteMode, enabled_count: usize) -> Vec<String> {
     let mut evidence = Vec::new();
     evidence.push(format!("route_mode={route_mode:?}"));
     evidence.push(format!("enabled_applications={enabled_count}"));
     evidence.push(format!("requested={}", app_routing_enforce()));
     evidence.push("wfp_layer=not-implemented".to_string());
-    evidence.push(format!("available={}", app_routing_enforcement_available()));
+    evidence.push(format!(
+        "available={}",
+        app_routing_enforcement_available()
+            || app_routing_proxy_aware_available(route_mode, enabled_count)
+    ));
     evidence.push("transparent_per_app=blocked".to_string());
     evidence.push("release_supported_proxy_aware_apps=true".to_string());
+    evidence.push(format!(
+        "proxy_aware_enforcement={}",
+        app_routing_proxy_aware_available(route_mode, enabled_count)
+    ));
+    evidence.push(format!("local_proxy_endpoint={}", local_proxy_endpoint()));
     evidence
 }
 
@@ -5894,7 +6145,7 @@ mod tests {
     }
 
     #[test]
-    fn app_routing_policy_marks_app_modes_limited() {
+    fn selected_apps_mode_is_supported_as_proxy_aware_path() {
         let mut manager = AppRoutingManager::new();
         let state = manager.apply(
             RouteMode::SelectedAppsOnly,
@@ -5906,21 +6157,26 @@ mod tests {
             }],
         );
 
-        assert_eq!(state.status, "limited");
-        assert!(!state.supported);
-        assert!(!state.enforcement_available);
+        assert_eq!(state.status, "active");
+        assert!(state.supported);
+        assert!(state.enforcement_available);
         assert!(
             state
                 .evidence
                 .iter()
-                .any(|item| item == "wfp_layer=not-implemented")
+                .any(|item| item == "proxy_aware_enforcement=true")
         );
         assert_eq!(state.rule_names.len(), 1);
-        assert!(state.message.contains("WFP"));
+        assert!(state.message.contains("Proxy-aware"));
+        assert_eq!(state.transaction.status, "applied");
+        assert!(state.transaction.applied);
+        assert!(state.transaction.rollback_available);
+        assert_eq!(state.transaction.kind, "proxy-aware-app-routing");
 
         let fresh_manager = AppRoutingManager::new();
         let configured = fresh_manager.snapshot(RouteMode::SelectedAppsOnly, state.applications);
         assert_eq!(configured.status, "configured");
+        assert!(configured.supported);
         assert_eq!(configured.rule_names.len(), 1);
     }
 
@@ -5937,8 +6193,8 @@ mod tests {
             }],
         );
 
-        assert_eq!(selected.status, "limited");
-        assert!(!selected.supported);
+        assert_eq!(selected.status, "active");
+        assert!(selected.supported);
         assert!(
             selected
                 .release_supported
@@ -5961,6 +6217,12 @@ mod tests {
             selected
                 .evidence
                 .iter()
+                .any(|item| item == "proxy_aware_enforcement=true")
+        );
+        assert!(
+            selected
+                .evidence
+                .iter()
                 .any(|item| item == "transparent_per_app=blocked")
         );
 
@@ -5975,12 +6237,72 @@ mod tests {
         );
         assert!(!excluded.supported);
         assert!(excluded.release_supported.is_empty());
+        assert_eq!(excluded.status, "limited");
         assert!(
             excluded
                 .experimental
                 .iter()
                 .any(|item| item.contains("except-selected mode"))
         );
+    }
+
+    #[test]
+    fn app_routing_transaction_records_disabled_and_missing_apps() {
+        let mut manager = AppRoutingManager::new();
+        let state = manager.apply(
+            RouteMode::SelectedAppsOnly,
+            vec![
+                RouteApplication {
+                    id: "enabled-missing".to_string(),
+                    name: "missing.exe".to_string(),
+                    path: "C:\\NotThere\\missing.exe".to_string(),
+                    enabled: true,
+                },
+                RouteApplication {
+                    id: "disabled".to_string(),
+                    name: "disabled.exe".to_string(),
+                    path: "C:\\NotThere\\disabled.exe".to_string(),
+                    enabled: false,
+                },
+            ],
+        );
+
+        assert_eq!(state.transaction.steps.len(), 2);
+        assert!(
+            state
+                .transaction
+                .steps
+                .iter()
+                .any(|step| step.id == "enabled-missing" && step.status == "path-missing")
+        );
+        assert!(
+            !state
+                .rule_names
+                .iter()
+                .any(|name| name.contains("disabled"))
+        );
+    }
+
+    #[test]
+    fn app_routing_restore_rolls_back_applied_transaction() {
+        let mut manager = AppRoutingManager::new();
+        manager.apply(
+            RouteMode::SelectedAppsOnly,
+            vec![RouteApplication {
+                id: "browser".to_string(),
+                name: "browser.exe".to_string(),
+                path: "C:\\Program Files\\Browser\\browser.exe".to_string(),
+                enabled: true,
+            }],
+        );
+
+        let restored = manager.restore();
+
+        assert_eq!(restored.status, "restored");
+        assert_eq!(restored.transaction.status, "rolled-back");
+        assert!(!restored.transaction.applied);
+        assert!(!restored.transaction.rollback_available);
+        assert!(restored.transaction.rolled_back_at.is_some());
     }
 
     #[test]

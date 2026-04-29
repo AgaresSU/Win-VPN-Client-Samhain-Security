@@ -1,6 +1,6 @@
 # Samhain Security Native
 
-Version: `1.3.2`
+Version: `1.3.3`
 
 Native Windows secure tunneling client prototype built from a clean base.
 
@@ -16,7 +16,7 @@ Native Windows secure tunneling client prototype built from a clean base.
 
 This release is the native foundation. It focuses on the product shell, simple daily UX, local models, persistence, and build/package flow.
 
-Implemented through `1.3.2`:
+Implemented through `1.3.3`:
 
 - Happ-inspired Qt/QML shell with servers, add, settings, statistics, logs, and about sections.
 - Compact subscription group and server rows without technical clutter.
@@ -66,12 +66,13 @@ Implemented through `1.3.2`:
 - Daily UX freeze with plain-language route chips, dark custom dialog buttons, quiet server actions, a documented visual QA checklist, and technical operations kept under advanced settings.
 - Connection reliability pass: no local fake connected state when the service is unavailable, explicit connect/disconnect progress text, 8-second engine command timeout, blocked route-mode switching while connected, and clearer failure messages.
 - App-routing design gate: release-supported, experimental, and compatibility evidence for whole-computer, selected-apps-only, and except-selected-apps modes, with transparent per-process routing kept blocked until the signed WFP layer exists.
+- App-routing enforcement V1: selected-apps-only now runs as a release-supported proxy-aware route without enabling system proxy globally, with transaction rollback evidence in service state and support export.
 
 Not implemented yet:
 
 - Production signed installer UI and certificate-backed service identity.
 - Actual production runtime binaries for every protocol family still need to be supplied and validated on clean Windows machines.
-- Production WFP app-routing enforcement layer.
+- Production WFP transparent per-process app-routing enforcement layer.
 - Fully trusted signed service identity and privileged enforcement.
 - Production code signing certificate and online updater service rollout.
 
@@ -90,7 +91,7 @@ Not implemented yet:
 The package is written to:
 
 ```text
-dist\SamhainSecurityNative-1.3.2-win-x64
+dist\SamhainSecurityNative-1.3.3-win-x64
 ```
 
 ## Local Operations
@@ -109,8 +110,8 @@ See `docs\LOCAL_OPERATIONS.md` and `docs\SIGNING.md` for install scope, storage,
 ## Package Checks
 
 ```powershell
-.\scripts\validate-package.ps1 -ExpectedVersion 1.3.2 -RunServiceStatus
-.\scripts\smoke-package.ps1 -ExpectedVersion 1.3.2
+.\scripts\validate-package.ps1 -ExpectedVersion 1.3.3 -RunServiceStatus
+.\scripts\smoke-package.ps1 -ExpectedVersion 1.3.3
 ```
 
 See `docs\BETA_CHECKLIST.md` for the manual Windows and protocol matrix.
@@ -118,10 +119,10 @@ See `docs\BETA_CHECKLIST.md` for the manual Windows and protocol matrix.
 ## Stable Checks
 
 ```powershell
-.\scripts\verify-update-manifest.ps1 -ExpectedVersion 1.3.2 -RequireStableChannel
-.\scripts\test-signing-readiness.ps1 -ExpectedVersion 1.3.2
-.\scripts\write-clean-machine-evidence.ps1 -ExpectedVersion 1.3.2 -SkipLaunch
-.\scripts\write-release-evidence.ps1 -ExpectedVersion 1.3.2
+.\scripts\verify-update-manifest.ps1 -ExpectedVersion 1.3.3 -RequireStableChannel
+.\scripts\test-signing-readiness.ps1 -ExpectedVersion 1.3.3
+.\scripts\write-clean-machine-evidence.ps1 -ExpectedVersion 1.3.3 -SkipLaunch
+.\scripts\write-release-evidence.ps1 -ExpectedVersion 1.3.3
 ```
 
 See `docs\STABLE_RELEASE.md` and `docs\CLEAN_MACHINE_EVIDENCE.md` for the stable release checklist and external test evidence flow.

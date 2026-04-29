@@ -1,6 +1,6 @@
 # App Routing Matrix
 
-Version: `1.3.2`
+Version: `1.3.3`
 
 This document is the release contract for the three route modes in Samhain Security. It keeps the daily UI honest: a mode is marked supported only when the current build can actually enforce it.
 
@@ -9,6 +9,7 @@ This document is the release contract for the three route modes in Samhain Secur
 - `whole-computer` is release-supported for the TUN path when the selected runtime and privileges are available.
 - WireGuard and AmneziaWG are release-supported only as whole-computer adapter profiles in this build.
 - `selected-apps-only` is release-supported only for proxy-aware applications that can be configured to use the local mixed proxy.
+- In `selected-apps-only`, Samhain Security starts the local proxy and leaves the system proxy unchanged; only applications explicitly pointed to `127.0.0.1:20808` use the protected route.
 - `selected-apps-only` transparent capture is experimental and blocked until a signed privileged WFP layer exists.
 - `exclude-selected-apps` transparent bypass is experimental and blocked until a signed privileged WFP layer exists.
 - Running as administrator alone does not make transparent per-process routing safe or complete.
@@ -33,9 +34,17 @@ This document is the release contract for the three route modes in Samhain Secur
 - `transparent_per_app=blocked`
 - `wfp_layer=not-implemented`
 - `release_supported_proxy_aware_apps=true`
+- `proxy_aware_enforcement=<true|false>`
+- `local_proxy_endpoint=127.0.0.1:20808`
 - `requested=<true|false>`
 - `available=<true|false>`
 
+## Transaction State
+
+- `proxy-aware-app-routing` can be `planned`, `dry-run`, `applied`, or `rolled-back`.
+- Rollback clears the app-routing transaction and leaves the system proxy untouched.
+- Missing executable paths are reported as evidence without enabling transparent per-process capture.
+
 ## Release Gate
 
-`1.3.2` is complete when service state, desktop summary, support evidence, and this matrix all say the same thing.
+`1.3.3` is complete when service state, desktop summary, support evidence, and this matrix all say the same thing.

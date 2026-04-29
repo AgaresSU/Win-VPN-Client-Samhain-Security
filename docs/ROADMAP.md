@@ -1,6 +1,6 @@
 # Roadmap
 
-Current version: `1.3.2`
+Current version: `1.3.3`
 
 This roadmap is the working contract for Samhain Security. Future implementation should follow this order unless a blocker is found and documented in the same commit.
 
@@ -598,7 +598,7 @@ Status: shipped in `v1.3.2` with an explicit app-routing compatibility matrix, I
 
 Done when supported app-routing modes are enforced, not just described.
 
-Status: planned.
+Status: shipped in `v1.3.3` with selected-apps-only enforced through the release-supported proxy-aware contour, pre-connect policy validation, local-proxy startup without global system proxy changes, transaction rollback state, support export evidence, and tests for disabled apps, missing executable paths, rollback, and transparent-mode gating. Excluded-app transparent routing remains blocked until the signed WFP layer ships.
 
 ### 1.3.4 - Diagnostics And Support Final
 
@@ -661,9 +661,8 @@ Status: planned.
 
 ## Immediate Next Build Order
 
-1. `1.3.3`: app-routing enforcement V1.
-2. `1.3.4`: diagnostics and support final.
-3. `1.3.5`: tray, startup, and link ownership.
-4. `1.3.6`: update and rollback hardening.
-5. `1.3.7`: security review and abuse resistance.
-6. `1.4.0`: release-ready competitive build.
+1. `1.3.4`: diagnostics and support final.
+2. `1.3.5`: tray, startup, and link ownership.
+3. `1.3.6`: update and rollback hardening.
+4. `1.3.7`: security review and abuse resistance.
+5. `1.4.0`: release-ready competitive build.

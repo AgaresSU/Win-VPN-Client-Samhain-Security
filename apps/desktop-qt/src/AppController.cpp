@@ -2758,6 +2758,7 @@ void AppController::applyAppRoutingPolicyObject(const QJsonObject &state)
     const auto releaseSupported = state.value("release_supported").toArray();
     const auto experimental = state.value("experimental").toArray();
     const auto compatibility = state.value("compatibility").toArray();
+    const auto transaction = state.value("transaction").toObject();
     m_routeModeIndex = routeModeIndexFromWire(mode);
 
     m_routeApplications.clear();
@@ -2787,6 +2788,17 @@ void AppController::applyAppRoutingPolicyObject(const QJsonObject &state)
     }
     if (enforcementRequested) {
         detail.push_back(enforcementAvailable ? "Контур: готов" : "Контур: ожидает WFP");
+    }
+    if (!transaction.isEmpty()) {
+        const auto transactionStatus = transaction.value("status").toString();
+        const auto transactionKind = transaction.value("kind").toString();
+        const auto steps = transaction.value("steps").toArray();
+        if (!transactionStatus.isEmpty() && transactionStatus != "none") {
+            detail.push_back(QString("Операция: %1/%2").arg(transactionStatus, QString::number(steps.size())));
+        }
+        if (transactionKind == "proxy-aware-app-routing") {
+            detail.push_back("Proxy-aware: без системного proxy");
+        }
     }
     if (!supported && m_routeModeIndex != 0) {
         detail.push_back("Требуется WFP-слой для прозрачного режима");
@@ -3017,6 +3029,9 @@ QString AppController::routePolicyStatusLabel(const QString &status, bool suppor
     }
     if (status == "limited") {
         return supported ? "Активна" : "Ограничена";
+    }
+    if (status == "active") {
+        return "Активна";
     }
     if (status == "restored") {
         return "Восстановлена";
