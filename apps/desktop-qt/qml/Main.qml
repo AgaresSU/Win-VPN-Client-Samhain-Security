@@ -1279,7 +1279,7 @@ ApplicationWindow {
             spacing: 18
             PageTitle { text: "О программе" }
             MetricRow { title: "Программа"; value: "Samhain Security Native" }
-            MetricRow { title: "Версия"; value: "1.1.6" }
+            MetricRow { title: "Версия"; value: "1.1.7" }
             MetricRow { title: "Интерфейс"; value: "Qt 6 / QML" }
             MetricRow { title: "Ядро"; value: "Rust workspace" }
             MetricRow { title: "Статус"; value: appController.statusText }
@@ -1755,7 +1755,7 @@ ApplicationWindow {
             ctx.save()
             ctx.strokeStyle = iconColor
             ctx.fillStyle = iconColor
-            ctx.lineWidth = 2.25
+            ctx.lineWidth = 2.05
             ctx.lineCap = "round"
             ctx.lineJoin = "round"
             ctx.translate(w / 2, h / 2)
@@ -1776,94 +1776,93 @@ ApplicationWindow {
             }
 
             if (iconKind === "refresh") {
-                ctx.lineWidth = 2.4
+                ctx.lineWidth = 2.1
                 ctx.beginPath()
-                ctx.arc(17, 17, 10, Math.PI * 0.18, Math.PI * 1.75, false)
+                ctx.arc(17, 17, 9.5, Math.PI * 0.18, Math.PI * 1.58, false)
                 ctx.stroke()
                 ctx.beginPath()
-                ctx.moveTo(23.8, 7.4)
-                ctx.lineTo(28, 10.5)
-                ctx.lineTo(22.6, 12.1)
+                ctx.moveTo(9.2, 9.7)
+                ctx.lineTo(9.2, 15.1)
+                ctx.lineTo(14.6, 15.1)
                 ctx.stroke()
             } else if (iconKind === "latency") {
-                ctx.lineWidth = 2.35
+                ctx.lineWidth = 2.05
                 ctx.beginPath()
-                ctx.arc(17, 21, 11, Math.PI * 1.05, Math.PI * 1.95, false)
-                ctx.stroke()
-                ctx.beginPath()
-                ctx.moveTo(9, 20)
-                ctx.lineTo(7.5, 18.5)
-                ctx.moveTo(17, 12)
-                ctx.lineTo(17, 10)
-                ctx.moveTo(25, 20)
-                ctx.lineTo(26.5, 18.5)
+                ctx.arc(17, 21, 10.5, Math.PI * 1.03, Math.PI * 1.97, false)
                 ctx.stroke()
                 ctx.beginPath()
                 ctx.moveTo(17, 21)
-                ctx.lineTo(23, 15)
+                ctx.lineTo(22, 15.5)
                 ctx.stroke()
                 ctx.beginPath()
-                ctx.arc(17, 21, 2.2, 0, Math.PI * 2)
+                ctx.arc(17, 21, 1.6, 0, Math.PI * 2)
                 ctx.fill()
             } else if (iconKind === "pin") {
-                ctx.lineWidth = 2.2
-                roundedRect(12, 6, 10, 7, 2)
+                ctx.lineWidth = 2.05
+                ctx.beginPath()
+                ctx.moveTo(17, 5.8)
+                ctx.lineTo(23.3, 12.1)
+                ctx.lineTo(19.1, 15.8)
+                ctx.lineTo(20.7, 22.6)
+                ctx.lineTo(14.9, 19.2)
+                ctx.lineTo(9, 24.8)
+                ctx.lineTo(12.6, 17)
+                ctx.lineTo(8.5, 11.7)
+                ctx.lineTo(15.1, 10.2)
+                ctx.closePath()
                 ctx.stroke()
                 ctx.beginPath()
-                ctx.moveTo(17, 13)
-                ctx.lineTo(17, 25)
-                ctx.moveTo(10, 16.5)
-                ctx.lineTo(24, 16.5)
-                ctx.moveTo(17, 25)
-                ctx.lineTo(14.5, 29)
+                ctx.moveTo(14.9, 19.2)
+                ctx.lineTo(11, 23)
                 ctx.stroke()
             } else if (iconKind === "copy") {
-                ctx.lineWidth = 2.1
-                roundedRect(12, 7, 12, 15, 2.5)
+                ctx.lineWidth = 2.05
+                roundedRect(10.5, 8.5, 13, 17.5, 2.5)
                 ctx.stroke()
-                roundedRect(8, 11, 12, 15, 2.5)
+                roundedRect(13.5, 5.8, 7, 5, 1.5)
                 ctx.stroke()
                 ctx.beginPath()
-                ctx.moveTo(12, 16)
-                ctx.lineTo(17, 16)
-                ctx.moveTo(12, 20)
-                ctx.lineTo(17, 20)
+                ctx.moveTo(14, 14.5)
+                ctx.lineTo(20, 14.5)
+                ctx.moveTo(14, 18.5)
+                ctx.lineTo(20, 18.5)
+                ctx.moveTo(14, 22.5)
+                ctx.lineTo(18, 22.5)
                 ctx.stroke()
             } else if (iconKind === "edit") {
-                ctx.save()
-                ctx.translate(18, 16)
-                ctx.rotate(-Math.PI / 4)
-                roundedRect(-2.4, -10, 4.8, 17, 1.6)
+                ctx.lineWidth = 2.05
+                roundedRect(8.5, 8.5, 17, 17, 3)
                 ctx.stroke()
                 ctx.beginPath()
-                ctx.moveTo(-2.4, 7)
-                ctx.lineTo(0, 11.5)
-                ctx.lineTo(2.4, 7)
+                ctx.moveTo(12, 14)
+                ctx.lineTo(22, 14)
+                ctx.moveTo(12, 17)
+                ctx.lineTo(22, 17)
+                ctx.moveTo(12, 20)
+                ctx.lineTo(22, 20)
                 ctx.stroke()
-                ctx.restore()
                 ctx.beginPath()
-                ctx.moveTo(9, 26)
-                ctx.lineTo(25, 26)
-                ctx.stroke()
+                ctx.arc(15, 14, 1.3, 0, Math.PI * 2)
+                ctx.arc(20, 17, 1.3, 0, Math.PI * 2)
+                ctx.arc(16.8, 20, 1.3, 0, Math.PI * 2)
+                ctx.fill()
             } else if (iconKind === "delete") {
-                ctx.lineWidth = 2.15
+                ctx.lineWidth = 2.05
                 ctx.beginPath()
-                ctx.moveTo(10, 11)
-                ctx.lineTo(24, 11)
-                ctx.moveTo(14, 8)
-                ctx.lineTo(20, 8)
-                ctx.moveTo(15, 8)
-                ctx.lineTo(14, 11)
-                ctx.moveTo(19, 8)
-                ctx.lineTo(20, 11)
+                ctx.moveTo(10, 11.5)
+                ctx.lineTo(24, 11.5)
+                ctx.moveTo(14.2, 8.2)
+                ctx.lineTo(19.8, 8.2)
+                ctx.moveTo(16, 7)
+                ctx.lineTo(18, 7)
                 ctx.stroke()
-                roundedRect(12, 13, 10, 14, 2)
+                roundedRect(12, 13.2, 10, 13.8, 2)
                 ctx.stroke()
                 ctx.beginPath()
-                ctx.moveTo(15, 16)
-                ctx.lineTo(15, 24)
-                ctx.moveTo(19, 16)
-                ctx.lineTo(19, 24)
+                ctx.moveTo(15, 16.5)
+                ctx.lineTo(15, 23.5)
+                ctx.moveTo(19, 16.5)
+                ctx.lineTo(19, 23.5)
                 ctx.stroke()
             }
             ctx.restore()

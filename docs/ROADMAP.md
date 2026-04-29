@@ -1,6 +1,6 @@
 # Roadmap
 
-Current version: `1.1.6`
+Current version: `1.1.7`
 
 This roadmap is the working contract for Samhain Security. Future implementation should follow this order unless a blocker is found and documented in the same commit.
 
@@ -448,6 +448,16 @@ Done when refresh, pin, and copy can be recognized at menu size without visual n
 
 Status: shipped in `v1.1.6` with cleaner subscription action menu icons.
 
+### 1.1.7 - Reference-Matched Action Icons
+
+- Redraw the full subscription action menu icon set after the provided reference.
+- Use consistent thin gray strokes for refresh, latency, pin, clipboard copy, sliders/edit, and delete.
+- Keep menu behavior unchanged while aligning the visual language with the target shell.
+
+Done when every popup menu action uses the same readable reference-style glyph family.
+
+Status: shipped in `v1.1.7` with reference-matched subscription action glyphs.
+
 ## Immediate Next Build Order
 
-1. `1.1.7`: installer-managed privileged service registration plan and dry-run operation surface.
+1. `1.1.8`: installer-managed privileged service registration plan and dry-run operation surface.
