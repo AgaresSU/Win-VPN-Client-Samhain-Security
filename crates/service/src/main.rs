@@ -1,7 +1,7 @@
 use anyhow::{Context, Result, anyhow};
 use samhain_core::{
-    Protocol, RouteMode, Server, Subscription, parse_server_url, parse_subscription_payload,
-    sample_subscription,
+    Protocol, RouteMode, Server, Subscription, default_subscription_update_interval_minutes,
+    parse_server_url, parse_subscription_payload, sample_subscription,
 };
 use samhain_ipc::{
     AppRoutingPolicyState, ClientCommand, EngineCatalogEntry, EngineConfigPreview, EngineKind,
@@ -9,8 +9,9 @@ use samhain_ipc::{
     PingProbeResult, ProtectionPolicyState, ProtectionSettings, ProtectionTransactionState,
     ProtectionTransactionStep, ProxyLifecycleState, RecoveryPolicyState, RequestEnvelope,
     ResponseEnvelope, RouteApplication, RuntimeHealthState, ServiceAuditEvent, ServiceCheckItem,
-    ServiceEvent, ServiceReadinessState, ServiceSelfCheckState, ServiceState, SupportBundleState,
-    TrafficStatsState, TunLifecycleState, decode_request, encode_event, encode_response,
+    ServiceEvent, ServiceReadinessState, ServiceSelfCheckState, ServiceState,
+    SubscriptionOperationState, SupportBundleState, TrafficStatsState, TunLifecycleState,
+    decode_request, encode_event, encode_response,
 };
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
@@ -26,6 +27,7 @@ use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 static STORE: OnceLock<Mutex<ServiceStore>> = OnceLock::new();
 const PROBE_TIMEOUT: Duration = Duration::from_millis(260);
+const SUBSCRIPTION_FETCH_TIMEOUT: Duration = Duration::from_secs(8);
 const LOCAL_PROXY_HOST: &str = "127.0.0.1";
 const LOCAL_PROXY_PORT: u16 = 20808;
 const TUN_INTERFACE_NAME: &str = "samhain-tun";
@@ -533,6 +535,7 @@ fn current_state(running: bool) -> ServiceState {
             audit_events: Vec::new(),
             traffic_stats: TrafficStatsState::default(),
             runtime_health: RuntimeHealthState::default(),
+            subscription_operations: SubscriptionOperationState::default(),
             probe_queue_active: false,
             probe_results: Vec::new(),
             subscriptions: vec![sample_subscription()],
@@ -612,6 +615,11 @@ impl ServiceStore {
         let recovery_policy = service_self_check.recovery_policy.clone();
         let traffic_stats = self.engine_manager.traffic_snapshot();
         let runtime_health = self.engine_manager.runtime_health_snapshot();
+        let mut subscription_operations = self.state.subscription_operations.clone();
+        subscription_operations.timeout_ms = SUBSCRIPTION_FETCH_TIMEOUT.as_millis() as u32;
+        subscription_operations.update_interval_minutes =
+            default_subscription_update_interval_minutes();
+        subscription_operations.deterministic = true;
         ServiceState {
             version: env!("CARGO_PKG_VERSION").to_string(),
             running,
@@ -630,6 +638,7 @@ impl ServiceStore {
             audit_events: self.state.audit_events.clone(),
             traffic_stats,
             runtime_health,
+            subscription_operations,
             probe_queue_active: self.state.probe_queue_active,
             probe_results: self.state.probe_results.clone(),
             subscriptions: self
@@ -641,32 +650,59 @@ impl ServiceStore {
         }
     }
 
+    fn mark_subscription_operation(
+        &mut self,
+        action: &str,
+        subscription_id: Option<String>,
+        status: &str,
+        message: impl AsRef<str>,
+    ) {
+        let safe_message = redact_support_text(message.as_ref());
+        self.state.subscription_operations = SubscriptionOperationState {
+            status: status.to_string(),
+            active: false,
+            last_action: action.to_string(),
+            last_subscription_id: subscription_id,
+            last_error: if status == "error" {
+                Some(safe_message.clone())
+            } else {
+                None
+            },
+            timeout_ms: SUBSCRIPTION_FETCH_TIMEOUT.as_millis() as u32,
+            update_interval_minutes: default_subscription_update_interval_minutes(),
+            deterministic: true,
+            message: safe_message,
+        };
+    }
+
     fn import_subscription(&mut self, name: String, url: String) -> Result<Subscription> {
-        let mut servers = Vec::new();
-        for payload in fetch_subscription_payloads(&url)? {
-            let report = parse_subscription_payload(&payload);
-            if !report.servers.is_empty() {
-                servers = report.servers;
-                break;
+        let servers = match fetch_subscription_payloads(&url)
+            .and_then(|payloads| servers_from_subscription_payloads(&url, payloads))
+        {
+            Ok(servers) => servers,
+            Err(error) => {
+                self.mark_subscription_operation("import", None, "error", error.to_string());
+                let _ = self.save();
+                return Err(error);
             }
-        }
+        };
 
-        if servers.is_empty() {
-            if let Some(server) = parse_server_url(&url, 1) {
-                servers.push(server);
-            }
-        }
-
-        if servers.is_empty() {
-            return Err(anyhow!("в подписке не найдено поддерживаемых серверов"));
-        }
-
-        let subscription = StoredSubscription::from_import(name, url, servers)?;
+        let mut subscription = StoredSubscription::from_import(name, url, servers)?;
+        subscription.last_update_message = format!("Серверов: {}", subscription.servers.len());
         let public = subscription.to_public();
         self.state.subscriptions.retain(|existing| {
             existing.id != subscription.id
                 && (subscription.id == "default-samhain" || existing.id != "default-samhain")
         });
+        self.mark_subscription_operation(
+            "import",
+            Some(subscription.id.clone()),
+            "ok",
+            format!(
+                "Подписка импортирована. Серверов: {}",
+                subscription.servers.len()
+            ),
+        );
         self.state.subscriptions.push(subscription);
         self.save()?;
 
@@ -783,14 +819,16 @@ impl ServiceStore {
                 "health.txt"
             ],
             "service_readiness": state.service_readiness.status,
-            "recovery_policy": state.recovery_policy.owner
+            "recovery_policy": state.recovery_policy.owner,
+            "subscription_operations": state.subscription_operations.status
         });
         let health = format!(
-            "Samhain Security diagnostics\nversion: {}\nengine: {}\nruntime-health: {}\nmetrics-source: {}\ntraffic: {}\nservice: {}\nself-check: {}\nrecovery: {}\naudit-events: {}\nentries: {}\nredacted: true\n",
+            "Samhain Security diagnostics\nversion: {}\nengine: {}\nruntime-health: {}\nmetrics-source: {}\nsubscription-ops: {}\ntraffic: {}\nservice: {}\nself-check: {}\nrecovery: {}\naudit-events: {}\nentries: {}\nredacted: true\n",
             env!("CARGO_PKG_VERSION"),
             state.engine_state.status,
             state.runtime_health.status,
             state.runtime_health.metrics_source,
+            state.subscription_operations.status,
             state.traffic_stats.status,
             state.service_readiness.status,
             state.service_self_check.status,
@@ -1026,24 +1064,25 @@ impl ServiceStore {
                 .ok_or_else(|| anyhow!("исходная ссылка недоступна"))
         })?;
 
-        let mut servers = Vec::new();
-        for payload in fetch_subscription_payloads(&url)? {
-            let report = parse_subscription_payload(&payload);
-            if !report.servers.is_empty() {
-                servers = report.servers;
-                break;
+        let servers = match fetch_subscription_payloads(&url)
+            .and_then(|payloads| servers_from_subscription_payloads(&url, payloads))
+        {
+            Ok(servers) => servers,
+            Err(error) => {
+                self.state.subscriptions[index].updated_at = Some(now_label());
+                self.state.subscriptions[index].last_update_status = "error".to_string();
+                self.state.subscriptions[index].last_update_message =
+                    redact_support_text(&error.to_string());
+                self.mark_subscription_operation(
+                    "refresh",
+                    Some(subscription_id.to_string()),
+                    "error",
+                    error.to_string(),
+                );
+                let _ = self.save();
+                return Err(error);
             }
-        }
-
-        if servers.is_empty() {
-            if let Some(server) = parse_server_url(&url, 1) {
-                servers.push(server);
-            }
-        }
-
-        if servers.is_empty() {
-            return Err(anyhow!("в подписке не найдено поддерживаемых серверов"));
-        }
+        };
 
         let (servers, protected_server_urls) = protect_server_urls(&old.id, servers)?;
         let refreshed = StoredSubscription {
@@ -1053,9 +1092,18 @@ impl ServiceStore {
             servers,
             protected_server_urls,
             updated_at: Some(now_label()),
+            update_interval_minutes: old.update_interval_minutes,
+            last_update_status: "ok".to_string(),
+            last_update_message: "Обновлено через сервис.".to_string(),
         };
         let public = refreshed.to_public();
         self.state.subscriptions[index] = refreshed;
+        self.mark_subscription_operation(
+            "refresh",
+            Some(subscription_id.to_string()),
+            "ok",
+            "Подписка обновлена.",
+        );
         self.save()?;
 
         Ok(public)
@@ -1072,6 +1120,12 @@ impl ServiceStore {
         let mut subscription = self.state.subscriptions.remove(index);
         subscription.updated_at = Some(now_label());
         let public = subscription.to_public();
+        self.mark_subscription_operation(
+            "pin",
+            Some(subscription_id.to_string()),
+            "ok",
+            "Подписка закреплена.",
+        );
         self.state.subscriptions.insert(0, subscription);
         self.save()?;
 
@@ -1106,6 +1160,12 @@ impl ServiceStore {
         subscription.name = normalized_name.to_string();
         subscription.updated_at = Some(now_label());
         let public = subscription.to_public();
+        self.mark_subscription_operation(
+            "rename",
+            Some(subscription_id.to_string()),
+            "ok",
+            "Подписка переименована.",
+        );
         self.save()?;
 
         Ok(public)
@@ -1113,11 +1173,30 @@ impl ServiceStore {
 
     fn delete_subscription(&mut self, subscription_id: &str) -> Result<()> {
         let before = self.state.subscriptions.len();
+        let deleted_server_ids = self
+            .state
+            .subscriptions
+            .iter()
+            .find(|subscription| subscription.id == subscription_id)
+            .map(|subscription| {
+                subscription
+                    .servers
+                    .iter()
+                    .map(|server| server.id.clone())
+                    .collect::<Vec<_>>()
+            })
+            .unwrap_or_default();
         self.state
             .subscriptions
             .retain(|subscription| subscription.id != subscription_id);
 
         if self.state.subscriptions.len() == before {
+            self.mark_subscription_operation(
+                "delete",
+                Some(subscription_id.to_string()),
+                "error",
+                "Подписка не найдена.",
+            );
             return Err(anyhow!("подписка не найдена"));
         }
 
@@ -1133,6 +1212,22 @@ impl ServiceStore {
             }
         }
 
+        if let Some(connected_server_id) = &self.state.connected_server_id {
+            if deleted_server_ids
+                .iter()
+                .any(|server_id| server_id == connected_server_id)
+            {
+                let _ = self.engine_manager.stop();
+                self.state.connected_server_id = None;
+            }
+        }
+
+        self.mark_subscription_operation(
+            "delete",
+            Some(subscription_id.to_string()),
+            "ok",
+            "Подписка удалена.",
+        );
         self.save()
     }
 
@@ -1252,6 +1347,8 @@ struct StoredState {
     protection_settings: ProtectionSettings,
     #[serde(default)]
     audit_events: Vec<ServiceAuditEvent>,
+    #[serde(default)]
+    subscription_operations: SubscriptionOperationState,
     subscriptions: Vec<StoredSubscription>,
 }
 
@@ -1267,6 +1364,7 @@ impl StoredState {
             route_applications: Vec::new(),
             protection_settings: ProtectionSettings::default(),
             audit_events: Vec::new(),
+            subscription_operations: SubscriptionOperationState::default(),
             subscriptions: vec![StoredSubscription::from_public(sample_subscription())],
         }
     }
@@ -1339,6 +1437,12 @@ struct StoredSubscription {
     #[serde(default)]
     protected_server_urls: Vec<ProtectedServerUrl>,
     updated_at: Option<String>,
+    #[serde(default = "default_subscription_update_interval_minutes")]
+    update_interval_minutes: u32,
+    #[serde(default = "default_subscription_operation_status")]
+    last_update_status: String,
+    #[serde(default)]
+    last_update_message: String,
 }
 
 impl StoredSubscription {
@@ -1366,6 +1470,13 @@ impl StoredSubscription {
             servers,
             protected_server_urls,
             updated_at: subscription.updated_at,
+            update_interval_minutes: subscription.update_interval_minutes,
+            last_update_status: if subscription.last_update_status.trim().is_empty() {
+                "ok".to_string()
+            } else {
+                subscription.last_update_status
+            },
+            last_update_message: subscription.last_update_message,
         }
     }
 
@@ -1386,6 +1497,9 @@ impl StoredSubscription {
             servers,
             protected_server_urls,
             updated_at: Some(now_label()),
+            update_interval_minutes: default_subscription_update_interval_minutes(),
+            last_update_status: "ok".to_string(),
+            last_update_message: "Импортировано через сервис.".to_string(),
         })
     }
 
@@ -1396,8 +1510,15 @@ impl StoredSubscription {
             url: format!("protected://subscription/{}", self.id),
             servers: self.servers.clone(),
             updated_at: self.updated_at.clone(),
+            update_interval_minutes: self.update_interval_minutes,
+            last_update_status: self.last_update_status.clone(),
+            last_update_message: self.last_update_message.clone(),
         }
     }
+}
+
+fn default_subscription_operation_status() -> String {
+    "ok".to_string()
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -1448,12 +1569,30 @@ fn fetch_subscription_payloads(url: &str) -> Result<Vec<String>> {
     }
 
     let mut payloads = Vec::new();
-    payloads.push(fetch_http_text(trimmed)?);
+    let mut sources = discover_subscription_api_urls(trimmed);
+    if is_subscription_landing_page(trimmed) {
+        sources.push(trimmed.to_string());
+    } else {
+        sources.insert(0, trimmed.to_string());
+    }
+    sources.dedup();
 
-    for candidate in discover_subscription_api_urls(trimmed) {
-        if let Ok(payload) = fetch_http_text(&candidate) {
-            payloads.push(payload);
+    let mut last_error = None;
+    for candidate in sources {
+        match fetch_http_text(&candidate) {
+            Ok(payload) => payloads.push(payload),
+            Err(error) => last_error = Some(error),
         }
+    }
+
+    if payloads.is_empty() {
+        return Err(anyhow!(
+            "не удалось получить подписку за {} сек: {}",
+            SUBSCRIPTION_FETCH_TIMEOUT.as_secs(),
+            last_error
+                .map(|error| redact_support_text(&error.to_string()))
+                .unwrap_or_else(|| "нет доступных источников".to_string())
+        ));
     }
 
     Ok(payloads)
@@ -1461,7 +1600,7 @@ fn fetch_subscription_payloads(url: &str) -> Result<Vec<String>> {
 
 fn fetch_http_text(url: &str) -> Result<String> {
     let agent = ureq::AgentBuilder::new()
-        .timeout(Duration::from_secs(15))
+        .timeout(SUBSCRIPTION_FETCH_TIMEOUT)
         .build();
     let response = agent
         .get(url)
@@ -1475,6 +1614,48 @@ fn fetch_http_text(url: &str) -> Result<String> {
     response
         .into_string()
         .map_err(|error| anyhow!("Could not read subscription response: {error}"))
+}
+
+fn servers_from_subscription_payloads(url: &str, payloads: Vec<String>) -> Result<Vec<Server>> {
+    let mut servers = Vec::new();
+    let mut seen = BTreeSet::new();
+    for payload in payloads {
+        let report = parse_subscription_payload(&payload);
+        for server in report.servers {
+            let key = format!(
+                "{}|{}|{}|{}",
+                server.raw_url,
+                server.host,
+                server.port.unwrap_or_default(),
+                server.protocol.label()
+            );
+            if seen.insert(key) {
+                servers.push(server);
+            }
+        }
+    }
+
+    if servers.is_empty() {
+        if let Some(server) = parse_server_url(url, 1) {
+            servers.push(server);
+        }
+    }
+
+    if servers.is_empty() {
+        return Err(anyhow!("в подписке не найдено поддерживаемых серверов"));
+    }
+
+    Ok(servers)
+}
+
+fn is_subscription_landing_page(url: &str) -> bool {
+    url::Url::parse(url)
+        .ok()
+        .map(|parsed| {
+            let path = parsed.path().to_ascii_lowercase();
+            path.ends_with("/subscription.html") || path.ends_with("/subscription-awg.html")
+        })
+        .unwrap_or(false)
 }
 
 fn discover_subscription_api_urls(source_url: &str) -> Vec<String> {
@@ -5296,7 +5477,20 @@ mod named_pipe {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use base64::Engine;
     use samhain_ipc::{RequestEnvelope, decode_response, encode_request};
+
+    fn test_store(name: &str) -> ServiceStore {
+        let path = std::env::temp_dir()
+            .join("SamhainSecurityTests")
+            .join(format!("{name}.json"));
+        let _ = fs::remove_file(&path);
+        ServiceStore {
+            path,
+            state: StoredState::seeded(),
+            engine_manager: EngineManager::new(),
+        }
+    }
 
     #[test]
     fn handles_get_state_envelope() {
@@ -5321,6 +5515,119 @@ mod tests {
         assert!(!response.ok);
         assert_eq!(response.request_id, "req-version");
         assert!(matches!(response.event, ServiceEvent::Error { .. }));
+    }
+
+    #[test]
+    fn subscription_landing_urls_discover_api_candidates() {
+        let landing = discover_subscription_api_urls(
+            "https://samhainsecurity.ru/subscription.html?token=test-token&platform=windows",
+        );
+        assert_eq!(
+            landing.first().map(String::as_str),
+            Some("https://samhainsecurity.ru/api/sub/test-token")
+        );
+        assert!(
+            landing
+                .iter()
+                .any(|url| url == "https://samhainsecurity.ru/api/sub/test-token/singbox")
+        );
+
+        let awg = discover_subscription_api_urls(
+            "https://samhainsecurity.ru/subscription-awg.html?token=test-token",
+        );
+        assert_eq!(
+            awg.first().map(String::as_str),
+            Some("https://samhainsecurity.ru/api/sub/test-token/awg")
+        );
+        assert!(is_subscription_landing_page(
+            "https://samhainsecurity.ru/subscription-awg.html?token=test-token"
+        ));
+    }
+
+    #[test]
+    fn subscription_payloads_cover_landing_awg_base64_and_direct() {
+        let vless = "vless://00000000-0000-4000-8000-000000000001@nl.example:443?type=tcp&security=reality#Samhain%20NL%20Amsterdam";
+        let encoded = base64::engine::general_purpose::STANDARD.encode(vless);
+        let landing_servers = servers_from_subscription_payloads(
+            "https://samhainsecurity.ru/subscription.html?token=test-token",
+            vec!["<html>loading</html>".to_string(), encoded],
+        )
+        .expect("landing servers");
+        assert_eq!(landing_servers.len(), 1);
+        assert_eq!(landing_servers[0].protocol, Protocol::VlessReality);
+        assert_eq!(landing_servers[0].country_code.as_deref(), Some("NL"));
+
+        let awg_payload = r#"{"items":[{"title":"Samhain DE Frankfurt AWG","protocol":"amneziawg","config_text":"[Interface]\nPrivateKey = private\nAddress = 10.8.0.2/32\n\n[Peer]\nPublicKey = public\nAllowedIPs = 0.0.0.0/0\nEndpoint = 203.0.113.10:51820\n"}]}"#;
+        let awg_servers = servers_from_subscription_payloads(
+            "https://samhainsecurity.ru/subscription-awg.html?token=test-token",
+            vec![awg_payload.to_string()],
+        )
+        .expect("awg servers");
+        assert_eq!(awg_servers[0].protocol, Protocol::AmneziaWg);
+        assert_eq!(awg_servers[0].port, Some(51820));
+
+        let direct_servers = servers_from_subscription_payloads(
+            "trojan://pass@gb.example:443#Samhain%20GB%20Direct",
+            Vec::new(),
+        )
+        .expect("direct servers");
+        assert_eq!(direct_servers[0].protocol, Protocol::Trojan);
+        assert_eq!(direct_servers[0].country_code.as_deref(), Some("GB"));
+    }
+
+    #[test]
+    fn subscription_actions_record_deterministic_operation_state() {
+        let mut store = test_store("subscription-actions");
+        store.state.subscriptions.clear();
+        let raw_url = "vless://00000000-0000-4000-8000-000000000001@example.com:443?type=tcp&security=reality#Samhain";
+
+        let added = store
+            .import_subscription("Direct".to_string(), raw_url.to_string())
+            .expect("import");
+        assert_eq!(added.update_interval_minutes, 24 * 60);
+        assert_eq!(added.last_update_status, "ok");
+        assert_eq!(store.state.subscription_operations.last_action, "import");
+        assert!(store.state.subscription_operations.deterministic);
+
+        let renamed = store
+            .rename_subscription(&added.id, "Renamed".to_string())
+            .expect("rename");
+        assert_eq!(renamed.name, "Renamed");
+        assert_eq!(store.state.subscription_operations.last_action, "rename");
+
+        let pinned = store.pin_subscription(&added.id).expect("pin");
+        assert_eq!(pinned.id, added.id);
+        assert_eq!(store.state.subscription_operations.last_action, "pin");
+
+        store.state.selected_server_id = pinned.servers.first().map(|server| server.id.clone());
+        store.delete_subscription(&added.id).expect("delete");
+        assert_eq!(store.state.subscription_operations.last_action, "delete");
+        assert!(store.state.selected_server_id.is_none());
+    }
+
+    #[test]
+    fn refresh_subscription_records_failure_status() {
+        let mut store = test_store("subscription-refresh-error");
+        let raw_url = "vless://00000000-0000-4000-8000-000000000001@example.com:443?type=tcp&security=reality#Samhain";
+        let server = parse_server_url(raw_url, 1).expect("server");
+        let mut subscription = StoredSubscription::from_import(
+            "Broken".to_string(),
+            raw_url.to_string(),
+            vec![server],
+        )
+        .expect("subscription");
+        subscription.protected_url = "unprotected:not-a-supported-subscription".to_string();
+        let subscription_id = subscription.id.clone();
+        store.state.subscriptions = vec![subscription];
+
+        let error = store
+            .refresh_subscription(&subscription_id)
+            .expect_err("refresh should fail");
+        assert!(error.to_string().contains("подписке"));
+        assert_eq!(store.state.subscriptions[0].last_update_status, "error");
+        assert_eq!(store.state.subscription_operations.status, "error");
+        assert_eq!(store.state.subscription_operations.last_action, "refresh");
+        assert!(store.state.subscription_operations.last_error.is_some());
     }
 
     #[test]

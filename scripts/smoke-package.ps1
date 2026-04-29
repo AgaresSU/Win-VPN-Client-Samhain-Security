@@ -210,6 +210,7 @@ else {
         Add-Step "service:recovery-policy" (($null -ne $serviceState.recovery_policy) -and ($serviceState.recovery_policy.owner -eq "service")) "owner=$($serviceState.recovery_policy.owner)"
         Add-Step "service:engine-inventory" (($null -ne $serviceState.engine_catalog) -and ($serviceState.engine_catalog.Count -ge 4)) "count=$($serviceState.engine_catalog.Count)"
         Add-Step "service:runtime-health" ($null -ne $serviceState.runtime_health) "status=$($serviceState.runtime_health.status) source=$($serviceState.runtime_health.metrics_source)"
+        Add-Step "service:subscription-operations" ($null -ne $serviceState.subscription_operations) "status=$($serviceState.subscription_operations.status)"
         Add-Step "service:protection-transaction" (($null -ne $serviceState.protection_policy.transaction) -and ($serviceState.protection_policy.transaction.steps.Count -gt 0)) "status=$($serviceState.protection_policy.transaction.status) steps=$($serviceState.protection_policy.transaction.steps.Count)"
     }
     catch {

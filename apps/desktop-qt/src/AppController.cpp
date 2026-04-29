@@ -1046,8 +1046,15 @@ void AppController::addSubscription(const QString &name, const QString &url)
             const auto message = event.value("message").toString("Не удалось добавить подписку");
             m_statusText = message;
             appendLog("Сервис: " + message);
+            emit statusChanged();
+            return;
         } else if (event.value("type").toString() == "subscription-added") {
             appliedServiceSubscription = loadStateFromService();
+        } else {
+            m_statusText = "Неожиданный ответ сервиса";
+            appendLog("Сервис: неожиданный ответ при добавлении подписки");
+            emit statusChanged();
+            return;
         }
     }
 
@@ -1100,7 +1107,7 @@ void AppController::refreshSubscription(int row)
         const auto document = QJsonDocument::fromJson(response.toUtf8());
         const auto root = document.object();
         const auto event = root.value("event").toObject();
-        if (root.value("ok").toBool(false) && event.value("type").toString() != "error") {
+        if (root.value("ok").toBool(false) && event.value("type").toString() == "subscription-refreshed") {
             loadStateFromService();
             m_statusText = "Подписка обновлена";
             appendLog("Обновлена подписка: " + subscriptionName);
@@ -1109,6 +1116,12 @@ void AppController::refreshSubscription(int row)
             return;
         }
         appendLog("Сервис: " + event.value("message").toString("обновление недоступно"));
+        if (sourceUrl.startsWith("protected://", Qt::CaseInsensitive)) {
+            m_statusText = event.value("message").toString("Подписка не обновлена");
+            updateSelectedServerProperties();
+            emit statusChanged();
+            return;
+        }
     }
 
     if (!sourceUrl.isEmpty() && !sourceUrl.startsWith("protected://", Qt::CaseInsensitive)) {
@@ -1166,7 +1179,7 @@ void AppController::pinSubscription(int row)
         const auto document = QJsonDocument::fromJson(response.toUtf8());
         const auto root = document.object();
         const auto event = root.value("event").toObject();
-        if (root.value("ok").toBool(false) && event.value("type").toString() != "error") {
+        if (root.value("ok").toBool(false) && event.value("type").toString() == "subscription-pinned") {
             loadStateFromService();
             m_statusText = "Подписка закреплена";
             appendLog("Закреплена подписка: " + subscriptionName);
@@ -1175,6 +1188,11 @@ void AppController::pinSubscription(int row)
             return;
         }
         appendLog("Сервис: " + event.value("message").toString("закрепление недоступно"));
+        if (m_serverModel.subscriptionUrlAtRow(row).startsWith("protected://", Qt::CaseInsensitive)) {
+            m_statusText = event.value("message").toString("Подписка не закреплена");
+            emit statusChanged();
+            return;
+        }
     }
 
     auto subscriptions = m_serverModel.subscriptions();
@@ -1269,7 +1287,7 @@ void AppController::renameSubscription(int row, const QString &name)
         const auto document = QJsonDocument::fromJson(response.toUtf8());
         const auto root = document.object();
         const auto event = root.value("event").toObject();
-        if (root.value("ok").toBool(false) && event.value("type").toString() != "error") {
+        if (root.value("ok").toBool(false) && event.value("type").toString() == "subscription-renamed") {
             loadStateFromService();
             m_statusText = "Подписка переименована";
             appendLog("Подписка переименована: " + normalizedName);
@@ -1278,6 +1296,11 @@ void AppController::renameSubscription(int row, const QString &name)
             return;
         }
         appendLog("Сервис: " + event.value("message").toString("переименование недоступно"));
+        if (m_serverModel.subscriptionUrlAtRow(row).startsWith("protected://", Qt::CaseInsensitive)) {
+            m_statusText = event.value("message").toString("Подписка не переименована");
+            emit statusChanged();
+            return;
+        }
     }
 
     auto subscriptions = m_serverModel.subscriptions();
@@ -1326,7 +1349,7 @@ void AppController::deleteSubscription(int row)
         const auto document = QJsonDocument::fromJson(response.toUtf8());
         const auto root = document.object();
         const auto event = root.value("event").toObject();
-        if (root.value("ok").toBool(false) && event.value("type").toString() != "error") {
+        if (root.value("ok").toBool(false) && event.value("type").toString() == "subscription-deleted") {
             loadStateFromService();
             updateSelectedServerProperties();
             saveState();
@@ -1336,6 +1359,11 @@ void AppController::deleteSubscription(int row)
             return;
         }
         appendLog("Сервис: " + event.value("message").toString("удаление недоступно"));
+        if (m_serverModel.subscriptionUrlAtRow(row).startsWith("protected://", Qt::CaseInsensitive)) {
+            m_statusText = event.value("message").toString("Подписка не удалена");
+            emit statusChanged();
+            return;
+        }
     }
 
     auto subscriptions = m_serverModel.subscriptions();
@@ -2238,10 +2266,24 @@ bool AppController::applyServiceState(const QJsonObject &state)
             });
         }
 
+        const auto intervalMinutes = subscription.value("update_interval_minutes").toInt(24 * 60);
+        const auto updateStatus = subscription.value("last_update_status").toString("ok");
+        const auto updateMessage = subscription.value("last_update_message").toString();
+        auto meta = subscription.value("updated_at").toString("Сервис готов");
+        if (intervalMinutes > 0) {
+            const auto hours = std::max(1, intervalMinutes / 60);
+            meta += QString(" | Автообновление - %1ч.").arg(hours);
+        }
+        if (updateStatus == "error") {
+            meta += updateMessage.isEmpty() ? " | Ошибка обновления" : " | " + updateMessage;
+        } else if (!updateMessage.isEmpty()) {
+            meta += " | " + updateMessage;
+        }
+
         items.push_back({
             subscriptionId,
             subscription.value("name").toString("Samhain Security"),
-            subscription.value("updated_at").toString("Сервис готов"),
+            meta,
             true,
             servers,
             subscription.value("url").toString(),

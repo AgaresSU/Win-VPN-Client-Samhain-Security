@@ -1,6 +1,6 @@
 # Local Operations
 
-Version: `1.2.4`
+Version: `1.2.5`
 
 The Windows package includes `tools\local-ops.ps1` for current-user install, repair, uninstall, status checks, and the first installer-owned machine service path.
 

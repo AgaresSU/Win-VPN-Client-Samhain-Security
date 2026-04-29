@@ -110,6 +110,7 @@ if (Test-Path $manifestPath) {
         Add-Check "manifest:runtime-source" ($manifest.operations.runtimeContract.availabilitySource -eq "package-inventory") ([string]$manifest.operations.runtimeContract.availabilitySource)
         Add-Check "manifest:runtime-layout" ($manifest.operations.runtimeContract.layout.Count -ge 4) "entries=$($manifest.operations.runtimeContract.layout.Count)"
         Add-Check "manifest:runtime-health" ($manifest.quality.runtimeHealthEvidence -eq "service.runtime_health") ([string]$manifest.quality.runtimeHealthEvidence)
+        Add-Check "manifest:subscription-operations" ($manifest.quality.subscriptionOperationsEvidence -eq "service.subscription_operations") ([string]$manifest.quality.subscriptionOperationsEvidence)
         Add-Check "manifest:smoke" ($manifest.quality.smokeScript -eq "tools\smoke-package.ps1") ([string]$manifest.quality.smokeScript)
         Add-Check "manifest:update-verifier" ($manifest.quality.updateManifestVerifier -eq "tools\verify-update-manifest.ps1") ([string]$manifest.quality.updateManifestVerifier)
         Add-Check "manifest:release-evidence" ($manifest.quality.releaseEvidenceScript -eq "tools\write-release-evidence.ps1") ([string]$manifest.quality.releaseEvidenceScript)
@@ -207,6 +208,11 @@ if ($RunServiceStatus) {
             if ($null -ne $serviceState.runtime_health) {
                 Add-Check "service:runtime-health-source" (-not [string]::IsNullOrWhiteSpace([string]$serviceState.runtime_health.metrics_source)) ([string]$serviceState.runtime_health.metrics_source)
                 Add-Check "service:runtime-health-path" (-not [string]::IsNullOrWhiteSpace([string]$serviceState.runtime_health.route_path)) ([string]$serviceState.runtime_health.route_path)
+            }
+            Add-Check "service:subscription-operations" ($null -ne $serviceState.subscription_operations) "status=$($serviceState.subscription_operations.status)"
+            if ($null -ne $serviceState.subscription_operations) {
+                Add-Check "service:subscription-timeout" ([int]$serviceState.subscription_operations.timeout_ms -gt 0) "timeout=$($serviceState.subscription_operations.timeout_ms)"
+                Add-Check "service:subscription-deterministic" ([bool]$serviceState.subscription_operations.deterministic) "deterministic=$($serviceState.subscription_operations.deterministic)"
             }
             $transaction = $serviceState.protection_policy.transaction
             Add-Check "service:protection-transaction" ($null -ne $transaction) "status=$($transaction.status)"

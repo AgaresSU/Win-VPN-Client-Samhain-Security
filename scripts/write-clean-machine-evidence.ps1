@@ -245,11 +245,13 @@ else {
         $protectionTransaction = $serviceState.protection_policy.transaction
         $engineInventory = $serviceState.engine_catalog
         $runtimeHealth = $serviceState.runtime_health
+        $subscriptionOperations = $serviceState.subscription_operations
         Add-Step "service:status" (($serviceExitCode -eq 0) -and ($serviceState.version -eq $ExpectedVersion)) "exit=$serviceExitCode version=$($serviceState.version) readiness=$($serviceReadiness.status)"
         Add-Step "service:self-check-state" ($null -ne $serviceSelfCheck) "status=$($serviceSelfCheck.status)"
         Add-Step "service:recovery-policy" (($null -ne $serviceState.recovery_policy) -and ($serviceState.recovery_policy.owner -eq "service")) "owner=$($serviceState.recovery_policy.owner)"
         Add-Step "service:engine-inventory" (($null -ne $engineInventory) -and ($engineInventory.Count -ge 4)) "count=$($engineInventory.Count)"
         Add-Step "service:runtime-health" ($null -ne $runtimeHealth) "status=$($runtimeHealth.status) source=$($runtimeHealth.metrics_source)"
+        Add-Step "service:subscription-operations" ($null -ne $subscriptionOperations) "status=$($subscriptionOperations.status)"
         Add-Step "service:protection-transaction" (($null -ne $protectionTransaction) -and ($protectionTransaction.steps.Count -gt 0)) "status=$($protectionTransaction.status) steps=$($protectionTransaction.steps.Count)"
     }
     catch {

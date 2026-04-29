@@ -1,6 +1,6 @@
 # Samhain Security Native
 
-Version: `1.2.4`
+Version: `1.2.5`
 
 Native Windows secure tunneling client prototype built from a clean base.
 
@@ -16,7 +16,7 @@ Native Windows secure tunneling client prototype built from a clean base.
 
 This release is the native foundation. It focuses on the product shell, simple daily UX, local models, persistence, and build/package flow.
 
-Implemented through `1.2.4`:
+Implemented through `1.2.5`:
 
 - Happ-inspired Qt/QML shell with servers, add, settings, statistics, logs, and about sections.
 - Compact subscription group and server rows without technical clutter.
@@ -30,7 +30,7 @@ Implemented through `1.2.4`:
 - Real service-side subscription import for direct links, subscription pages, plain/base64 payloads, and AWG JSON profiles.
 - DPAPI-protected storage for subscription URLs and raw server configs.
 - Service-backed subscription groups with expand/collapse and an overlay menu for refresh, latency checks, pinning, URL copy, edit, and delete.
-- Subscription menu actions keep local fallbacks and visible feedback when the service endpoint is unavailable.
+- Subscription menu actions have exact service event checks, local fallback only for local profiles, operation status evidence, stored update intervals, and last-update status.
 - Polished subscription and navigation action icons with SVG-backed refresh, speedometer, pin, clipboard, sliders, delete, globe, gear-shaped settings, statistics, logs, and about glyphs.
 - Custom-drawn menu and action buttons that avoid native light hover states in the dark red graphite shell.
 - Persisted selected server and compact grouped server rendering in the desktop shell.
@@ -87,7 +87,7 @@ Not implemented yet:
 The package is written to:
 
 ```text
-dist\SamhainSecurityNative-1.2.4-win-x64
+dist\SamhainSecurityNative-1.2.5-win-x64
 ```
 
 ## Local Operations
@@ -106,8 +106,8 @@ See `docs\LOCAL_OPERATIONS.md` and `docs\SIGNING.md` for install scope, storage,
 ## Package Checks
 
 ```powershell
-.\scripts\validate-package.ps1 -ExpectedVersion 1.2.4 -RunServiceStatus
-.\scripts\smoke-package.ps1 -ExpectedVersion 1.2.4
+.\scripts\validate-package.ps1 -ExpectedVersion 1.2.5 -RunServiceStatus
+.\scripts\smoke-package.ps1 -ExpectedVersion 1.2.5
 ```
 
 See `docs\BETA_CHECKLIST.md` for the manual Windows and protocol matrix.
@@ -115,10 +115,10 @@ See `docs\BETA_CHECKLIST.md` for the manual Windows and protocol matrix.
 ## Stable Checks
 
 ```powershell
-.\scripts\verify-update-manifest.ps1 -ExpectedVersion 1.2.4 -RequireStableChannel
-.\scripts\test-signing-readiness.ps1 -ExpectedVersion 1.2.4
-.\scripts\write-clean-machine-evidence.ps1 -ExpectedVersion 1.2.4 -SkipLaunch
-.\scripts\write-release-evidence.ps1 -ExpectedVersion 1.2.4
+.\scripts\verify-update-manifest.ps1 -ExpectedVersion 1.2.5 -RequireStableChannel
+.\scripts\test-signing-readiness.ps1 -ExpectedVersion 1.2.5
+.\scripts\write-clean-machine-evidence.ps1 -ExpectedVersion 1.2.5 -SkipLaunch
+.\scripts\write-release-evidence.ps1 -ExpectedVersion 1.2.5
 ```
 
 See `docs\STABLE_RELEASE.md` and `docs\CLEAN_MACHINE_EVIDENCE.md` for the stable release checklist and external test evidence flow.

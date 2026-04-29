@@ -85,6 +85,20 @@ pub struct Subscription {
     pub url: String,
     pub servers: Vec<Server>,
     pub updated_at: Option<String>,
+    #[serde(default = "default_subscription_update_interval_minutes")]
+    pub update_interval_minutes: u32,
+    #[serde(default = "default_subscription_update_status")]
+    pub last_update_status: String,
+    #[serde(default)]
+    pub last_update_message: String,
+}
+
+pub fn default_subscription_update_interval_minutes() -> u32 {
+    24 * 60
+}
+
+pub fn default_subscription_update_status() -> String {
+    "ok".to_string()
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -199,6 +213,9 @@ pub fn sample_subscription() -> Subscription {
         url: "demo://samhain".to_string(),
         servers,
         updated_at: Some("27.04.2026 23:22 | Автообновление - 24ч.".to_string()),
+        update_interval_minutes: default_subscription_update_interval_minutes(),
+        last_update_status: "ok".to_string(),
+        last_update_message: "Демо-профиль готов.".to_string(),
     }
 }
 

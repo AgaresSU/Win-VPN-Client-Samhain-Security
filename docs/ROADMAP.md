@@ -1,6 +1,6 @@
 # Roadmap
 
-Current version: `1.2.4`
+Current version: `1.2.5`
 
 This roadmap is the working contract for Samhain Security. Future implementation should follow this order unless a blocker is found and documented in the same commit.
 
@@ -552,7 +552,7 @@ Status: shipped in `v1.2.4` with service runtime-health state, explicit metrics 
 
 Done when subscription actions work predictably without requiring the user to open logs.
 
-Status: planned.
+Status: shipped in `v1.2.5` with deterministic subscription operation state, exact service event handling in the desktop, service/local fallback separation, stored update interval and last-update status per subscription, import parsing tests for landing, AWG, base64, and direct links, refresh failure evidence, and validation checks for subscription operation health.
 
 ### 1.3.0 - Daily UX Freeze
 
@@ -661,13 +661,12 @@ Status: planned.
 
 ## Immediate Next Build Order
 
-1. `1.2.5`: subscription operations hardening.
-2. `1.3.0`: daily UX freeze.
-3. `1.3.1`: connection reliability pass.
-4. `1.3.2`: app-routing design gate.
-5. `1.3.3`: app-routing enforcement V1.
-6. `1.3.4`: diagnostics and support final.
-7. `1.3.5`: tray, startup, and link ownership.
-8. `1.3.6`: update and rollback hardening.
-9. `1.3.7`: security review and abuse resistance.
-10. `1.4.0`: release-ready competitive build.
+1. `1.3.0`: daily UX freeze.
+2. `1.3.1`: connection reliability pass.
+3. `1.3.2`: app-routing design gate.
+4. `1.3.3`: app-routing enforcement V1.
+5. `1.3.4`: diagnostics and support final.
+6. `1.3.5`: tray, startup, and link ownership.
+7. `1.3.6`: update and rollback hardening.
+8. `1.3.7`: security review and abuse resistance.
+9. `1.4.0`: release-ready competitive build.

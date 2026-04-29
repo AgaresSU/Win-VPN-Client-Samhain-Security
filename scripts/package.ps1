@@ -1,5 +1,5 @@
 param(
-    [string]$Version = "1.2.4",
+    [string]$Version = "1.2.5",
     [string]$Configuration = "Release"
 )
 
@@ -227,6 +227,7 @@ $manifest = [PSCustomObject]@{
         enforcementTransactionEvidence = "service.protection_policy.transaction"
         engineInventory = "engine-inventory.json"
         runtimeHealthEvidence = "service.runtime_health"
+        subscriptionOperationsEvidence = "service.subscription_operations"
         gates = @(
             "cargo test --workspace",
             "scripts\build.ps1",
@@ -319,6 +320,7 @@ $updateManifest = [PSCustomObject]@{
         enforcementTransactionEvidence = "service.protection_policy.transaction"
         engineInventory = "engine-inventory.json"
         runtimeHealthEvidence = "service.runtime_health"
+        subscriptionOperationsEvidence = "service.subscription_operations"
         signingStatus = "unsigned-dev"
         expectedPublisher = "Samhain Security"
     }

@@ -711,6 +711,35 @@ impl Default for RuntimeHealthState {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SubscriptionOperationState {
+    pub status: String,
+    pub active: bool,
+    pub last_action: String,
+    pub last_subscription_id: Option<String>,
+    pub last_error: Option<String>,
+    pub timeout_ms: u32,
+    pub update_interval_minutes: u32,
+    pub deterministic: bool,
+    pub message: String,
+}
+
+impl Default for SubscriptionOperationState {
+    fn default() -> Self {
+        Self {
+            status: "idle".to_string(),
+            active: false,
+            last_action: "none".to_string(),
+            last_subscription_id: None,
+            last_error: None,
+            timeout_ms: DEFAULT_REQUEST_TIMEOUT_MS,
+            update_interval_minutes: 24 * 60,
+            deterministic: true,
+            message: "Subscription operations are idle.".to_string(),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct LogSnapshotState {
     pub entries: Vec<EngineLogEntry>,
     pub categories: Vec<String>,
@@ -769,6 +798,7 @@ pub struct ServiceState {
     pub audit_events: Vec<ServiceAuditEvent>,
     pub traffic_stats: TrafficStatsState,
     pub runtime_health: RuntimeHealthState,
+    pub subscription_operations: SubscriptionOperationState,
     pub probe_queue_active: bool,
     pub probe_results: Vec<PingProbeResult>,
     pub subscriptions: Vec<Subscription>,
@@ -794,6 +824,7 @@ impl Default for ServiceState {
             audit_events: Vec::new(),
             traffic_stats: TrafficStatsState::default(),
             runtime_health: RuntimeHealthState::default(),
+            subscription_operations: SubscriptionOperationState::default(),
             probe_queue_active: false,
             probe_results: Vec::new(),
             subscriptions: Vec::new(),

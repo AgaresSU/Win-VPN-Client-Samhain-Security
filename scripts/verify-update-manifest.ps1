@@ -86,6 +86,7 @@ Add-Check "manifest:runtime-contract" ($manifest.install.runtimeContract.invento
 Add-Check "manifest:runtime-source" ($manifest.install.runtimeContract.availabilitySource -eq "package-inventory") ([string]$manifest.install.runtimeContract.availabilitySource)
 Add-Check "manifest:engine-inventory" ($manifest.verification.engineInventory -eq "engine-inventory.json") ([string]$manifest.verification.engineInventory)
 Add-Check "manifest:runtime-health" ($manifest.verification.runtimeHealthEvidence -eq "service.runtime_health") ([string]$manifest.verification.runtimeHealthEvidence)
+Add-Check "manifest:subscription-operations" ($manifest.verification.subscriptionOperationsEvidence -eq "service.subscription_operations") ([string]$manifest.verification.subscriptionOperationsEvidence)
 
 if (-not [string]::IsNullOrWhiteSpace($ExpectedVersion)) {
     Add-Check "manifest:expected-version" ($manifest.version -eq $ExpectedVersion) "expected=$ExpectedVersion actual=$($manifest.version)"
