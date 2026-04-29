@@ -39,9 +39,15 @@ const APP_ROUTING_ENFORCE_ENV: &str = "SAMHAIN_APP_ROUTING_ENFORCE";
 const PROTECTION_DRY_RUN_ENV: &str = "SAMHAIN_PROTECTION_DRY_RUN";
 const PROTECTION_ENFORCE_ENV: &str = "SAMHAIN_PROTECTION_ENFORCE";
 const SERVICE_SIGNED_ENV: &str = "SAMHAIN_SERVICE_SIGNED";
+const DEV_ENGINE_DIR_ENV: &str = "SAMHAIN_ALLOW_DEV_ENGINE_DIR";
 const AUDIT_EVENT_LIMIT: usize = 120;
 const MAX_RECONNECT_ATTEMPTS: u8 = 3;
 const RECONNECT_BACKOFF_BASE_MS: u64 = 250;
+const MAX_IPC_PAYLOAD_BYTES: usize = 64 * 1024;
+const MAX_REQUEST_ID_LEN: usize = 64;
+const MAX_TEXT_FIELD_LEN: usize = 8 * 1024;
+const MAX_ROUTE_APPLICATIONS: usize = 64;
+const MAX_PING_BATCH_SIZE: usize = 128;
 const DEFAULT_LOG_CATEGORIES: &[&str] = &[
     "manager",
     "subscription",
@@ -112,8 +118,26 @@ fn run_service() -> Result<()> {
 }
 
 fn handle_payload(payload: &str) -> String {
+    if payload.len() > MAX_IPC_PAYLOAD_BYTES {
+        return encode_rejection(
+            "rejected-request",
+            format!(
+                "Request rejected: payload is {} bytes, max is {MAX_IPC_PAYLOAD_BYTES}.",
+                payload.len()
+            ),
+        );
+    }
+
     let response = match decode_request(payload) {
-        Ok(request) => handle_request(request),
+        Ok(request) => {
+            let request_id = safe_request_id(&request.request_id);
+            match validate_request_envelope(&request) {
+                Ok(()) => handle_request(request),
+                Err(error) => {
+                    ResponseEnvelope::error(request_id, format!("Request rejected: {error}"))
+                }
+            }
+        }
         Err(error) => {
             ResponseEnvelope::error("invalid-request", format!("Invalid request: {error}"))
         }
@@ -126,6 +150,167 @@ fn handle_payload(payload: &str) -> String {
         );
         serde_json::to_string(&fallback).expect("fallback response")
     })
+}
+
+fn encode_rejection(request_id: &str, message: String) -> String {
+    let response = ResponseEnvelope::error(request_id, message);
+    serde_json::to_string(&response).expect("rejection response")
+}
+
+fn safe_request_id(request_id: &str) -> String {
+    if request_id_is_valid(request_id) {
+        request_id.to_string()
+    } else {
+        "rejected-request".to_string()
+    }
+}
+
+fn request_id_is_valid(value: &str) -> bool {
+    !value.is_empty()
+        && value.len() <= MAX_REQUEST_ID_LEN
+        && value
+            .bytes()
+            .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'-' | b'_' | b'.'))
+}
+
+fn validate_request_envelope(request: &RequestEnvelope) -> Result<()> {
+    if !request_id_is_valid(&request.request_id) {
+        return Err(anyhow!(
+            "request_id must be 1..={MAX_REQUEST_ID_LEN} ASCII chars using letters, digits, dash, underscore, or dot"
+        ));
+    }
+
+    validate_command_surface(&request.command)
+}
+
+fn validate_text_field(label: &str, value: &str, max_len: usize, allow_empty: bool) -> Result<()> {
+    if !allow_empty && value.trim().is_empty() {
+        return Err(anyhow!("{label} must not be empty"));
+    }
+    if value.len() > max_len {
+        return Err(anyhow!("{label} is too long"));
+    }
+    if value.chars().any(|ch| ch.is_control()) {
+        return Err(anyhow!("{label} contains control characters"));
+    }
+    Ok(())
+}
+
+fn validate_id_field(label: &str, value: &str) -> Result<()> {
+    validate_text_field(label, value, 160, false)
+}
+
+fn validate_route_application_input(application: &RouteApplication) -> Result<()> {
+    validate_text_field("application id", &application.id, 160, true)?;
+    validate_text_field("application name", &application.name, 240, true)?;
+    validate_text_field("application path", &application.path, 520, false)?;
+    Ok(())
+}
+
+fn validate_command_surface(command: &ClientCommand) -> Result<()> {
+    match command {
+        ClientCommand::AddSubscription { name, url } => {
+            validate_text_field("subscription name", name, 160, true)?;
+            validate_text_field("subscription url", url, MAX_TEXT_FIELD_LEN, false)?;
+        }
+        ClientCommand::RefreshSubscription { subscription_id }
+        | ClientCommand::PinSubscription { subscription_id }
+        | ClientCommand::GetSubscriptionUrl { subscription_id }
+        | ClientCommand::DeleteSubscription { subscription_id } => {
+            validate_id_field("subscription id", subscription_id)?;
+        }
+        ClientCommand::RenameSubscription {
+            subscription_id,
+            name,
+        } => {
+            validate_id_field("subscription id", subscription_id)?;
+            validate_text_field("subscription name", name, 160, false)?;
+        }
+        ClientCommand::SelectServer { server_id }
+        | ClientCommand::PreviewEngineConfig { server_id }
+        | ClientCommand::TestPing { server_id } => {
+            validate_id_field("server id", server_id)?;
+        }
+        ClientCommand::Connect {
+            server_id,
+            route_mode: _,
+        }
+        | ClientCommand::StartEngine {
+            server_id,
+            route_mode: _,
+        }
+        | ClientCommand::RestartEngine {
+            server_id,
+            route_mode: _,
+        } => {
+            validate_id_field("server id", server_id)?;
+        }
+        ClientCommand::SetAppRoutingPolicy {
+            route_mode: _,
+            applications,
+        } => {
+            if applications.len() > MAX_ROUTE_APPLICATIONS {
+                return Err(anyhow!(
+                    "too many route applications: {} > {MAX_ROUTE_APPLICATIONS}",
+                    applications.len()
+                ));
+            }
+            for application in applications {
+                validate_route_application_input(application)?;
+            }
+        }
+        ClientCommand::AddRouteApplication { path } => {
+            validate_text_field("application path", path, 520, false)?;
+        }
+        ClientCommand::RemoveRouteApplication { application_id } => {
+            validate_id_field("application id", application_id)?;
+        }
+        ClientCommand::SetProtectionPolicy { settings } => {
+            if settings.backoff_seconds > 300 {
+                return Err(anyhow!("reconnect backoff is too large"));
+            }
+        }
+        ClientCommand::GetLogs { category } => {
+            if let Some(category) = category {
+                validate_text_field("log category", category, 64, false)?;
+                if !DEFAULT_LOG_CATEGORIES.contains(&category.as_str()) {
+                    return Err(anyhow!("unknown log category"));
+                }
+            }
+        }
+        ClientCommand::TestPings { server_ids } => {
+            if server_ids.len() > MAX_PING_BATCH_SIZE {
+                return Err(anyhow!(
+                    "too many ping probes: {} > {MAX_PING_BATCH_SIZE}",
+                    server_ids.len()
+                ));
+            }
+            for server_id in server_ids {
+                validate_id_field("server id", server_id)?;
+            }
+        }
+        ClientCommand::Ping
+        | ClientCommand::GetState
+        | ClientCommand::GetEngineCatalog
+        | ClientCommand::GetEngineStatus
+        | ClientCommand::GetProxyStatus
+        | ClientCommand::GetTunStatus
+        | ClientCommand::GetAppRoutingPolicy
+        | ClientCommand::GetServiceSelfCheck
+        | ClientCommand::GetTrafficStats
+        | ClientCommand::ExportSupportBundle
+        | ClientCommand::Disconnect
+        | ClientCommand::StopEngine
+        | ClientCommand::RestoreProxyPolicy
+        | ClientCommand::RestoreTunPolicy
+        | ClientCommand::RestoreAppRoutingPolicy
+        | ClientCommand::GetProtectionPolicy
+        | ClientCommand::RestoreProtectionPolicy
+        | ClientCommand::EmergencyRestore
+        | ClientCommand::CancelPingProbes => {}
+    }
+
+    Ok(())
 }
 
 fn handle_request(request: RequestEnvelope) -> ResponseEnvelope {
@@ -1799,13 +1984,33 @@ fn normalize_application_path(path: &str) -> Result<String> {
     if trimmed.is_empty() {
         return Err(anyhow!("путь приложения пуст"));
     }
+    if trimmed.chars().any(|ch| ch.is_control()) {
+        return Err(anyhow!("путь приложения содержит недопустимые символы"));
+    }
 
     let normalized = trimmed.replace('/', "\\");
     if !normalized.to_ascii_lowercase().ends_with(".exe") {
         return Err(anyhow!("выберите exe-файл"));
     }
+    if !is_windows_drive_absolute(&normalized) {
+        return Err(anyhow!("выберите локальный абсолютный путь к exe-файлу"));
+    }
+    let lower = normalized.to_ascii_lowercase();
+    if lower.contains("\\..\\") || lower.ends_with("\\..") || lower.contains("\\.\\") {
+        return Err(anyhow!(
+            "путь приложения не должен содержать переходы каталогов"
+        ));
+    }
 
     Ok(normalized)
+}
+
+fn is_windows_drive_absolute(path: &str) -> bool {
+    let bytes = path.as_bytes();
+    bytes.len() >= 3
+        && bytes[0].is_ascii_alphabetic()
+        && bytes[1] == b':'
+        && matches!(bytes[2], b'\\' | b'/')
 }
 
 fn dedupe_route_applications(
@@ -4259,6 +4464,8 @@ fn service_self_check_state(storage_path: &Path) -> ServiceSelfCheckState {
     let engine_dirs = engine_search_dirs();
     let engine_dir_ready = engine_dirs.iter().any(|dir| dir.is_dir());
     let audit_path = storage_parent.join("service-audit.json");
+    let storage_boundary_ok = storage_path_under_user_boundary(storage_parent);
+    let dev_engine_override = dev_engine_dirs_allowed();
 
     let checks = vec![
         check_item(
@@ -4266,6 +4473,14 @@ fn service_self_check_state(storage_path: &Path) -> ServiceSelfCheckState {
             true,
             "configured",
             &format!("name={}", samhain_ipc::NAMED_PIPE_NAME),
+        ),
+        check_item(
+            "ipc-command-surface",
+            true,
+            "hardened",
+            &format!(
+                "payload_limit={MAX_IPC_PAYLOAD_BYTES}; request_id_limit={MAX_REQUEST_ID_LEN}; app_limit={MAX_ROUTE_APPLICATIONS}; ping_batch_limit={MAX_PING_BATCH_SIZE}"
+            ),
         ),
         check_item(
             "engine-directory",
@@ -4278,6 +4493,16 @@ fn service_self_check_state(storage_path: &Path) -> ServiceSelfCheckState {
                 .join("; "),
         ),
         check_item(
+            "engine-path-boundary",
+            !dev_engine_override,
+            if dev_engine_override {
+                "dev-override"
+            } else {
+                "bundled-only"
+            },
+            "runtime discovery ignores current directory and SAMHAIN_ENGINE_DIR unless explicit dev override is set",
+        ),
+        check_item(
             "storage",
             storage_parent.is_dir(),
             if storage_parent.is_dir() {
@@ -4286,6 +4511,22 @@ fn service_self_check_state(storage_path: &Path) -> ServiceSelfCheckState {
                 "pending"
             },
             &format!("path={}", storage_path.display()),
+        ),
+        check_item(
+            "storage-boundary",
+            storage_boundary_ok,
+            if storage_boundary_ok {
+                "user-profile"
+            } else {
+                "outside-user-boundary"
+            },
+            &format!("path={}", storage_parent.display()),
+        ),
+        check_item(
+            "log-redaction",
+            true,
+            "enabled",
+            "support bundle, audit events, and engine log snapshots redact tokens and secrets",
         ),
         check_item(
             "routes",
@@ -4345,6 +4586,19 @@ fn service_self_check_state(storage_path: &Path) -> ServiceSelfCheckState {
     }
 }
 
+fn storage_path_under_user_boundary(path: &Path) -> bool {
+    let mut roots = Vec::new();
+    if let Some(value) = std::env::var_os("APPDATA") {
+        roots.push(PathBuf::from(value));
+    }
+    if let Some(value) = std::env::var_os("LOCALAPPDATA") {
+        roots.push(PathBuf::from(value));
+    }
+    roots.push(std::env::temp_dir());
+
+    roots.iter().any(|root| path.starts_with(root))
+}
+
 fn check_item(name: &str, ok: bool, status: &str, detail: &str) -> ServiceCheckItem {
     ServiceCheckItem {
         name: name.to_string(),
@@ -4393,6 +4647,19 @@ fn service_readiness_state() -> ServiceReadinessState {
     checks.push(format!("app_routing_available={app_routing_available}"));
     checks.push(format!("service_identity={identity}"));
     checks.push("required_identity=signed-privileged-service".to_string());
+    checks.push("ipc_command_surface=hardened".to_string());
+    checks.push(format!(
+        "engine_path_policy={}",
+        if dev_engine_dirs_allowed() {
+            "dev-override"
+        } else {
+            "bundled-only"
+        }
+    ));
+    checks.push(format!(
+        "dev_engine_dir_override={}",
+        dev_engine_dirs_allowed()
+    ));
     checks.extend(recovery_policy_state().evidence);
 
     let message = if app_routing_requested && !app_routing_available {
@@ -4856,9 +5123,6 @@ fn engine_search_dirs_for(kind: EngineKind) -> Vec<PathBuf> {
 
 fn engine_base_dirs() -> Vec<PathBuf> {
     let mut dirs = Vec::new();
-    if let Some(value) = std::env::var_os("SAMHAIN_ENGINE_DIR") {
-        dirs.extend(std::env::split_paths(&value));
-    }
     if let Ok(exe) = std::env::current_exe() {
         if let Some(parent) = exe.parent() {
             if let Some(package_root) = parent.parent() {
@@ -4868,12 +5132,27 @@ fn engine_base_dirs() -> Vec<PathBuf> {
             dirs.push(parent.to_path_buf());
         }
     }
-    if let Ok(cwd) = std::env::current_dir() {
-        dirs.push(cwd.join("engines"));
-        dirs.push(cwd);
+
+    if dev_engine_dirs_allowed() {
+        if let Some(value) = std::env::var_os("SAMHAIN_ENGINE_DIR") {
+            dirs.extend(std::env::split_paths(&value));
+        }
+        if let Ok(cwd) = std::env::current_dir() {
+            dirs.push(cwd.join("engines"));
+            dirs.push(cwd);
+        }
     }
 
     unique_paths(dirs)
+}
+
+fn dev_engine_dirs_allowed() -> bool {
+    std::env::var_os(DEV_ENGINE_DIR_ENV)
+        .map(|value| {
+            let normalized = value.to_string_lossy().to_ascii_lowercase();
+            matches!(normalized.as_str(), "1" | "true" | "yes" | "dev")
+        })
+        .unwrap_or(false)
 }
 
 fn unique_paths(paths: Vec<PathBuf>) -> Vec<PathBuf> {
@@ -6046,6 +6325,55 @@ mod tests {
     }
 
     #[test]
+    fn rejects_invalid_request_id() {
+        let request = RequestEnvelope::new("bad request id", ClientCommand::Ping);
+        let payload = encode_request(&request).expect("request");
+        let response_payload = handle_payload(&payload);
+        let response = decode_response(&response_payload).expect("response");
+
+        assert!(!response.ok);
+        assert_eq!(response.request_id, "rejected-request");
+        assert!(matches!(response.event, ServiceEvent::Error { .. }));
+    }
+
+    #[test]
+    fn rejects_oversized_ipc_payload() {
+        let payload = "x".repeat(MAX_IPC_PAYLOAD_BYTES + 1);
+        let response_payload = handle_payload(&payload);
+        let response = decode_response(&response_payload).expect("response");
+
+        assert!(!response.ok);
+        assert_eq!(response.request_id, "rejected-request");
+    }
+
+    #[test]
+    fn rejects_unbounded_command_inputs() {
+        let request = RequestEnvelope::new(
+            "req-many-pings",
+            ClientCommand::TestPings {
+                server_ids: (0..(MAX_PING_BATCH_SIZE + 1))
+                    .map(|index| format!("server-{index}"))
+                    .collect(),
+            },
+        );
+        let response =
+            decode_response(&handle_payload(&encode_request(&request).expect("request")))
+                .expect("response");
+        assert!(!response.ok);
+
+        let request = RequestEnvelope::new(
+            "req-log",
+            ClientCommand::GetLogs {
+                category: Some("unknown".to_string()),
+            },
+        );
+        let response =
+            decode_response(&handle_payload(&encode_request(&request).expect("request")))
+                .expect("response");
+        assert!(!response.ok);
+    }
+
+    #[test]
     fn subscription_landing_urls_discover_api_candidates() {
         let landing = discover_subscription_api_urls(
             "https://samhainsecurity.ru/subscription.html?token=test-token&platform=windows",
@@ -6348,6 +6676,25 @@ mod tests {
     }
 
     #[test]
+    fn rejects_unsafe_route_application_paths() {
+        assert!(StoredRouteApplication::from_path("relative\\app.exe".to_string()).is_err());
+        assert!(StoredRouteApplication::from_path("C:\\Temp\\..\\evil.exe".to_string()).is_err());
+        assert!(
+            StoredRouteApplication::from_path("\\\\server\\share\\app.exe".to_string()).is_err()
+        );
+    }
+
+    #[test]
+    fn engine_discovery_ignores_ambient_dirs_by_default() {
+        let cwd = std::env::current_dir().expect("cwd");
+        let dirs = engine_base_dirs();
+
+        assert!(!dev_engine_dirs_allowed());
+        assert!(!dirs.iter().any(|path| path == &cwd));
+        assert!(!dirs.iter().any(|path| path == &cwd.join("engines")));
+    }
+
+    #[test]
     fn selected_apps_mode_is_supported_as_proxy_aware_path() {
         let mut manager = AppRoutingManager::new();
         let state = manager.apply(
@@ -6525,6 +6872,18 @@ mod tests {
                 .iter()
                 .any(|check| check.starts_with("privileged_policy_allowed="))
         );
+        assert!(
+            state
+                .checks
+                .iter()
+                .any(|check| check == "ipc_command_surface=hardened")
+        );
+        assert!(
+            state
+                .checks
+                .iter()
+                .any(|check| check == "engine_path_policy=bundled-only")
+        );
     }
 
     #[test]
@@ -6542,6 +6901,24 @@ mod tests {
                 .any(|check| check.name == "named-pipe" && check.ok)
         );
         assert!(state.checks.iter().any(|check| check.name == "firewall"));
+        assert!(
+            state
+                .checks
+                .iter()
+                .any(|check| check.name == "ipc-command-surface" && check.ok)
+        );
+        assert!(
+            state
+                .checks
+                .iter()
+                .any(|check| check.name == "engine-path-boundary" && check.ok)
+        );
+        assert!(
+            state
+                .checks
+                .iter()
+                .any(|check| check.name == "storage-boundary" && check.ok)
+        );
         assert_eq!(state.recovery_policy.owner, "service");
         assert!(state.audit_log_path.is_some());
     }

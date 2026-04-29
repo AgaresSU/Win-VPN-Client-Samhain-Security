@@ -1,6 +1,6 @@
 # Roadmap
 
-Current version: `1.3.6`
+Current version: `1.3.7`
 
 This roadmap is the working contract for Samhain Security. Future implementation should follow this order unless a blocker is found and documented in the same commit.
 
@@ -645,7 +645,7 @@ Status: shipped in `v1.3.6` with SHA256 update policy in release and update mani
 
 Done when the package has a written security posture and release-blocking issues are either fixed or explicitly blocked.
 
-Status: planned.
+Status: shipped in `v1.3.7` with bounded IPC payload/request validation, command-surface limits for subscriptions, logs, ping batches and app routing inputs, stricter executable path validation, bundled-only engine runtime discovery unless explicit dev override is set, security self-check evidence for IPC, engine path, storage, and redaction boundaries, package manifest security policy, validation gates, and a written security posture.
 
 ### 1.4.0 - Release-Ready Competitive Build
 
@@ -661,5 +661,4 @@ Status: planned.
 
 ## Immediate Next Build Order
 
-1. `1.3.7`: security review and abuse resistance.
-2. `1.4.0`: release-ready competitive build.
+1. `1.4.0`: release-ready competitive build.

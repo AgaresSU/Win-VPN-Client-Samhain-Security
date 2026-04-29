@@ -1,5 +1,5 @@
 param(
-    [string]$Version = "1.3.6",
+    [string]$Version = "1.3.7",
     [string]$Configuration = "Release"
 )
 
@@ -207,6 +207,29 @@ $manifest = [PSCustomObject]@{
             trayOwner = "desktop"
             singleInstanceHandoff = $true
         }
+        security = [PSCustomObject]@{
+            owner = "service"
+            ipc = [PSCustomObject]@{
+                maxPayloadBytes = 65536
+                maxRequestIdBytes = 64
+                maxRouteApplications = 64
+                maxPingBatch = 128
+                rejectsUnknownLogCategories = $true
+            }
+            engineRuntime = [PSCustomObject]@{
+                trustedSearch = "bundled-only"
+                ignoresCurrentDirectory = $true
+                devOverrideVariable = "SAMHAIN_ALLOW_DEV_ENGINE_DIR"
+            }
+            storage = [PSCustomObject]@{
+                boundary = "user-profile-or-temp"
+                rejectsControlCharacters = $true
+            }
+            logging = [PSCustomObject]@{
+                redactionRequired = $true
+                supportBundleRedacted = $true
+            }
+        }
         enforcementTransaction = [PSCustomObject]@{
             owner = "service"
             model = "typed-apply-rollback"
@@ -347,6 +370,12 @@ $updateManifest = [PSCustomObject]@{
         runtimeContract = [PSCustomObject]@{
             inventory = "engine-inventory.json"
             availabilitySource = "package-inventory"
+        }
+        securityPosture = [PSCustomObject]@{
+            serviceSelfCheck = "service.service_self_check"
+            ipcCommandSurface = "hardened"
+            engineRuntimeSearch = "bundled-only"
+            storageBoundary = "user-profile-or-temp"
         }
         rollback = [PSCustomObject]@{
             owner = "local-ops"

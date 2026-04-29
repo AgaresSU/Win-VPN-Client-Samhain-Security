@@ -113,6 +113,13 @@ if (Test-Path $manifestPath) {
         Add-Check "manifest:desktop-integration-status-file" ($manifest.operations.desktopIntegration.statusFile -eq "desktop-integration.json") ([string]$manifest.operations.desktopIntegration.statusFile)
         Add-Check "manifest:desktop-integration-link" ($manifest.operations.desktopIntegration.linkHandler -eq "HKCU Software Classes samhain") ([string]$manifest.operations.desktopIntegration.linkHandler)
         Add-Check "manifest:single-instance-handoff" ([bool]$manifest.operations.desktopIntegration.singleInstanceHandoff) ([string]$manifest.operations.desktopIntegration.singleInstanceHandoff)
+        Add-Check "manifest:security-owner" ($manifest.operations.security.owner -eq "service") ([string]$manifest.operations.security.owner)
+        Add-Check "manifest:security-ipc-payload" ([int]$manifest.operations.security.ipc.maxPayloadBytes -eq 65536) ([string]$manifest.operations.security.ipc.maxPayloadBytes)
+        Add-Check "manifest:security-ipc-request-id" ([int]$manifest.operations.security.ipc.maxRequestIdBytes -eq 64) ([string]$manifest.operations.security.ipc.maxRequestIdBytes)
+        Add-Check "manifest:security-engine-search" ($manifest.operations.security.engineRuntime.trustedSearch -eq "bundled-only") ([string]$manifest.operations.security.engineRuntime.trustedSearch)
+        Add-Check "manifest:security-engine-cwd" ([bool]$manifest.operations.security.engineRuntime.ignoresCurrentDirectory) ([string]$manifest.operations.security.engineRuntime.ignoresCurrentDirectory)
+        Add-Check "manifest:security-storage-boundary" ($manifest.operations.security.storage.boundary -eq "user-profile-or-temp") ([string]$manifest.operations.security.storage.boundary)
+        Add-Check "manifest:security-log-redaction" ([bool]$manifest.operations.security.logging.redactionRequired) ([string]$manifest.operations.security.logging.redactionRequired)
         Add-Check "manifest:enforcement-transaction" ($manifest.operations.enforcementTransaction.model -eq "typed-apply-rollback") ([string]$manifest.operations.enforcementTransaction.model)
         Add-Check "manifest:enforcement-snapshots" ([bool]$manifest.operations.enforcementTransaction.beforeAfterSnapshots) ([string]$manifest.operations.enforcementTransaction.beforeAfterSnapshots)
         Add-Check "manifest:runtime-contract" ($manifest.operations.runtimeContract.inventory -eq "engine-inventory.json") ([string]$manifest.operations.runtimeContract.inventory)
@@ -206,11 +213,16 @@ if ($RunServiceStatus) {
                 Add-Check "service:readiness-recovery" ($serviceState.service_readiness.recovery_policy -eq "service-owned") ([string]$serviceState.service_readiness.recovery_policy)
                 Add-Check "service:firewall-evidence" ($null -ne $serviceState.service_readiness.firewall_enforcement_available) "available=$($serviceState.service_readiness.firewall_enforcement_available)"
                 Add-Check "service:app-routing-evidence" ($null -ne $serviceState.service_readiness.app_routing_enforcement_available) "available=$($serviceState.service_readiness.app_routing_enforcement_available)"
+                Add-Check "service:readiness-ipc-surface" ($serviceState.service_readiness.checks -contains "ipc_command_surface=hardened") "checks=$($serviceState.service_readiness.checks.Count)"
+                Add-Check "service:readiness-engine-policy" ($serviceState.service_readiness.checks -contains "engine_path_policy=bundled-only") "checks=$($serviceState.service_readiness.checks.Count)"
             }
             Add-Check "service:self-check-present" ($null -ne $serviceState.service_self_check) "status=$($serviceState.service_self_check.status)"
             if ($null -ne $serviceState.service_self_check) {
                 Add-Check "service:self-check-named-pipe" (($serviceState.service_self_check.checks | Where-Object { $_.name -eq "named-pipe" -and $_.ok }).Count -gt 0) "checks=$($serviceState.service_self_check.checks.Count)"
                 Add-Check "service:self-check-firewall" (($serviceState.service_self_check.checks | Where-Object { $_.name -eq "firewall" }).Count -gt 0) "checks=$($serviceState.service_self_check.checks.Count)"
+                Add-Check "service:self-check-ipc-surface" (($serviceState.service_self_check.checks | Where-Object { $_.name -eq "ipc-command-surface" -and $_.ok }).Count -gt 0) "checks=$($serviceState.service_self_check.checks.Count)"
+                Add-Check "service:self-check-engine-boundary" (($serviceState.service_self_check.checks | Where-Object { $_.name -eq "engine-path-boundary" -and $_.ok }).Count -gt 0) "checks=$($serviceState.service_self_check.checks.Count)"
+                Add-Check "service:self-check-storage-boundary" (($serviceState.service_self_check.checks | Where-Object { $_.name -eq "storage-boundary" -and $_.ok }).Count -gt 0) "checks=$($serviceState.service_self_check.checks.Count)"
             }
             Add-Check "service:recovery-policy" (($null -ne $serviceState.recovery_policy) -and ($serviceState.recovery_policy.owner -eq "service")) "owner=$($serviceState.recovery_policy.owner)"
             Add-Check "service:audit-events" ($null -ne $serviceState.audit_events) "count=$($serviceState.audit_events.Count)"
