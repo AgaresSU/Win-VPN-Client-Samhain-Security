@@ -1,6 +1,6 @@
 # Local Operations
 
-Version: `1.3.4`
+Version: `1.3.5`
 
 The Windows package includes `tools\local-ops.ps1` for current-user install, repair, uninstall, status checks, and the first installer-owned machine service path.
 
@@ -72,8 +72,11 @@ The local operations script only writes under `%LOCALAPPDATA%` and `%APPDATA%`. 
 - Current-user startup: `HKCU\Software\Microsoft\Windows\CurrentVersion\Run`
 - Link handler: `HKCU\Software\Classes\samhain`
 - User service task: `Samhain Security Service`
+- Ownership evidence: `%LOCALAPPDATA%\SamhainSecurity\desktop-integration.json`
 
-The task starts `service\samhain-service.exe run` at logon. The future signed installer will replace this with a privileged service identity.
+The task starts `service\samhain-service.exe run` at logon. Current-user install and repair write the expected startup command, expected `samhain://` command, actual registry values, ownership booleans, and drift status to `desktop-integration.json`. `Status` reports the same object, so stale handlers from older packages are visible before repair.
+
+Machine scope intentionally reports desktop integration as `per-user`; the privileged service path owns the service, while startup, tray, and link handoff remain user-facing desktop integration.
 
 ## Migration
 

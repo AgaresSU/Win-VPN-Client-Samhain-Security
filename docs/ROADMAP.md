@@ -1,6 +1,6 @@
 # Roadmap
 
-Current version: `1.3.4`
+Current version: `1.3.5`
 
 This roadmap is the working contract for Samhain Security. Future implementation should follow this order unless a blocker is found and documented in the same commit.
 
@@ -621,7 +621,7 @@ Status: shipped in `v1.3.4` with stable log categories, redacted `diagnostics-su
 
 Done when tray and link behavior survive install, repair, update, and uninstall.
 
-Status: planned.
+Status: shipped in `v1.3.5` with local-ops ownership evidence for autostart and `samhain://`, drift detection for stale handlers, `desktop-integration.json` on install/repair, tools copied into the current-user install root, clean-machine/smoke checks for tray and single-instance ownership evidence, and machine-scope status that keeps desktop integration explicitly per-user.
 
 ### 1.3.6 - Update And Rollback Hardening
 
@@ -661,7 +661,6 @@ Status: planned.
 
 ## Immediate Next Build Order
 
-1. `1.3.5`: tray, startup, and link ownership.
-2. `1.3.6`: update and rollback hardening.
-3. `1.3.7`: security review and abuse resistance.
-4. `1.4.0`: release-ready competitive build.
+1. `1.3.6`: update and rollback hardening.
+2. `1.3.7`: security review and abuse resistance.
+3. `1.4.0`: release-ready competitive build.

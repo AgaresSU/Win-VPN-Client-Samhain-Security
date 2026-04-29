@@ -1,6 +1,6 @@
 # Samhain Security Native
 
-Version: `1.3.4`
+Version: `1.3.5`
 
 Native Windows secure tunneling client prototype built from a clean base.
 
@@ -16,7 +16,7 @@ Native Windows secure tunneling client prototype built from a clean base.
 
 This release is the native foundation. It focuses on the product shell, simple daily UX, local models, persistence, and build/package flow.
 
-Implemented through `1.3.4`:
+Implemented through `1.3.5`:
 
 - Happ-inspired Qt/QML shell with servers, add, settings, statistics, logs, and about sections.
 - Compact subscription group and server rows without technical clutter.
@@ -44,6 +44,7 @@ Implemented through `1.3.4`:
 - Service readiness evidence for current identity, elevation, firewall gate, and app-routing enforcement gate.
 - Protection layer foundation: service-owned kill switch/DNS/IPv6/watchdog policy state, emergency restore IPC, rollback on stop/crash, scoped firewall command planning, and explicit enforcement gating for privileged service runs.
 - Desktop integration: tray status/menu, minimize-to-tray behavior, single-instance handoff, Windows startup toggle, and `samhain://` import handler registration.
+- Desktop integration ownership: package operations now report expected and actual autostart/link-handler commands, detect drift from old installs, copy tools into the install root, and write `desktop-integration.json` during install/repair.
 - Service telemetry: per-session traffic state, categorized service/engine logs, and redacted support export for diagnostics.
 - Diagnostics final: support bundle now includes a compact health summary, recent-error report, app-routing evidence, service self-check, inventory, audit tail, and stable log categories without leaking tokens or raw configs.
 - UX polish: dark red graphite theme pass, responsive compact navigation, bundled app icon in the shell, and empty states for quiet screens.
@@ -92,7 +93,7 @@ Not implemented yet:
 The package is written to:
 
 ```text
-dist\SamhainSecurityNative-1.3.4-win-x64
+dist\SamhainSecurityNative-1.3.5-win-x64
 ```
 
 ## Local Operations
@@ -111,8 +112,8 @@ See `docs\LOCAL_OPERATIONS.md` and `docs\SIGNING.md` for install scope, storage,
 ## Package Checks
 
 ```powershell
-.\scripts\validate-package.ps1 -ExpectedVersion 1.3.4 -RunServiceStatus
-.\scripts\smoke-package.ps1 -ExpectedVersion 1.3.4
+.\scripts\validate-package.ps1 -ExpectedVersion 1.3.5 -RunServiceStatus
+.\scripts\smoke-package.ps1 -ExpectedVersion 1.3.5
 ```
 
 See `docs\BETA_CHECKLIST.md` for the manual Windows and protocol matrix.
@@ -120,10 +121,10 @@ See `docs\BETA_CHECKLIST.md` for the manual Windows and protocol matrix.
 ## Stable Checks
 
 ```powershell
-.\scripts\verify-update-manifest.ps1 -ExpectedVersion 1.3.4 -RequireStableChannel
-.\scripts\test-signing-readiness.ps1 -ExpectedVersion 1.3.4
-.\scripts\write-clean-machine-evidence.ps1 -ExpectedVersion 1.3.4 -SkipLaunch
-.\scripts\write-release-evidence.ps1 -ExpectedVersion 1.3.4
+.\scripts\verify-update-manifest.ps1 -ExpectedVersion 1.3.5 -RequireStableChannel
+.\scripts\test-signing-readiness.ps1 -ExpectedVersion 1.3.5
+.\scripts\write-clean-machine-evidence.ps1 -ExpectedVersion 1.3.5 -SkipLaunch
+.\scripts\write-release-evidence.ps1 -ExpectedVersion 1.3.5
 ```
 
 See `docs\STABLE_RELEASE.md` and `docs\CLEAN_MACHINE_EVIDENCE.md` for the stable release checklist and external test evidence flow.

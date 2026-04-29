@@ -13,6 +13,7 @@ $ErrorActionPreference = "Stop"
 
 $ProductName = "Samhain Security"
 $RunValueName = "Samhain Security"
+$AutostartArguments = "--background"
 $TaskName = "Samhain Security Service"
 $ServiceName = "SamhainSecurityService"
 $ServiceDisplayName = "Samhain Security Service"
@@ -112,6 +113,141 @@ function Assert-MachineDataPath {
     $programData = [System.IO.Path]::GetFullPath($env:ProgramData)
     if (-not $fullPath.StartsWith($programData, [System.StringComparison]::OrdinalIgnoreCase)) {
         throw "Refusing to modify machine data path outside ProgramData: $fullPath"
+    }
+}
+
+function Get-AppExecutablePath {
+    Join-Path $InstallRoot "app\SamhainSecurityNative.exe"
+}
+
+function Get-ServiceExecutablePath {
+    Join-Path $InstallRoot "service\samhain-service.exe"
+}
+
+function Get-ExpectedAutostartCommand {
+    $appExe = Get-AppExecutablePath
+    '"' + $appExe + '" ' + $AutostartArguments
+}
+
+function Get-ExpectedUrlCommand {
+    $appExe = Get-AppExecutablePath
+    '"' + $appExe + '" "%1"'
+}
+
+function Get-RegistryDefaultValue {
+    param([string]$Path)
+
+    if (-not (Test-Path $Path)) {
+        return ""
+    }
+
+    $item = Get-Item -Path $Path -ErrorAction SilentlyContinue
+    if (-not $item) {
+        return ""
+    }
+
+    return [string]$item.GetValue("")
+}
+
+function Get-RegistryNamedValue {
+    param(
+        [string]$Path,
+        [string]$Name
+    )
+
+    $property = Get-ItemProperty -Path $Path -Name $Name -ErrorAction SilentlyContinue
+    if (-not $property) {
+        return ""
+    }
+
+    $member = $property.PSObject.Properties[$Name]
+    if (-not $member) {
+        return ""
+    }
+
+    return [string]$member.Value
+}
+
+function Get-DesktopIntegrationStatus {
+    $runKey = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Run"
+    $schemeRoot = "HKCU:\Software\Classes\$UrlScheme"
+    $iconKey = "$schemeRoot\DefaultIcon"
+    $commandKey = "$schemeRoot\shell\open\command"
+    $expectedAutostart = Get-ExpectedAutostartCommand
+    $expectedUrlCommand = Get-ExpectedUrlCommand
+    $appExe = Get-AppExecutablePath
+    $actualAutostart = Get-RegistryNamedValue -Path $runKey -Name $RunValueName
+    $actualSchemeName = Get-RegistryDefaultValue -Path $schemeRoot
+    $actualUrlProtocol = Get-RegistryNamedValue -Path $schemeRoot -Name "URL Protocol"
+    $actualIcon = Get-RegistryDefaultValue -Path $iconKey
+    $actualCommand = Get-RegistryDefaultValue -Path $commandKey
+    $autostartOwned = $actualAutostart -eq $expectedAutostart
+    $urlSchemeOwned = (Test-Path $schemeRoot) `
+        -and ($actualSchemeName -eq "URL:$ProductName") `
+        -and ($actualUrlProtocol -eq "") `
+        -and ($actualIcon -eq $appExe) `
+        -and ($actualCommand -eq $expectedUrlCommand)
+    $status = if ($autostartOwned -and $urlSchemeOwned) {
+        "owned"
+    }
+    elseif ([string]::IsNullOrWhiteSpace($actualAutostart) -and -not (Test-Path $schemeRoot)) {
+        "not-registered"
+    }
+    else {
+        "drift"
+    }
+
+    [PSCustomObject]@{
+        owner = "local-ops"
+        status = $status
+        runValueName = $RunValueName
+        urlScheme = "${UrlScheme}://"
+        expected = [PSCustomObject]@{
+            autostartCommand = $expectedAutostart
+            urlCommand = $expectedUrlCommand
+            icon = $appExe
+        }
+        actual = [PSCustomObject]@{
+            autostartCommand = $actualAutostart
+            urlName = $actualSchemeName
+            urlProtocol = $actualUrlProtocol
+            icon = $actualIcon
+            urlCommand = $actualCommand
+        }
+        autostartRegistered = -not [string]::IsNullOrWhiteSpace($actualAutostart)
+        autostartOwned = $autostartOwned
+        urlSchemeRegistered = Test-Path $schemeRoot
+        urlSchemeOwned = $urlSchemeOwned
+        evidence = @(
+            "autostart-owner=local-ops",
+            "url-scheme-owner=local-ops",
+            "single-instance-handoff=desktop",
+            "tray-owner=desktop"
+        )
+    }
+}
+
+function Test-UserServiceTask {
+    $previousPreference = $ErrorActionPreference
+    try {
+        $ErrorActionPreference = "Continue"
+        & schtasks.exe /Query /TN $TaskName *> $null
+        return $LASTEXITCODE -eq 0
+    }
+    catch {
+        return $false
+    }
+    finally {
+        $ErrorActionPreference = $previousPreference
+    }
+}
+
+function Write-DesktopIntegrationState {
+    Assert-UserPath $InstallRoot
+    Invoke-Operation "Writing desktop-integration.json" {
+        Get-DesktopIntegrationStatus |
+            ConvertTo-Json -Depth 6 |
+            Set-Content -LiteralPath (Join-Path $InstallRoot "desktop-integration.json") -Encoding UTF8
     }
 }
 
@@ -253,6 +389,8 @@ function Get-MachineStatus {
         startMode = if ($serviceRecord) { [string]$serviceRecord.StartMode } else { "not-registered" }
         executable = $serviceExe
         registeredPath = if ($serviceRecord) { [string]$serviceRecord.PathName } else { "" }
+        desktopIntegrationPolicy = "per-user"
+        desktopIntegrationOwner = "current-user local-ops or desktop settings"
         installRoot = $InstallRoot
         dataRoot = $DataRoot
         administrator = Test-IsAdministrator
@@ -527,7 +665,7 @@ function Copy-PackageContent {
         New-Item -ItemType Directory -Force -Path $InstallRoot | Out-Null
     }
 
-    foreach ($entry in @("app", "service", "assets", "docs")) {
+    foreach ($entry in @("app", "service", "assets", "docs", "tools")) {
         $source = Join-Path $PackageRoot $entry
         $target = Join-Path $InstallRoot $entry
         if (Test-Path $source) {
@@ -563,8 +701,7 @@ function Copy-PackageContent {
 }
 
 function Register-Autostart {
-    $appExe = Join-Path $InstallRoot "app\SamhainSecurityNative.exe"
-    $command = '"' + $appExe + '" --background'
+    $command = Get-ExpectedAutostartCommand
     $runKey = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Run"
     Invoke-Operation "Registering user autostart" {
         New-Item -Path $runKey -Force | Out-Null
@@ -573,11 +710,11 @@ function Register-Autostart {
 }
 
 function Register-UrlScheme {
-    $appExe = Join-Path $InstallRoot "app\SamhainSecurityNative.exe"
+    $appExe = Get-AppExecutablePath
     $root = "HKCU:\Software\Classes\$UrlScheme"
     $icon = "$root\DefaultIcon"
     $commandKey = "$root\shell\open\command"
-    $command = '"' + $appExe + '" "%1"'
+    $command = Get-ExpectedUrlCommand
     Invoke-Operation "Registering ${UrlScheme}:// handler" {
         New-Item -Path $root -Force | Out-Null
         Set-Item -Path $root -Value "URL:$ProductName"
@@ -590,7 +727,7 @@ function Register-UrlScheme {
 }
 
 function Register-ServiceTask {
-    $serviceExe = Join-Path $InstallRoot "service\samhain-service.exe"
+    $serviceExe = Get-ServiceExecutablePath
     $taskCommand = '"' + $serviceExe + '" run'
     Invoke-Operation "Registering user service task" {
         & schtasks.exe /Create /F /TN $TaskName /SC ONLOGON /TR $taskCommand | Out-Null
@@ -598,7 +735,7 @@ function Register-ServiceTask {
 }
 
 function Start-LocalService {
-    $serviceExe = Join-Path $InstallRoot "service\samhain-service.exe"
+    $serviceExe = Get-ServiceExecutablePath
     Invoke-Operation "Starting local service process" {
         Start-Process -FilePath $serviceExe -ArgumentList "run" -WindowStyle Hidden | Out-Null
     }
@@ -663,13 +800,10 @@ function Remove-DataRoot {
 }
 
 function Get-LocalStatus {
-    $appExe = Join-Path $InstallRoot "app\SamhainSecurityNative.exe"
-    $serviceExe = Join-Path $InstallRoot "service\samhain-service.exe"
-    $taskExists = $false
-    & schtasks.exe /Query /TN $TaskName 2>$null | Out-Null
-    if ($LASTEXITCODE -eq 0) {
-        $taskExists = $true
-    }
+    $appExe = Get-AppExecutablePath
+    $serviceExe = Get-ServiceExecutablePath
+    $taskExists = Test-UserServiceTask
+    $desktopIntegration = Get-DesktopIntegrationStatus
 
     [PSCustomObject]@{
         product = $ProductName
@@ -679,8 +813,11 @@ function Get-LocalStatus {
         installRoot = $InstallRoot
         dataRoot = $DataRoot
         userServiceTask = $taskExists
-        autostart = [bool](Get-ItemProperty -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\Run" -Name $RunValueName -ErrorAction SilentlyContinue)
-        urlScheme = Test-Path "HKCU:\Software\Classes\$UrlScheme"
+        autostart = $desktopIntegration.autostartRegistered
+        autostartOwned = $desktopIntegration.autostartOwned
+        urlScheme = $desktopIntegration.urlSchemeRegistered
+        urlSchemeOwned = $desktopIntegration.urlSchemeOwned
+        desktopIntegration = $desktopIntegration
         dryRun = [bool]$DryRun
     }
 }
@@ -710,6 +847,7 @@ switch ($Action) {
         Invoke-StateMigration
         Register-Autostart
         Register-UrlScheme
+        Write-DesktopIntegrationState
         Register-ServiceTask
         Start-LocalService
         Get-LocalStatus | ConvertTo-Json -Depth 4
@@ -719,6 +857,7 @@ switch ($Action) {
         Copy-PackageContent
         Register-Autostart
         Register-UrlScheme
+        Write-DesktopIntegrationState
         Register-ServiceTask
         Start-LocalService
         Get-LocalStatus | ConvertTo-Json -Depth 4

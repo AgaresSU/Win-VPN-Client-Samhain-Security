@@ -1,5 +1,5 @@
 param(
-    [string]$Version = "1.3.4",
+    [string]$Version = "1.3.5",
     [string]$Configuration = "Release"
 )
 
@@ -190,6 +190,14 @@ $manifest = [PSCustomObject]@{
             command = "service\samhain-service.exe self-check"
             recoveryOwner = "service"
             audit = "redacted-rotated"
+        }
+        desktopIntegration = [PSCustomObject]@{
+            owner = "local-ops"
+            statusFile = "desktop-integration.json"
+            autostart = "HKCU Run"
+            linkHandler = "HKCU Software Classes samhain"
+            trayOwner = "desktop"
+            singleInstanceHandoff = $true
         }
         enforcementTransaction = [PSCustomObject]@{
             owner = "service"

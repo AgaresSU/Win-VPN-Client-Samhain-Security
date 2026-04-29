@@ -140,6 +140,30 @@ function Test-IsAdministrator {
     return $principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
 }
 
+function Invoke-DesktopIntegrationStatusCheck {
+    param([string]$ScriptPath)
+
+    if (-not (Test-Path $ScriptPath)) {
+        Add-Step "local-ops:desktop-integration" $false "missing=$ScriptPath"
+        return
+    }
+
+    try {
+        $output = & $ScriptPath -Action Status 2>&1
+        $status = ($output | Out-String).Trim() | ConvertFrom-Json
+        $integration = $status.desktopIntegration
+        $ok = ($integration.owner -eq "local-ops") `
+            -and ($integration.expected.autostartCommand -like "*SamhainSecurityNative.exe*") `
+            -and ($integration.expected.urlCommand -like '*"%1"*') `
+            -and ($integration.evidence -contains "single-instance-handoff=desktop") `
+            -and ($integration.evidence -contains "tray-owner=desktop")
+        Add-Step "local-ops:desktop-integration" $ok "status=$($integration.status) autostartOwned=$($integration.autostartOwned) urlOwned=$($integration.urlSchemeOwned)"
+    }
+    catch {
+        Add-Step "local-ops:desktop-integration" $false $_.Exception.Message
+    }
+}
+
 $PackageRoot = Resolve-PackageRoot $PackageRoot
 if ([string]::IsNullOrWhiteSpace($ExpectedVersion)) {
     $ExpectedVersion = (Get-Content -LiteralPath (Join-Path $PackageRoot "VERSION") -Raw).Trim()
@@ -191,6 +215,7 @@ Invoke-ScriptStep -Name "signing-readiness" -ScriptPath $signingScript -Paramete
 Invoke-ScriptStep -Name "local-ops:status" -ScriptPath $localOpsScript -Parameters @{
     Action = "Status"
 }
+Invoke-DesktopIntegrationStatusCheck -ScriptPath $localOpsScript
 Invoke-ScriptStep -Name "local-ops:install-dry-run" -ScriptPath $localOpsScript -Parameters @{
     Action = "Install"
     DryRun = $true
