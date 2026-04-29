@@ -141,33 +141,75 @@ pub enum ClientCommand {
 pub enum ServiceEvent {
     Pong,
     State(ServiceState),
-    SubscriptionAdded { subscription: Subscription },
-    SubscriptionRefreshed { subscription: Subscription },
-    SubscriptionPinned { subscription: Subscription },
+    SubscriptionAdded {
+        subscription: Subscription,
+    },
+    SubscriptionRefreshed {
+        subscription: Subscription,
+    },
+    SubscriptionPinned {
+        subscription: Subscription,
+    },
     SubscriptionUrl {
         subscription_id: String,
         url: String,
     },
-    SubscriptionRenamed { subscription: Subscription },
-    SubscriptionDeleted { subscription_id: String },
-    ServerSelected { server: Server },
-    Connecting { server_id: String },
-    Connected { server_id: String },
+    SubscriptionRenamed {
+        subscription: Subscription,
+    },
+    SubscriptionDeleted {
+        subscription_id: String,
+    },
+    ServerSelected {
+        server: Server,
+    },
+    Connecting {
+        server_id: String,
+    },
+    Connected {
+        server_id: String,
+    },
     Disconnected,
-    EngineCatalog { engines: Vec<EngineCatalogEntry> },
-    EngineStatus { state: EngineLifecycleState },
-    EngineConfigPreview { preview: EngineConfigPreview },
-    ProxyStatus { state: ProxyLifecycleState },
-    TunStatus { state: TunLifecycleState },
-    AppRoutingPolicy { state: AppRoutingPolicyState },
-    ProtectionPolicy { state: ProtectionPolicyState },
-    TrafficStats { state: TrafficStatsState },
-    LogSnapshot { snapshot: LogSnapshotState },
-    SupportBundle { state: SupportBundleState },
+    EngineCatalog {
+        engines: Vec<EngineCatalogEntry>,
+    },
+    EngineStatus {
+        state: EngineLifecycleState,
+    },
+    EngineConfigPreview {
+        preview: EngineConfigPreview,
+    },
+    ProxyStatus {
+        state: ProxyLifecycleState,
+    },
+    TunStatus {
+        state: TunLifecycleState,
+    },
+    AppRoutingPolicy {
+        state: AppRoutingPolicyState,
+    },
+    ProtectionPolicy {
+        state: ProtectionPolicyState,
+    },
+    TrafficStats {
+        state: TrafficStatsState,
+    },
+    LogSnapshot {
+        snapshot: LogSnapshotState,
+    },
+    SupportBundle {
+        state: SupportBundleState,
+    },
     PingResult(PingProbeResult),
-    PingBatchResult { results: Vec<PingProbeResult> },
-    PingProbesCanceled { canceled: usize },
-    Error { message: String },
+    PingBatchResult {
+        results: Vec<PingProbeResult>,
+    },
+    PingProbesCanceled {
+        canceled: usize,
+    },
+    Error {
+        message: String,
+    },
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -316,8 +358,11 @@ pub struct AppRoutingPolicyState {
     pub status: String,
     pub route_mode: RouteMode,
     pub supported: bool,
+    pub enforcement_requested: bool,
+    pub enforcement_available: bool,
     pub applications: Vec<RouteApplication>,
     pub rule_names: Vec<String>,
+    pub evidence: Vec<String>,
     pub applied_at: Option<String>,
     pub restored_at: Option<String>,
     pub message: String,
@@ -329,8 +374,11 @@ impl Default for AppRoutingPolicyState {
             status: "inactive".to_string(),
             route_mode: RouteMode::WholeComputer,
             supported: true,
+            enforcement_requested: false,
+            enforcement_available: false,
             applications: Vec::new(),
             rule_names: Vec::new(),
+            evidence: Vec::new(),
             applied_at: None,
             restored_at: None,
             message: "App routing policy is inactive.".to_string(),
@@ -400,6 +448,41 @@ impl Default for ProtectionPolicyState {
             next_retry_at: None,
             restart_attempts: 0,
             message: "Protection policy is inactive.".to_string(),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ServiceReadinessState {
+    pub status: String,
+    pub identity: String,
+    pub required_identity: String,
+    pub running_as_admin: bool,
+    pub protection_enforcement_requested: bool,
+    pub app_routing_enforcement_requested: bool,
+    pub firewall_enforcement_available: bool,
+    pub app_routing_enforcement_available: bool,
+    pub checks: Vec<String>,
+    pub message: String,
+}
+
+impl Default for ServiceReadinessState {
+    fn default() -> Self {
+        Self {
+            status: "current-user".to_string(),
+            identity: "current-user-package".to_string(),
+            required_identity: "signed-privileged-service".to_string(),
+            running_as_admin: false,
+            protection_enforcement_requested: false,
+            app_routing_enforcement_requested: false,
+            firewall_enforcement_available: false,
+            app_routing_enforcement_available: false,
+            checks: vec![
+                "service identity: current user package".to_string(),
+                "privileged identity: pending installer service".to_string(),
+                "app routing layer: pending WFP implementation".to_string(),
+            ],
+            message: "Privileged service identity is not installed yet.".to_string(),
         }
     }
 }
@@ -498,6 +581,7 @@ pub struct ServiceState {
     pub tun_state: TunLifecycleState,
     pub app_routing_policy: AppRoutingPolicyState,
     pub protection_policy: ProtectionPolicyState,
+    pub service_readiness: ServiceReadinessState,
     pub traffic_stats: TrafficStatsState,
     pub probe_queue_active: bool,
     pub probe_results: Vec<PingProbeResult>,
@@ -518,6 +602,7 @@ impl Default for ServiceState {
             tun_state: TunLifecycleState::default(),
             app_routing_policy: AppRoutingPolicyState::default(),
             protection_policy: ProtectionPolicyState::default(),
+            service_readiness: ServiceReadinessState::default(),
             traffic_stats: TrafficStatsState::default(),
             probe_queue_active: false,
             probe_results: Vec::new(),

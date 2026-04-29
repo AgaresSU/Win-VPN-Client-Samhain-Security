@@ -144,6 +144,12 @@ if ($RunServiceStatus) {
             $serviceState = ($serviceOutput | Out-String).Trim() | ConvertFrom-Json
             Add-Check "service:status-json" $true "parsed"
             Add-Check "service:status-version" ($serviceState.version -eq $packageVersion) "service=$($serviceState.version) file=$packageVersion"
+            Add-Check "service:readiness-present" ($null -ne $serviceState.service_readiness) "readiness=$($serviceState.service_readiness.status)"
+            if ($null -ne $serviceState.service_readiness) {
+                Add-Check "service:readiness-identity" (-not [string]::IsNullOrWhiteSpace($serviceState.service_readiness.identity)) ([string]$serviceState.service_readiness.identity)
+                Add-Check "service:firewall-evidence" ($null -ne $serviceState.service_readiness.firewall_enforcement_available) "available=$($serviceState.service_readiness.firewall_enforcement_available)"
+                Add-Check "service:app-routing-evidence" ($null -ne $serviceState.service_readiness.app_routing_enforcement_available) "available=$($serviceState.service_readiness.app_routing_enforcement_available)"
+            }
         }
         catch {
             Add-Check "service:status-json" $false $_.Exception.Message

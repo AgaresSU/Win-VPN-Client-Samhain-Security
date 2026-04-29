@@ -1272,7 +1272,7 @@ ApplicationWindow {
             spacing: 18
             PageTitle { text: "О программе" }
             MetricRow { title: "Программа"; value: "Samhain Security Native" }
-            MetricRow { title: "Версия"; value: "1.0.11" }
+            MetricRow { title: "Версия"; value: "1.1.2" }
             MetricRow { title: "Интерфейс"; value: "Qt 6 / QML" }
             MetricRow { title: "Ядро"; value: "Rust workspace" }
             MetricRow { title: "Статус"; value: appController.statusText }
@@ -2237,6 +2237,7 @@ ApplicationWindow {
                 }
 
                 AdvancedGroupTitle { text: "Маршрутизация и защита" }
+                AdvancedStatusRow { title: "Привилегии"; value: appController.serviceReadinessStatus; detail: appController.serviceReadinessDetail }
                 AdvancedStatusRow { title: "Приложения"; value: appController.routePolicyStatus; detail: appController.routePolicyDetail }
                 AdvancedStatusRow { title: "Защита"; value: appController.protectionStatus; detail: appController.protectionDetail }
                 RowLayout {

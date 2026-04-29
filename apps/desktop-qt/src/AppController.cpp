@@ -691,6 +691,16 @@ QString AppController::protectionDetail() const
     return m_protectionDetail;
 }
 
+QString AppController::serviceReadinessStatus() const
+{
+    return m_serviceReadinessStatus;
+}
+
+QString AppController::serviceReadinessDetail() const
+{
+    return m_serviceReadinessDetail;
+}
+
 bool AppController::minimizeToTray() const
 {
     return m_minimizeToTray;
@@ -2112,6 +2122,7 @@ bool AppController::applyServiceState(const QJsonObject &state)
     applyTunStateObject(state.value("tun_state").toObject());
     applyAppRoutingPolicyObject(state.value("app_routing_policy").toObject());
     applyProtectionPolicyObject(state.value("protection_policy").toObject());
+    applyServiceReadinessObject(state.value("service_readiness").toObject());
     applyTrafficStatsObject(state.value("traffic_stats").toObject());
     m_connected = !state.value("connected_server_id").toString().isEmpty()
         && m_engineStatus == "Запущен";
@@ -2130,6 +2141,7 @@ bool AppController::applyServiceState(const QJsonObject &state)
     emit tunChanged();
     emit appRoutingChanged();
     emit protectionChanged();
+    emit serviceReadinessChanged();
     emit statsChanged();
     emit statusChanged();
     return true;
@@ -2535,6 +2547,8 @@ void AppController::applyAppRoutingPolicyObject(const QJsonObject &state)
 {
     const auto status = state.value("status").toString("inactive");
     const auto supported = state.value("supported").toBool(true);
+    const auto enforcementRequested = state.value("enforcement_requested").toBool(false);
+    const auto enforcementAvailable = state.value("enforcement_available").toBool(false);
     const auto message = state.value("message").toString();
     const auto mode = state.value("route_mode").toString(routeModeWireValue());
     m_routeModeIndex = routeModeIndexFromWire(mode);
@@ -2555,6 +2569,9 @@ void AppController::applyAppRoutingPolicyObject(const QJsonObject &state)
     m_routePolicyStatus = routePolicyStatusLabel(status, supported);
     QStringList detail;
     detail.push_back(routeAppCountLabel());
+    if (enforcementRequested) {
+        detail.push_back(enforcementAvailable ? "Enforcement: готов" : "Enforcement: ожидает WFP");
+    }
     if (!supported && m_routeModeIndex != 0) {
         detail.push_back("Требуется WFP-слой для прозрачного режима");
     }
@@ -2590,6 +2607,46 @@ void AppController::applyProtectionPolicyObject(const QJsonObject &state)
         detail.push_back(message);
     }
     m_protectionDetail = detail.join(" · ");
+}
+
+void AppController::applyServiceReadinessObject(const QJsonObject &state)
+{
+    const auto status = state.value("status").toString("current-user");
+    const auto identity = state.value("identity").toString("current-user-package");
+    const auto requiredIdentity = state.value("required_identity").toString("signed-privileged-service");
+    const auto runningAsAdmin = state.value("running_as_admin").toBool(false);
+    const auto protectionRequested = state.value("protection_enforcement_requested").toBool(false);
+    const auto appRoutingRequested = state.value("app_routing_enforcement_requested").toBool(false);
+    const auto firewallAvailable = state.value("firewall_enforcement_available").toBool(false);
+    const auto appRoutingAvailable = state.value("app_routing_enforcement_available").toBool(false);
+    const auto message = state.value("message").toString();
+    const auto checks = state.value("checks").toArray();
+
+    if (status == "privileged-ready") {
+        m_serviceReadinessStatus = "Готов к enforcement";
+    } else if (status == "waiting-wfp") {
+        m_serviceReadinessStatus = "Ожидает WFP";
+    } else if (status == "elevated") {
+        m_serviceReadinessStatus = "Повышен";
+    } else {
+        m_serviceReadinessStatus = "Текущий пользователь";
+    }
+
+    QStringList detail;
+    detail.push_back("Identity: " + identity);
+    detail.push_back("Required: " + requiredIdentity);
+    detail.push_back(runningAsAdmin ? "Admin: yes" : "Admin: no");
+    detail.push_back(QString("Protection: %1/%2")
+        .arg(protectionRequested ? "requested" : "not requested", firewallAvailable ? "available" : "gated"));
+    detail.push_back(QString("Apps: %1/%2")
+        .arg(appRoutingRequested ? "requested" : "not requested", appRoutingAvailable ? "available" : "gated"));
+    if (!message.isEmpty()) {
+        detail.push_back(message);
+    }
+    if (!checks.isEmpty()) {
+        detail.push_back(QString("Checks: %1").arg(checks.size()));
+    }
+    m_serviceReadinessDetail = detail.join(" · ");
 }
 
 void AppController::applyTrafficStatsObject(const QJsonObject &state)

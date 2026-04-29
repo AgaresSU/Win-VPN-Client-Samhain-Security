@@ -130,6 +130,8 @@ class AppController final : public QObject {
     Q_PROPERTY(QVariantList routeApplicationItems READ routeApplicationItems NOTIFY appRoutingChanged)
     Q_PROPERTY(QString protectionStatus READ protectionStatus NOTIFY protectionChanged)
     Q_PROPERTY(QString protectionDetail READ protectionDetail NOTIFY protectionChanged)
+    Q_PROPERTY(QString serviceReadinessStatus READ serviceReadinessStatus NOTIFY serviceReadinessChanged)
+    Q_PROPERTY(QString serviceReadinessDetail READ serviceReadinessDetail NOTIFY serviceReadinessChanged)
     Q_PROPERTY(bool minimizeToTray READ minimizeToTray NOTIFY desktopIntegrationChanged)
     Q_PROPERTY(bool autostartEnabled READ autostartEnabled NOTIFY desktopIntegrationChanged)
     Q_PROPERTY(QString desktopIntegrationStatus READ desktopIntegrationStatus NOTIFY desktopIntegrationChanged)
@@ -172,6 +174,8 @@ public:
     QVariantList routeApplicationItems() const;
     QString protectionStatus() const;
     QString protectionDetail() const;
+    QString serviceReadinessStatus() const;
+    QString serviceReadinessDetail() const;
     bool minimizeToTray() const;
     bool autostartEnabled() const;
     QString desktopIntegrationStatus() const;
@@ -237,6 +241,7 @@ signals:
     void tunChanged();
     void appRoutingChanged();
     void protectionChanged();
+    void serviceReadinessChanged();
     void desktopIntegrationChanged();
     void supportBundleChanged();
     void showMainWindowRequested();
@@ -281,6 +286,7 @@ private:
     void applyTunStateObject(const QJsonObject &state);
     void applyAppRoutingPolicyObject(const QJsonObject &state);
     void applyProtectionPolicyObject(const QJsonObject &state);
+    void applyServiceReadinessObject(const QJsonObject &state);
     void applyTrafficStatsObject(const QJsonObject &state);
     void syncAppRoutingPolicy();
     QJsonArray routeApplicationArray() const;
@@ -325,6 +331,8 @@ private:
     QString m_routePolicyDetail = "Режим всего компьютера не требует списка приложений.";
     QString m_protectionStatus = "Готова";
     QString m_protectionDetail = "Kill switch, DNS guard, IPv6 policy и watchdog будут применены сервисом.";
+    QString m_serviceReadinessStatus = "Текущий пользователь";
+    QString m_serviceReadinessDetail = "Привилегированный сервис ещё не установлен.";
     bool m_minimizeToTray = true;
     bool m_autostartEnabled = false;
     QString m_desktopIntegrationStatus = "Трей готов";

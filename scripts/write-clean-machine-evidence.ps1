@@ -117,6 +117,7 @@ $archivePath = "$PackageRoot.zip"
 $evidencePath = "$PackageRoot.clean-machine-evidence.json"
 $steps = New-Object System.Collections.Generic.List[object]
 $failed = $false
+$serviceReadiness = $null
 
 Invoke-ScriptStep -Name "validate-package" -ScriptPath $validateScript -Parameters @{
     PackageRoot = $PackageRoot
@@ -167,7 +168,8 @@ else {
     $serviceExitCode = $LASTEXITCODE
     try {
         $serviceState = ($serviceOutput | Out-String).Trim() | ConvertFrom-Json
-        Add-Step "service:status" (($serviceExitCode -eq 0) -and ($serviceState.version -eq $ExpectedVersion)) "exit=$serviceExitCode version=$($serviceState.version)"
+        $serviceReadiness = $serviceState.service_readiness
+        Add-Step "service:status" (($serviceExitCode -eq 0) -and ($serviceState.version -eq $ExpectedVersion)) "exit=$serviceExitCode version=$($serviceState.version) readiness=$($serviceReadiness.status)"
     }
     catch {
         Add-Step "service:status" $false $_.Exception.Message
@@ -225,6 +227,7 @@ $evidence = [PSCustomObject]@{
     matrixCase = $MatrixCase
     generatedAtUtc = (Get-Date).ToUniversalTime().ToString("O")
     host = Get-HostFacts
+    serviceReadiness = $serviceReadiness
     packageRoot = $PackageRoot
     steps = $steps
 }

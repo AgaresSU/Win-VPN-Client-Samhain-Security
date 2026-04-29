@@ -1,6 +1,6 @@
 # Signing And Integrity
 
-Version: `1.0.11`
+Version: `1.1.2`
 
 Current status: `unsigned-dev`.
 

@@ -1,6 +1,6 @@
 # Roadmap
 
-Current version: `1.0.11`
+Current version: `1.1.2`
 
 This roadmap is the working contract for Samhain Security. Future implementation should follow this order unless a blocker is found and documented in the same commit.
 
@@ -395,6 +395,17 @@ Done when the app list is scannable, mode-specific, and free of native light hov
 
 Status: shipped in `v1.0.11` with structured application routing rows, a compact mode summary, and custom dark dialog controls.
 
+### 1.1.2 - Service Readiness Evidence
+
+- Add a service readiness snapshot for current identity, elevation, and enforcement gates.
+- Expose app-routing enforcement requested/available fields with evidence strings.
+- Show privileged-service readiness in advanced settings without applying system rules.
+- Extend package validation and clean-machine evidence with service readiness checks.
+
+Done when service status and release evidence explain exactly why app routing is gated.
+
+Status: shipped in `v1.1.2` with service readiness telemetry, app-routing evidence, and package-level readiness checks.
+
 ## Immediate Next Build Order
 
-1. `1.0.12`: privileged service identity preparation and app-routing enforcement evidence.
+1. `1.1.3`: installer-managed privileged service registration plan and dry-run operation surface.

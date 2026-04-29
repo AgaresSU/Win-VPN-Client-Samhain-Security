@@ -7,9 +7,9 @@ use samhain_ipc::{
     AppRoutingPolicyState, ClientCommand, EngineCatalogEntry, EngineConfigPreview, EngineKind,
     EngineLifecycleState, EngineLogEntry, IPC_PROTOCOL_VERSION, Ipv6Policy, LogSnapshotState,
     PingProbeResult, ProtectionPolicyState, ProtectionSettings, ProxyLifecycleState,
-    RequestEnvelope, ResponseEnvelope, RouteApplication, ServiceEvent, ServiceState,
-    SupportBundleState, TrafficStatsState, TunLifecycleState, decode_request, encode_event,
-    encode_response,
+    RequestEnvelope, ResponseEnvelope, RouteApplication, ServiceEvent, ServiceReadinessState,
+    ServiceState, SupportBundleState, TrafficStatsState, TunLifecycleState, decode_request,
+    encode_event, encode_response,
 };
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeSet;
@@ -31,6 +31,7 @@ const TUN_ADDRESS: &str = "172.19.0.1/30";
 const TUN_DNS: &[&str] = &["1.1.1.1", "8.8.8.8"];
 const ADAPTER_DRY_RUN_ENV: &str = "SAMHAIN_ADAPTER_DRY_RUN";
 const APP_ROUTING_DRY_RUN_ENV: &str = "SAMHAIN_APP_ROUTING_DRY_RUN";
+const APP_ROUTING_ENFORCE_ENV: &str = "SAMHAIN_APP_ROUTING_ENFORCE";
 const PROTECTION_DRY_RUN_ENV: &str = "SAMHAIN_PROTECTION_DRY_RUN";
 const PROTECTION_ENFORCE_ENV: &str = "SAMHAIN_PROTECTION_ENFORCE";
 const MAX_RECONNECT_ATTEMPTS: u8 = 3;
@@ -499,6 +500,7 @@ fn current_state(running: bool) -> ServiceState {
             tun_state: TunLifecycleState::default(),
             app_routing_policy: AppRoutingPolicyState::default(),
             protection_policy: ProtectionPolicyState::default(),
+            service_readiness: service_readiness_state(),
             traffic_stats: TrafficStatsState::default(),
             probe_queue_active: false,
             probe_results: Vec::new(),
@@ -573,6 +575,7 @@ impl ServiceStore {
         let protection_policy = self
             .engine_manager
             .protection_snapshot(self.state.protection_settings.clone());
+        let service_readiness = service_readiness_state();
         let traffic_stats = self.engine_manager.traffic_snapshot();
         ServiceState {
             version: env!("CARGO_PKG_VERSION").to_string(),
@@ -586,6 +589,7 @@ impl ServiceStore {
             tun_state,
             app_routing_policy,
             protection_policy,
+            service_readiness,
             traffic_stats,
             probe_queue_active: self.state.probe_queue_active,
             probe_results: self.state.probe_results.clone(),
@@ -1716,6 +1720,9 @@ impl AppRoutingManager {
         let mut state = self.state.clone();
         state.route_mode = route_mode;
         state.applications = applications;
+        state.enforcement_requested = app_routing_enforce();
+        state.enforcement_available = app_routing_enforcement_available();
+        state.evidence = app_routing_evidence(route_mode, state.applications.len());
         if matches!(state.status.as_str(), "inactive" | "restored")
             && route_mode != RouteMode::WholeComputer
         {
@@ -1727,19 +1734,23 @@ impl AppRoutingManager {
             if enabled_count == 0 {
                 state.status = "needs-apps".to_string();
                 state.supported = false;
+                state.enforcement_available = false;
                 state.message = "Добавьте приложения для выбранного режима.".to_string();
             } else {
                 state.status = "configured".to_string();
-                state.supported = false;
+                state.supported = state.enforcement_available;
                 state.rule_names = state
                     .applications
                     .iter()
                     .filter(|application| application.enabled)
                     .map(|application| format!("Samhain Security App Route {}", application.id))
                     .collect();
-                state.message =
+                state.message = if state.enforcement_available {
+                    "Приложения сохранены. Прозрачный режим готов к enforcement.".to_string()
+                } else {
                     "Приложения сохранены. Применение при подключении остаётся ограниченным до WFP-слоя."
-                        .to_string();
+                        .to_string()
+                };
             }
         }
         state
@@ -1761,8 +1772,11 @@ impl AppRoutingManager {
                 status: "inactive".to_string(),
                 route_mode,
                 supported: true,
+                enforcement_requested: app_routing_enforce(),
+                enforcement_available: false,
                 applications,
                 rule_names: Vec::new(),
+                evidence: app_routing_evidence(route_mode, 0),
                 applied_at: None,
                 restored_at: None,
                 message: "Режим всего компьютера не требует списка приложений.".to_string(),
@@ -1775,8 +1789,11 @@ impl AppRoutingManager {
                 status: "needs-apps".to_string(),
                 route_mode,
                 supported: false,
+                enforcement_requested: app_routing_enforce(),
+                enforcement_available: false,
                 applications,
                 rule_names: Vec::new(),
+                evidence: app_routing_evidence(route_mode, 0),
                 applied_at: None,
                 restored_at: None,
                 message: "Добавьте приложения для выбранного режима.".to_string(),
@@ -1789,17 +1806,31 @@ impl AppRoutingManager {
             .map(|application| format!("Samhain Security App Route {}", application.id))
             .collect::<Vec<_>>();
         let dry_run = app_routing_dry_run();
+        let enforcement_requested = app_routing_enforce();
+        let enforcement_available = app_routing_enforcement_available();
         self.state = AppRoutingPolicyState {
-            status: if dry_run { "dry-run" } else { "limited" }.to_string(),
+            status: if dry_run {
+                "dry-run"
+            } else if enforcement_available {
+                "active"
+            } else {
+                "limited"
+            }
+            .to_string(),
             route_mode,
-            supported: false,
+            supported: enforcement_available,
+            enforcement_requested,
+            enforcement_available,
             applications,
             rule_names,
+            evidence: app_routing_evidence(route_mode, enabled_apps.len()),
             applied_at: Some(now_engine_label()),
             restored_at: None,
             message: if dry_run {
                 "Политика приложений проверена в dry-run. Прозрачная маршрутизация требует WFP-слой."
                     .to_string()
+            } else if enforcement_available {
+                "Политика приложений готова к прозрачному enforcement.".to_string()
             } else {
                 "Приложения сохранены. Точная прозрачная маршрутизация требует WFP-слой; режим не помечен как полностью поддержанный."
                     .to_string()
@@ -3267,12 +3298,113 @@ fn app_routing_dry_run() -> bool {
     std::env::var_os(APP_ROUTING_DRY_RUN_ENV).is_some()
 }
 
+fn app_routing_enforce() -> bool {
+    std::env::var_os(APP_ROUTING_ENFORCE_ENV).is_some()
+}
+
+fn app_routing_enforcement_available() -> bool {
+    false
+}
+
+fn app_routing_evidence(route_mode: RouteMode, enabled_count: usize) -> Vec<String> {
+    let mut evidence = Vec::new();
+    evidence.push(format!("route_mode={route_mode:?}"));
+    evidence.push(format!("enabled_applications={enabled_count}"));
+    evidence.push(format!("requested={}", app_routing_enforce()));
+    evidence.push("wfp_layer=not-implemented".to_string());
+    evidence.push(format!("available={}", app_routing_enforcement_available()));
+    evidence
+}
+
 fn protection_dry_run() -> bool {
     std::env::var_os(PROTECTION_DRY_RUN_ENV).is_some()
 }
 
 fn protection_enforce() -> bool {
     std::env::var_os(PROTECTION_ENFORCE_ENV).is_some()
+}
+
+fn service_readiness_state() -> ServiceReadinessState {
+    let running_as_admin = process_is_elevated();
+    let protection_requested = protection_enforce();
+    let app_routing_requested = app_routing_enforce();
+    let firewall_available = protection_requested && running_as_admin;
+    let app_routing_available = app_routing_enforcement_available();
+
+    let status = if app_routing_requested && !app_routing_available {
+        "waiting-wfp"
+    } else if firewall_available {
+        "privileged-ready"
+    } else if running_as_admin {
+        "elevated"
+    } else {
+        "current-user"
+    };
+
+    let mut checks = Vec::new();
+    checks.push(format!("running_as_admin={running_as_admin}"));
+    checks.push(format!("protection_requested={protection_requested}"));
+    checks.push(format!("firewall_available={firewall_available}"));
+    checks.push(format!("app_routing_requested={app_routing_requested}"));
+    checks.push(format!("app_routing_available={app_routing_available}"));
+    checks.push("service_identity=current-user-package".to_string());
+    checks.push("required_identity=signed-privileged-service".to_string());
+
+    let message = if app_routing_requested && !app_routing_available {
+        "App routing enforcement requested, but the WFP layer is not ready yet."
+    } else if firewall_available {
+        "Firewall enforcement is available for this process."
+    } else if running_as_admin {
+        "Process is elevated; installer-managed service identity is still pending."
+    } else {
+        "Running as current-user package; privileged enforcement is gated."
+    };
+
+    ServiceReadinessState {
+        status: status.to_string(),
+        identity: "current-user-package".to_string(),
+        required_identity: "signed-privileged-service".to_string(),
+        running_as_admin,
+        protection_enforcement_requested: protection_requested,
+        app_routing_enforcement_requested: app_routing_requested,
+        firewall_enforcement_available: firewall_available,
+        app_routing_enforcement_available: app_routing_available,
+        checks,
+        message: message.to_string(),
+    }
+}
+
+#[cfg(windows)]
+fn process_is_elevated() -> bool {
+    use windows_sys::Win32::Foundation::{CloseHandle, HANDLE};
+    use windows_sys::Win32::Security::{
+        GetTokenInformation, TOKEN_ELEVATION, TOKEN_QUERY, TokenElevation,
+    };
+    use windows_sys::Win32::System::Threading::{GetCurrentProcess, OpenProcessToken};
+
+    unsafe {
+        let mut token: HANDLE = std::ptr::null_mut();
+        if OpenProcessToken(GetCurrentProcess(), TOKEN_QUERY, &mut token) == 0 {
+            return false;
+        }
+
+        let mut elevation = TOKEN_ELEVATION { TokenIsElevated: 0 };
+        let mut returned = 0u32;
+        let ok = GetTokenInformation(
+            token,
+            TokenElevation,
+            &mut elevation as *mut TOKEN_ELEVATION as *mut _,
+            std::mem::size_of::<TOKEN_ELEVATION>() as u32,
+            &mut returned,
+        ) != 0;
+        let _ = CloseHandle(token);
+        ok && elevation.TokenIsElevated != 0
+    }
+}
+
+#[cfg(not(windows))]
+fn process_is_elevated() -> bool {
+    false
 }
 
 fn normalize_protection_settings(mut settings: ProtectionSettings) -> ProtectionSettings {
@@ -4454,6 +4586,13 @@ mod tests {
 
         assert_eq!(state.status, "limited");
         assert!(!state.supported);
+        assert!(!state.enforcement_available);
+        assert!(
+            state
+                .evidence
+                .iter()
+                .any(|item| item == "wfp_layer=not-implemented")
+        );
         assert_eq!(state.rule_names.len(), 1);
         assert!(state.message.contains("WFP"));
 
@@ -4461,6 +4600,21 @@ mod tests {
         let configured = fresh_manager.snapshot(RouteMode::SelectedAppsOnly, state.applications);
         assert_eq!(configured.status, "configured");
         assert_eq!(configured.rule_names.len(), 1);
+    }
+
+    #[test]
+    fn service_readiness_exposes_enforcement_gates() {
+        let state = service_readiness_state();
+
+        assert_eq!(state.identity, "current-user-package");
+        assert_eq!(state.required_identity, "signed-privileged-service");
+        assert!(!state.app_routing_enforcement_available);
+        assert!(
+            state
+                .checks
+                .iter()
+                .any(|check| check.starts_with("app_routing_available="))
+        );
     }
 
     #[test]
