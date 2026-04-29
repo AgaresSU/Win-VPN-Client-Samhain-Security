@@ -61,28 +61,33 @@ ApplicationWindow {
         modal: true
         x: Math.round((root.width - width) / 2)
         y: Math.round((root.height - height) / 2)
-        width: 520
-        height: 360
+        width: 560
+        height: 382
         padding: 0
         closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutside
+        onOpened: {
+            subscriptionNameInput.text = "Samhain Security"
+            subscriptionUrlInput.text = ""
+            subscriptionUrlInput.forceActiveFocus()
+        }
 
         background: Rectangle {
-            color: "#262626"
-            radius: 18
-            border.color: "#34343A"
+            color: "#201C1E"
+            radius: 12
+            border.color: "#3E3337"
         }
 
         contentItem: ColumnLayout {
-            spacing: 18
+            spacing: 16
             anchors.fill: parent
-            anchors.margins: 34
+            anchors.margins: 32
 
             RowLayout {
                 Layout.fillWidth: true
                 Text {
                     text: "Добавить подписку"
                     color: root.text
-                    font.pixelSize: 28
+                    font.pixelSize: 26
                     font.bold: true
                     Layout.fillWidth: true
                 }
@@ -95,7 +100,7 @@ ApplicationWindow {
                     contentItem: Text {
                         text: parent.text
                         color: root.muted
-                        font.pixelSize: 34
+                        font.pixelSize: 30
                         horizontalAlignment: Text.AlignHCenter
                         verticalAlignment: Text.AlignVCenter
                     }
@@ -114,11 +119,12 @@ ApplicationWindow {
                 text: "Samhain Security"
                 color: root.text
                 placeholderText: "Например: Samhain Security"
-                placeholderTextColor: "#77777F"
+                placeholderTextColor: "#777176"
+                selectionColor: root.accent
                 background: Rectangle {
-                    color: "#3A3A3A"
-                    radius: 8
-                    border.color: subscriptionNameInput.activeFocus ? root.accent : "#4A4A4A"
+                    color: root.field
+                    radius: 6
+                    border.color: subscriptionNameInput.activeFocus ? root.accent : "#463B3F"
                 }
             }
 
@@ -133,35 +139,61 @@ ApplicationWindow {
                 height: 48
                 color: root.text
                 placeholderText: "https://..."
-                placeholderTextColor: "#77777F"
+                placeholderTextColor: "#777176"
+                selectionColor: root.accent
                 background: Rectangle {
-                    color: "#3A3A3A"
-                    radius: 8
-                    border.color: subscriptionUrlInput.activeFocus ? root.accent : "#4A4A4A"
+                    color: root.field
+                    radius: 6
+                    border.color: subscriptionUrlInput.activeFocus ? root.accent : "#463B3F"
                 }
             }
 
             RowLayout {
                 Layout.fillWidth: true
+                spacing: 12
                 Item { Layout.fillWidth: true }
                 Button {
+                    text: "Отмена"
+                    Layout.preferredWidth: 118
+                    height: 46
+                    onClicked: addDialog.close()
+                    background: Rectangle {
+                        color: parent.down ? "#2A2023" : "#181617"
+                        radius: 6
+                        border.color: "#30292C"
+                    }
+                    contentItem: Text { text: parent.text; color: root.muted; font.pixelSize: 16; horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter }
+                }
+                Button {
                     text: "Из буфера"
-                    Layout.preferredWidth: 132
-                    height: 48
-                    onClicked: appController.pasteFromClipboard()
-                    background: Rectangle { color: "#333333"; radius: 8 }
+                    Layout.preferredWidth: 126
+                    height: 46
+                    onClicked: {
+                        appController.pasteFromClipboard()
+                        addDialog.close()
+                    }
+                    background: Rectangle {
+                        color: parent.down ? "#2A2023" : "#181617"
+                        radius: 6
+                        border.color: parent.hovered ? "#4A3C41" : "#30292C"
+                    }
                     contentItem: Text { text: parent.text; color: root.text; font.pixelSize: 16; horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter }
                 }
                 Button {
                     text: "Добавить"
-                    Layout.preferredWidth: 132
-                    height: 48
+                    enabled: subscriptionUrlInput.text.trim().length > 0
+                    Layout.preferredWidth: 126
+                    height: 46
                     onClicked: {
                         appController.addSubscription(subscriptionNameInput.text, subscriptionUrlInput.text)
                         addDialog.close()
                     }
-                    background: Rectangle { color: root.accent; radius: 8 }
-                    contentItem: Text { text: parent.text; color: "white"; font.pixelSize: 16; font.bold: true; horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter }
+                    background: Rectangle {
+                        color: parent.enabled ? (parent.down ? "#8F2F36" : root.accent) : "#3B3034"
+                        radius: 6
+                        border.color: parent.enabled ? "#D15B63" : "#463B3F"
+                    }
+                    contentItem: Text { text: parent.text; color: parent.enabled ? "white" : root.muted; font.pixelSize: 16; font.bold: true; horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter }
                 }
             }
         }
@@ -813,16 +845,56 @@ ApplicationWindow {
                                 }
                             }
                             ButtonIcon { label: "↻"; onClicked: appController.refreshSubscription(index) }
-                            ButtonIcon {
-                                label: "✎"
-                                onClicked: {
-                                    renameDialog.rowIndex = index
-                                    renameSubscriptionNameInput.text = name
-                                    renameDialog.open()
+                            ButtonIcon { label: "⋯"; onClicked: subscriptionActions.open() }
+
+                            Menu {
+                                id: subscriptionActions
+                                modal: true
+                                background: Rectangle {
+                                    color: "#201C1E"
+                                    radius: 8
+                                    border.color: "#3E3337"
+                                }
+                                delegate: MenuItem {
+                                    id: actionItem
+                                    implicitWidth: 188
+                                    implicitHeight: 42
+                                    contentItem: Text {
+                                        text: actionItem.text
+                                        color: actionItem.text === "Удалить" ? "#F06A72" : root.text
+                                        font.pixelSize: 15
+                                        verticalAlignment: Text.AlignVCenter
+                                        leftPadding: 10
+                                        elide: Text.ElideRight
+                                    }
+                                    background: Rectangle {
+                                        color: actionItem.highlighted ? "#302529" : "transparent"
+                                        radius: 6
+                                    }
+                                }
+                                MenuItem {
+                                    text: "Переименовать"
+                                    onTriggered: {
+                                        renameDialog.rowIndex = index
+                                        renameSubscriptionNameInput.text = name
+                                        renameDialog.open()
+                                    }
+                                }
+                                MenuItem {
+                                    text: "Диагностика"
+                                    onTriggered: appController.copySubscriptionDiagnostics(index)
+                                }
+                                MenuSeparator {
+                                    contentItem: Rectangle {
+                                        implicitHeight: 1
+                                        color: "#3A3033"
+                                    }
+                                }
+                                MenuItem {
+                                    text: "Удалить"
+                                    onTriggered: appController.deleteSubscription(index)
                                 }
                             }
-                            ButtonIcon { label: "⧉"; onClicked: appController.copySubscriptionDiagnostics(index) }
-                            ButtonIcon { label: "×"; danger: true; onClicked: appController.deleteSubscription(index) }
                         }
 
                         RowLayout {
@@ -1087,7 +1159,7 @@ ApplicationWindow {
             spacing: 18
             PageTitle { text: "О программе" }
             MetricRow { title: "Программа"; value: "Samhain Security Native" }
-            MetricRow { title: "Версия"; value: "1.0.2" }
+            MetricRow { title: "Версия"; value: "1.0.3" }
             MetricRow { title: "Интерфейс"; value: "Qt 6 / QML" }
             MetricRow { title: "Ядро"; value: "Rust workspace" }
             MetricRow { title: "Статус"; value: appController.statusText }

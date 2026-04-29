@@ -1,6 +1,6 @@
 # Roadmap
 
-Current version: `1.0.2`
+Current version: `1.0.3`
 
 This roadmap is the working contract for Samhain Security. Future implementation should follow this order unless a blocker is found and documented in the same commit.
 
@@ -298,6 +298,17 @@ Done when the main screen feels closer to the reference layout while preserving 
 
 Status: shipped in `v1.0.2` with a calmer right connection panel, compact server rows, quieter action buttons, bottom quick actions, and versioned package validation.
 
+### 1.0.3 - Subscription UX Polish
+
+- Keep subscription rows compact.
+- Move rename, diagnostics, and delete into a quiet actions menu.
+- Clean up the add-subscription dialog styling.
+- Keep paste and manual add as equally simple paths.
+
+Done when the subscription list no longer feels like a technical control panel.
+
+Status: shipped in `v1.0.3` with compact subscription actions, a dark add-subscription dialog, safer disabled add state, and versioned package validation.
+
 ## Immediate Next Build Order
 
-1. `1.0.3`: subscription group collapsed state polish and add-subscription dialog cleanup.
+1. `1.0.4`: settings page simplification and advanced settings grouping.
