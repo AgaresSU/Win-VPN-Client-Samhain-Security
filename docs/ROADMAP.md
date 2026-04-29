@@ -1,6 +1,6 @@
 # Roadmap
 
-Current version: `1.0.1`
+Current version: `1.0.2`
 
 This roadmap is the working contract for Samhain Security. Future implementation should follow this order unless a blocker is found and documented in the same commit.
 
@@ -287,6 +287,17 @@ Done when a release package can report current signing state and generate machin
 
 Status: shipped in `v1.0.1` with packaged signing readiness checks, clean-machine evidence generation, manifest wiring, checksum coverage, and stable release documentation updates.
 
+### 1.0.2 - Main Shell Polish
+
+- Refine the first screen around the server list and connection panel.
+- Reduce visual glare and keep the dark red graphite direction.
+- Add quiet bottom quick actions for clipboard import and subscription add.
+- Keep advanced and technical actions out of the primary path.
+
+Done when the main screen feels closer to the reference layout while preserving existing flows and package gates.
+
+Status: shipped in `v1.0.2` with a calmer right connection panel, compact server rows, quieter action buttons, bottom quick actions, and versioned package validation.
+
 ## Immediate Next Build Order
 
-1. `1.0.2`: installer manifest draft, signed-binary handoff fields, and external matrix tracking.
+1. `1.0.3`: subscription group collapsed state polish and add-subscription dialog cleanup.

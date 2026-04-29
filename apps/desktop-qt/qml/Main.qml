@@ -17,19 +17,19 @@ ApplicationWindow {
     readonly property bool tight: height < 790
     readonly property int pageMargin: compact ? 26 : 36
     readonly property string appIconSource: "qrc:/qt/qml/SamhainSecurityNative/resources/app-icon.png"
-    readonly property color bg: "#101010"
-    readonly property color rail: "#171315"
-    readonly property color panel: "#201B1D"
-    readonly property color panelHot: "#2C2427"
-    readonly property color row: "#242123"
-    readonly property color rowSelected: "#453A3D"
-    readonly property color text: "#F2F2F2"
-    readonly property color muted: "#A8A8AE"
+    readonly property color bg: "#0F0F10"
+    readonly property color rail: "#161213"
+    readonly property color panel: "#1A1718"
+    readonly property color panelHot: "#282225"
+    readonly property color row: "#201D1F"
+    readonly property color rowSelected: "#382E32"
+    readonly property color text: "#F1EDEE"
+    readonly property color muted: "#A9A3A7"
     readonly property color line: "#3B3033"
-    readonly property color accent: "#D0434C"
-    readonly property color samhainRed: "#D0434C"
-    readonly property color field: "#261F22"
-    readonly property color fieldHot: "#31272B"
+    readonly property color accent: "#B83A43"
+    readonly property color samhainRed: "#B83A43"
+    readonly property color field: "#181617"
+    readonly property color fieldHot: "#272124"
 
     Shortcut {
         sequences: [StandardKey.Paste]
@@ -520,121 +520,164 @@ ApplicationWindow {
                 Rectangle {
                     anchors.fill: parent
                     gradient: Gradient {
-                        GradientStop { position: 0.0; color: "#211A1D" }
-                        GradientStop { position: 1.0; color: "#121214" }
+                        GradientStop { position: 0.0; color: "#1B171A" }
+                        GradientStop { position: 1.0; color: "#101012" }
                     }
                 }
                 Rectangle {
-                    width: parent.width * 1.15
-                    height: parent.height * 0.62
-                    x: parent.width * 0.08
-                    y: parent.height * 0.35
+                    width: parent.width * 1.12
+                    height: parent.height * 0.60
+                    x: parent.width * 0.06
+                    y: parent.height * 0.36
                     rotation: 38
                     radius: 80
-                    color: "#151113"
-                    opacity: 0.7
+                    color: "#151214"
+                    opacity: 0.68
                 }
 
                 ColumnLayout {
                     anchors.fill: parent
-                    anchors.margins: root.compact ? 30 : 44
-                    spacing: root.tight ? 18 : 26
+                    anchors.margins: root.compact ? 28 : 42
+                    spacing: root.tight ? 14 : 20
+
+                    Rectangle {
+                        Layout.alignment: Qt.AlignHCenter
+                        Layout.preferredWidth: 178
+                        Layout.preferredHeight: 38
+                        radius: 6
+                        color: appController.connected ? "#2C171B" : "#211C1E"
+                        border.color: appController.connected ? root.accent : "#44363A"
+                        Text {
+                            anchors.centerIn: parent
+                            text: appController.connected ? "Подключён" : "Ожидание"
+                            color: appController.connected ? "#F4D9DC" : root.muted
+                            font.pixelSize: 15
+                            font.bold: true
+                        }
+                    }
 
                     Item {
                         Layout.fillWidth: true
-                        Layout.preferredHeight: root.tight ? 360 : 520
+                        Layout.preferredHeight: root.tight ? 290 : 374
+                        property int dialSize: root.tight ? 230 : 306
 
                         Rectangle {
-                            width: root.tight ? 250 : 334
+                            width: parent.dialSize
                             height: width
                             radius: width / 2
                             anchors.centerIn: parent
                             color: "transparent"
-                            border.color: "#4C1E25"
+                            border.color: appController.connected ? "#5A2028" : "#33252A"
+                            border.width: 2
+                            opacity: 0.95
+                        }
+                        Rectangle {
+                            width: parent.dialSize * 0.78
+                            height: width
+                            radius: width / 2
+                            anchors.centerIn: parent
+                            color: "#222027"
+                            border.color: "#343141"
+                            border.width: 2
+                            opacity: 0.94
+                        }
+                        Rectangle {
+                            width: parent.dialSize * 0.56
+                            height: width
+                            radius: width / 2
+                            anchors.centerIn: parent
+                            color: "#161417"
+                            border.color: appController.connected ? root.accent : "#5C3339"
                             border.width: 2
                         }
                         Rectangle {
-                            width: root.tight ? 184 : 238
+                            width: parent.dialSize * 0.36
                             height: width
                             radius: width / 2
                             anchors.centerIn: parent
-                            color: "#33262A"
-                            opacity: 0.92
-                        }
-                        Rectangle {
-                            width: root.tight ? 136 : 174
-                            height: width
-                            radius: width / 2
-                            anchors.centerIn: parent
-                            color: "#1C181B"
-                            border.color: "#6C3940"
-                            border.width: 3
+                            color: "transparent"
+                            border.color: "#2F2930"
+                            border.width: 1
                         }
                         Button {
-                            width: root.tight ? 90 : 110
+                            width: root.tight ? 86 : 104
                             height: width
                             anchors.centerIn: parent
                             onClicked: appController.toggleConnection()
                             background: Rectangle {
                                 radius: width / 2
-                                color: appController.connected ? root.samhainRed : "#6A353B"
-                                border.color: appController.connected ? "#F08A91" : "#A74A52"
+                                color: appController.connected ? root.samhainRed : "#4B252C"
+                                border.color: appController.connected ? "#CF5961" : "#7B3A42"
                                 border.width: 2
                             }
                             contentItem: Column {
                                 anchors.centerIn: parent
-                                spacing: 6
+                                spacing: 4
                                 Text {
                                     anchors.horizontalCenter: parent.horizontalCenter
                                     text: "⏻"
                                     color: "white"
-                                    font.pixelSize: 38
+                                    font.pixelSize: 36
                                     font.bold: true
                                 }
                                 Text {
                                     anchors.horizontalCenter: parent.horizontalCenter
-                                    text: appController.connected ? "ПОДКЛЮЧЁН" : "ГОТОВ"
-                                    color: "#D8D8E6"
+                                    text: appController.connected ? appController.sessionTime : "Старт"
+                                    color: "#F1EDEE"
                                     font.pixelSize: 12
-                                }
-                                Text {
-                                    anchors.horizontalCenter: parent.horizontalCenter
-                                    text: appController.connected ? appController.sessionTime : ""
-                                    color: "white"
-                                    font.pixelSize: 13
                                 }
                             }
                         }
                     }
 
-                    Text {
-                        text: appController.selectedServerFlag
-                        color: root.text
-                        font.pixelSize: root.tight ? 34 : 46
-                        Layout.alignment: Qt.AlignHCenter
-                    }
-                    Text {
-                        text: appController.selectedServerName
-                        color: root.text
-                        font.pixelSize: root.tight ? 18 : 22
-                        Layout.alignment: Qt.AlignHCenter
-                        horizontalAlignment: Text.AlignHCenter
-                        elide: Text.ElideRight
+                    Rectangle {
                         Layout.fillWidth: true
+                        Layout.preferredHeight: root.tight ? 104 : 122
+                        color: "#171517"
+                        border.color: "#2F292C"
+                        radius: 8
+                        ColumnLayout {
+                            anchors.fill: parent
+                            anchors.margins: 16
+                            spacing: 8
+                            Text {
+                                text: appController.selectedServerFlag
+                                color: root.text
+                                font.pixelSize: root.tight ? 28 : 36
+                                Layout.alignment: Qt.AlignHCenter
+                            }
+                            Text {
+                                text: appController.selectedServerName
+                                color: root.text
+                                font.pixelSize: root.tight ? 17 : 21
+                                Layout.alignment: Qt.AlignHCenter
+                                horizontalAlignment: Text.AlignHCenter
+                                elide: Text.ElideRight
+                                Layout.fillWidth: true
+                            }
+                            Text {
+                                text: appController.selectedServerProtocol + " · " + appController.selectedServerPing
+                                color: root.muted
+                                font.pixelSize: 14
+                                Layout.alignment: Qt.AlignHCenter
+                                elide: Text.ElideRight
+                                Layout.fillWidth: true
+                                horizontalAlignment: Text.AlignHCenter
+                            }
+                        }
                     }
-                    Text {
-                        text: appController.selectedServerProtocol + " · " + appController.selectedServerPing
-                        color: root.muted
-                        font.pixelSize: 15
-                        Layout.alignment: Qt.AlignHCenter
-                    }
+
                     Button {
                         text: "Тест пинга"
                         Layout.preferredWidth: 288
                         Layout.preferredHeight: root.tight ? 42 : 48
                         Layout.alignment: Qt.AlignHCenter
                         onClicked: appController.testPing()
-                        background: Rectangle { radius: 6; color: root.accent }
+                        background: Rectangle {
+                            radius: 6
+                            color: parent.down ? "#8F2F36" : root.accent
+                            border.color: "#D15B63"
+                        }
                         contentItem: Text { text: parent.text; color: "white"; font.pixelSize: 18; horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter }
                     }
 
@@ -648,8 +691,8 @@ ApplicationWindow {
                     Rectangle {
                         Layout.fillWidth: true
                         Layout.preferredHeight: root.tight ? 80 : 92
-                        color: "#1C1F28"
-                        border.color: "#3A3034"
+                        color: "#171517"
+                        border.color: "#31292D"
                         radius: 8
                         RowLayout {
                             anchors.fill: parent
@@ -672,12 +715,12 @@ ApplicationWindow {
         ColumnLayout {
             anchors.fill: parent
             anchors.margins: root.pageMargin
-            spacing: 20
+            spacing: 18
 
             Text {
                 text: "Серверы"
                 color: root.text
-                font.pixelSize: 36
+                font.pixelSize: 34
                 font.bold: true
             }
 
@@ -686,16 +729,16 @@ ApplicationWindow {
                 TextField {
                     id: searchField
                     Layout.fillWidth: true
-                    Layout.preferredHeight: 60
+                    Layout.preferredHeight: 58
                     color: root.text
                     placeholderText: "Введите текст для поиска"
                     placeholderTextColor: root.muted
                     font.pixelSize: 18
                     background: Rectangle {
-                        color: "#1B1B1B"
+                        color: root.field
                         radius: 6
-                        border.color: searchField.activeFocus ? root.accent : "#6A6A70"
-                        border.width: 2
+                        border.color: searchField.activeFocus ? root.accent : "#4B4145"
+                        border.width: 1
                     }
                 }
                 ButtonIcon { label: "↻"; onClicked: appController.testAllPings() }
@@ -715,18 +758,20 @@ ApplicationWindow {
                     spacing: 0
                     delegate: Rectangle {
                         width: serverList.width
-                        height: isSubscription ? 78 : 72
-                        color: isSubscription ? "#343434" : (selected ? root.rowSelected : root.row)
-                        border.color: "#3A3A3A"
+                        height: isSubscription ? 76 : 70
+                        color: isSubscription ? "#2A2728" : (selected ? root.rowSelected : root.row)
+                        border.color: isSubscription ? "#43383C" : "#30292C"
                         border.width: 1
-                        radius: isSubscription ? 8 : 0
+                        radius: isSubscription ? 7 : 0
 
                         Rectangle {
                             visible: selected && !isSubscription
-                            width: 5
-                            height: parent.height
+                            width: 4
+                            height: parent.height - 16
                             color: root.accent
                             anchors.left: parent.left
+                            anchors.verticalCenter: parent.verticalCenter
+                            radius: 2
                         }
 
                         MouseArea {
@@ -744,7 +789,7 @@ ApplicationWindow {
                             Text {
                                 text: expanded ? "⌄" : "›"
                                 color: root.muted
-                                font.pixelSize: 24
+                                font.pixelSize: 22
                                 Layout.preferredWidth: 24
                                 horizontalAlignment: Text.AlignHCenter
                             }
@@ -754,7 +799,7 @@ ApplicationWindow {
                                 Text {
                                     text: name
                                     color: root.text
-                                    font.pixelSize: 20
+                                    font.pixelSize: 19
                                     font.bold: true
                                     elide: Text.ElideRight
                                     Layout.fillWidth: true
@@ -794,7 +839,7 @@ ApplicationWindow {
                                 Text {
                                     text: name
                                     color: root.text
-                                    font.pixelSize: 19
+                                    font.pixelSize: 18
                                     elide: Text.ElideRight
                                     Layout.fillWidth: true
                                 }
@@ -808,7 +853,7 @@ ApplicationWindow {
                             }
                             Text {
                                 text: ping
-                                color: root.text
+                                color: selected ? root.text : root.muted
                                 font.pixelSize: 14
                                 Layout.preferredWidth: 72
                                 horizontalAlignment: Text.AlignRight
@@ -823,6 +868,21 @@ ApplicationWindow {
                     visible: serverList.count === 0
                     title: "Серверов нет"
                     body: "Добавьте подписку"
+                }
+            }
+
+            RowLayout {
+                Layout.fillWidth: true
+                spacing: 16
+                QuickActionButton {
+                    iconText: "⧉"
+                    label: "Из буфера"
+                    onClicked: appController.pasteFromClipboard()
+                }
+                QuickActionButton {
+                    iconText: "+"
+                    label: "Добавить"
+                    onClicked: addDialog.open()
                 }
             }
 
@@ -1027,7 +1087,7 @@ ApplicationWindow {
             spacing: 18
             PageTitle { text: "О программе" }
             MetricRow { title: "Программа"; value: "Samhain Security Native" }
-            MetricRow { title: "Версия"; value: "1.0.1" }
+            MetricRow { title: "Версия"; value: "1.0.2" }
             MetricRow { title: "Интерфейс"; value: "Qt 6 / QML" }
             MetricRow { title: "Ядро"; value: "Rust workspace" }
             MetricRow { title: "Статус"; value: appController.statusText }
@@ -1066,28 +1126,71 @@ ApplicationWindow {
     }
 
     component ButtonIcon: Button {
+        id: iconButton
         property string label: ""
         property bool danger: false
-        Layout.preferredWidth: 46
-        Layout.preferredHeight: 46
-        background: Rectangle { color: "transparent"; radius: 23 }
+        Layout.preferredWidth: 42
+        Layout.preferredHeight: 42
+        background: Rectangle {
+            color: iconButton.down ? "#332126" : (iconButton.hovered ? "#211A1D" : "transparent")
+            radius: 21
+            border.color: iconButton.hovered ? "#4A373D" : "transparent"
+        }
         contentItem: Text {
-            text: label
+            text: iconButton.label
             color: danger ? root.samhainRed : root.muted
-            font.pixelSize: 28
+            font.pixelSize: 24
             horizontalAlignment: Text.AlignHCenter
             verticalAlignment: Text.AlignVCenter
         }
     }
 
+    component QuickActionButton: Button {
+        id: quickButton
+        property string iconText: ""
+        property string label: ""
+        Layout.fillWidth: true
+        Layout.preferredHeight: 58
+        background: Rectangle {
+            color: quickButton.down ? "#2D2024" : (quickButton.hovered ? "#211B1D" : "#171516")
+            radius: 8
+            border.color: quickButton.hovered ? "#514248" : "#2E272A"
+        }
+        contentItem: RowLayout {
+            spacing: 12
+            Item { Layout.fillWidth: true }
+            Text {
+                text: quickButton.iconText
+                color: root.accent
+                font.pixelSize: 24
+                Layout.preferredWidth: 28
+                horizontalAlignment: Text.AlignHCenter
+            }
+            Text {
+                text: quickButton.label
+                color: root.text
+                font.pixelSize: 18
+                elide: Text.ElideRight
+            }
+            Item { Layout.fillWidth: true }
+        }
+    }
+
     component Chip: Rectangle {
+        id: chip
         property string text: ""
-        width: 78
-        height: 36
+        width: chipLabel.implicitWidth + 28
+        height: 34
         radius: 6
-        color: root.accent
-        border.color: "#F08A91"
-        Text { anchors.centerIn: parent; text: parent.text; color: "white"; font.pixelSize: 18 }
+        color: "#191719"
+        border.color: "#4A3036"
+        Text {
+            id: chipLabel
+            anchors.centerIn: parent
+            text: chip.text
+            color: "#D7C8CC"
+            font.pixelSize: 16
+        }
     }
 
     component StatText: ColumnLayout {
