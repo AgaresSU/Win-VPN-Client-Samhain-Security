@@ -1,6 +1,6 @@
 # Roadmap
 
-Current version: `1.0.4`
+Current version: `1.0.5`
 
 This roadmap is the working contract for Samhain Security. Future implementation should follow this order unless a blocker is found and documented in the same commit.
 
@@ -320,6 +320,18 @@ Done when a non-technical user can change the work mode without scanning service
 
 Status: shipped in `v1.0.4` with a simplified settings page, a dark combo and switch, and grouped advanced service operations.
 
+### 1.0.5 - Visual Polish Pass
+
+- Improve left navigation button styling.
+- Replace the standard central connection button with a custom power control.
+- Apply dark Windows title-bar styling.
+- Render country badges without relying on emoji font support.
+- Rebalance the selected-server card so text and badges do not collide.
+
+Done when the five visual issues from the review screenshots are fixed in the packaged app.
+
+Status: shipped in `v1.0.5` with prettier navigation, a custom translucent power button, a dark title bar, and QML-rendered country badges.
+
 ## Immediate Next Build Order
 
-1. `1.0.5`: app list dialog polish and clearer per-application routing state.
+1. `1.0.6`: app list dialog polish and clearer per-application routing state.

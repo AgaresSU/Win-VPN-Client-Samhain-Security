@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.24)
 
-project(SamhainSecurityNativeDesktop VERSION 1.0.4 LANGUAGES CXX)
+project(SamhainSecurityNativeDesktop VERSION 1.0.5 LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -35,6 +35,10 @@ target_link_libraries(SamhainSecurityNative
         Qt6::Svg
         Qt6::Widgets
 )
+
+if(WIN32)
+    target_link_libraries(SamhainSecurityNative PRIVATE dwmapi)
+endif()
 
 set_target_properties(SamhainSecurityNative PROPERTIES
     OUTPUT_NAME "SamhainSecurityNative"

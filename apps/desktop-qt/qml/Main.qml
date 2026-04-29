@@ -601,7 +601,7 @@ ApplicationWindow {
                             color: "transparent"
                             border.color: appController.connected ? "#5A2028" : "#33252A"
                             border.width: 2
-                            opacity: 0.95
+                            opacity: 0.62
                         }
                         Rectangle {
                             width: parent.dialSize * 0.78
@@ -611,16 +611,17 @@ ApplicationWindow {
                             color: "#222027"
                             border.color: "#343141"
                             border.width: 2
-                            opacity: 0.94
+                            opacity: 0.42
                         }
                         Rectangle {
                             width: parent.dialSize * 0.56
                             height: width
                             radius: width / 2
                             anchors.centerIn: parent
-                            color: "#161417"
+                            color: "transparent"
                             border.color: appController.connected ? root.accent : "#5C3339"
                             border.width: 2
+                            opacity: 0.88
                         }
                         Rectangle {
                             width: parent.dialSize * 0.36
@@ -631,51 +632,29 @@ ApplicationWindow {
                             border.color: "#2F2930"
                             border.width: 1
                         }
-                        Button {
-                            width: root.tight ? 86 : 104
+                        PowerButton {
+                            width: root.tight ? 96 : 118
                             height: width
                             anchors.centerIn: parent
+                            connected: appController.connected
+                            label: appController.connected ? appController.sessionTime : "Старт"
                             onClicked: appController.toggleConnection()
-                            background: Rectangle {
-                                radius: width / 2
-                                color: appController.connected ? root.samhainRed : "#4B252C"
-                                border.color: appController.connected ? "#CF5961" : "#7B3A42"
-                                border.width: 2
-                            }
-                            contentItem: Column {
-                                anchors.centerIn: parent
-                                spacing: 4
-                                Text {
-                                    anchors.horizontalCenter: parent.horizontalCenter
-                                    text: "⏻"
-                                    color: "white"
-                                    font.pixelSize: 36
-                                    font.bold: true
-                                }
-                                Text {
-                                    anchors.horizontalCenter: parent.horizontalCenter
-                                    text: appController.connected ? appController.sessionTime : "Старт"
-                                    color: "#F1EDEE"
-                                    font.pixelSize: 12
-                                }
-                            }
                         }
                     }
 
                     Rectangle {
                         Layout.fillWidth: true
-                        Layout.preferredHeight: root.tight ? 104 : 122
+                        Layout.preferredHeight: root.tight ? 124 : 140
                         color: "#171517"
                         border.color: "#2F292C"
                         radius: 8
                         ColumnLayout {
                             anchors.fill: parent
-                            anchors.margins: 16
-                            spacing: 8
-                            Text {
-                                text: appController.selectedServerFlag
-                                color: root.text
-                                font.pixelSize: root.tight ? 28 : 36
+                            anchors.margins: 18
+                            spacing: root.tight ? 7 : 9
+                            CountryFlag {
+                                value: appController.selectedServerFlag
+                                size: root.tight ? 38 : 44
                                 Layout.alignment: Qt.AlignHCenter
                             }
                             Text {
@@ -690,7 +669,7 @@ ApplicationWindow {
                             Text {
                                 text: appController.selectedServerProtocol + " · " + appController.selectedServerPing
                                 color: root.muted
-                                font.pixelSize: 14
+                                font.pixelSize: root.tight ? 13 : 14
                                 Layout.alignment: Qt.AlignHCenter
                                 elide: Text.ElideRight
                                 Layout.fillWidth: true
@@ -904,7 +883,11 @@ ApplicationWindow {
                             anchors.rightMargin: 18
                             spacing: 14
 
-                            Text { text: flag; font.pixelSize: 30; Layout.preferredWidth: 36 }
+                            CountryFlag {
+                                value: flag
+                                size: 36
+                                Layout.preferredWidth: 42
+                            }
                             ColumnLayout {
                                 Layout.fillWidth: true
                                 spacing: 4
@@ -1143,7 +1126,7 @@ ApplicationWindow {
             spacing: 18
             PageTitle { text: "О программе" }
             MetricRow { title: "Программа"; value: "Samhain Security Native" }
-            MetricRow { title: "Версия"; value: "1.0.4" }
+            MetricRow { title: "Версия"; value: "1.0.5" }
             MetricRow { title: "Интерфейс"; value: "Qt 6 / QML" }
             MetricRow { title: "Ядро"; value: "Rust workspace" }
             MetricRow { title: "Статус"; value: appController.statusText }
@@ -1152,32 +1135,198 @@ ApplicationWindow {
     }
 
     component NavButton: Button {
+        id: navButton
         property string iconText: ""
         property string label: ""
         property bool active: false
         Layout.fillWidth: true
-        Layout.preferredHeight: root.compact ? 56 : 60
+        Layout.preferredHeight: root.compact ? 58 : 64
+        Layout.leftMargin: root.compact ? 6 : 8
+        Layout.rightMargin: root.compact ? 6 : 10
         leftPadding: 0
         rightPadding: 0
         background: Rectangle {
-            color: active ? "#090708" : "transparent"
-            radius: 6
+            color: active ? "#090708" : (navButton.hovered ? "#1D1719" : "transparent")
+            radius: 9
+            border.color: active ? "#21191C" : (navButton.hovered ? "#31262A" : "transparent")
             Rectangle {
                 visible: active
                 width: 5
-                height: parent.height - 20
+                height: parent.height - 18
                 anchors.left: parent.left
                 anchors.verticalCenter: parent.verticalCenter
                 color: root.accent
-                radius: 2
+                radius: 3
             }
         }
         contentItem: RowLayout {
-            spacing: root.compact ? 0 : 18
-            anchors.leftMargin: root.compact ? 22 : 22
-            anchors.rightMargin: root.compact ? 22 : 10
-            Text { text: iconText; color: root.text; font.pixelSize: 28; Layout.preferredWidth: 38; horizontalAlignment: Text.AlignHCenter }
-            Text { visible: !root.compact; text: label; color: root.text; font.pixelSize: 22; Layout.fillWidth: true; elide: Text.ElideRight }
+            spacing: root.compact ? 0 : 16
+            anchors.leftMargin: root.compact ? 17 : 18
+            anchors.rightMargin: root.compact ? 17 : 14
+            Rectangle {
+                Layout.preferredWidth: 42
+                Layout.preferredHeight: 42
+                radius: 12
+                color: navButton.active ? "#171113" : "#120F10"
+                border.color: navButton.active ? root.accent : "#30272A"
+                Text {
+                    anchors.centerIn: parent
+                    text: navButton.iconText
+                    color: navButton.active ? "#FFFFFF" : "#D7D0D3"
+                    font.pixelSize: navButton.iconText === "i" ? 22 : 24
+                    font.bold: navButton.active
+                    horizontalAlignment: Text.AlignHCenter
+                    verticalAlignment: Text.AlignVCenter
+                }
+            }
+            Text {
+                visible: !root.compact
+                text: navButton.label
+                color: navButton.active ? "#FFFFFF" : root.text
+                font.pixelSize: 20
+                Layout.fillWidth: true
+                elide: Text.ElideRight
+            }
+        }
+    }
+
+    component PowerButton: Rectangle {
+        id: powerButton
+        property bool connected: false
+        property string label: ""
+        signal clicked()
+        radius: width / 2
+        color: connected ? Qt.rgba(0.72, 0.16, 0.22, 0.34) : Qt.rgba(0.28, 0.12, 0.16, 0.34)
+        border.color: connected ? "#E04A56" : "#7A3841"
+        border.width: 2
+
+        Rectangle {
+            anchors.centerIn: parent
+            width: parent.width * 0.70
+            height: width
+            radius: width / 2
+            color: connected ? Qt.rgba(0.72, 0.16, 0.22, 0.18) : Qt.rgba(0.12, 0.09, 0.10, 0.44)
+            border.color: connected ? "#B83A43" : "#4A3036"
+            border.width: 1
+        }
+        Rectangle {
+            anchors.horizontalCenter: parent.horizontalCenter
+            y: parent.height * 0.24
+            width: 6
+            height: parent.height * 0.26
+            radius: 3
+            color: "#FFFFFF"
+        }
+        Rectangle {
+            anchors.centerIn: parent
+            width: parent.width * 0.38
+            height: width
+            radius: width / 2
+            color: "transparent"
+            border.color: "#FFFFFF"
+            border.width: 5
+            Rectangle {
+                anchors.horizontalCenter: parent.horizontalCenter
+                y: -2
+                width: parent.width * 0.28
+                height: parent.height * 0.34
+                color: powerButton.connected ? Qt.rgba(0.72, 0.16, 0.22, 0.34) : Qt.rgba(0.28, 0.12, 0.16, 0.34)
+            }
+        }
+        Text {
+            anchors.horizontalCenter: parent.horizontalCenter
+            anchors.bottom: parent.bottom
+            anchors.bottomMargin: 16
+            text: powerButton.label
+            color: "#F1EDEE"
+            opacity: 0.92
+            font.pixelSize: 12
+        }
+        MouseArea {
+            anchors.fill: parent
+            cursorShape: Qt.PointingHandCursor
+            onClicked: powerButton.clicked()
+        }
+    }
+
+    component CountryFlag: Item {
+        id: flagBadge
+        property string value: ""
+        property int size: 34
+        readonly property string countryCode: normalizedCountry(value)
+        implicitWidth: size
+        implicitHeight: size
+        Layout.preferredWidth: size
+        Layout.preferredHeight: size
+
+        function normalizedCountry(raw) {
+            var v = (raw || "").toUpperCase()
+            if (raw.indexOf("🇬🇧") >= 0 || v.indexOf("GB") >= 0 || v.indexOf("UK") >= 0) return "GB"
+            if (raw.indexOf("🇳🇱") >= 0 || v.indexOf("NL") >= 0) return "NL"
+            if (raw.indexOf("🇸🇪") >= 0 || v.indexOf("SE") >= 0) return "SE"
+            if (raw.indexOf("🇩🇪") >= 0 || v.indexOf("DE") >= 0) return "DE"
+            if (raw.indexOf("🇺🇸") >= 0 || v.indexOf("US") >= 0) return "US"
+            return ""
+        }
+
+        Rectangle {
+            id: flagCircle
+            anchors.fill: parent
+            radius: width / 2
+            clip: true
+            color: flagBadge.countryCode === "" ? "#211C1E" : "#0E1C46"
+
+            Rectangle { visible: flagBadge.countryCode === "GB"; anchors.fill: parent; color: "#183A78" }
+            Rectangle { visible: flagBadge.countryCode === "GB"; anchors.centerIn: parent; width: parent.width; height: parent.height * 0.24; color: "#FFFFFF" }
+            Rectangle { visible: flagBadge.countryCode === "GB"; anchors.centerIn: parent; width: parent.width * 0.24; height: parent.height; color: "#FFFFFF" }
+            Rectangle { visible: flagBadge.countryCode === "GB"; anchors.centerIn: parent; width: parent.width; height: parent.height * 0.12; color: "#C8102E" }
+            Rectangle { visible: flagBadge.countryCode === "GB"; anchors.centerIn: parent; width: parent.width * 0.12; height: parent.height; color: "#C8102E" }
+
+            Rectangle { visible: flagBadge.countryCode === "NL"; anchors.left: parent.left; anchors.right: parent.right; anchors.top: parent.top; height: parent.height / 3; color: "#AE1C28" }
+            Rectangle { visible: flagBadge.countryCode === "NL"; anchors.left: parent.left; anchors.right: parent.right; anchors.verticalCenter: parent.verticalCenter; height: parent.height / 3; color: "#FFFFFF" }
+            Rectangle { visible: flagBadge.countryCode === "NL"; anchors.left: parent.left; anchors.right: parent.right; anchors.bottom: parent.bottom; height: parent.height / 3; color: "#21468B" }
+
+            Rectangle { visible: flagBadge.countryCode === "DE"; anchors.left: parent.left; anchors.right: parent.right; anchors.top: parent.top; height: parent.height / 3; color: "#000000" }
+            Rectangle { visible: flagBadge.countryCode === "DE"; anchors.left: parent.left; anchors.right: parent.right; anchors.verticalCenter: parent.verticalCenter; height: parent.height / 3; color: "#DD0000" }
+            Rectangle { visible: flagBadge.countryCode === "DE"; anchors.left: parent.left; anchors.right: parent.right; anchors.bottom: parent.bottom; height: parent.height / 3; color: "#FFCE00" }
+
+            Rectangle { visible: flagBadge.countryCode === "SE"; anchors.fill: parent; color: "#006AA7" }
+            Rectangle { visible: flagBadge.countryCode === "SE"; x: parent.width * 0.32; width: parent.width * 0.18; anchors.top: parent.top; anchors.bottom: parent.bottom; color: "#FECC00" }
+            Rectangle { visible: flagBadge.countryCode === "SE"; y: parent.height * 0.41; height: parent.height * 0.18; anchors.left: parent.left; anchors.right: parent.right; color: "#FECC00" }
+
+            Repeater {
+                model: flagBadge.countryCode === "US" ? 7 : 0
+                Rectangle {
+                    x: 0
+                    y: index * flagCircle.height / 7
+                    width: flagCircle.width
+                    height: flagCircle.height / 7
+                    color: index % 2 === 0 ? "#B22234" : "#FFFFFF"
+                }
+            }
+            Rectangle {
+                visible: flagBadge.countryCode === "US"
+                x: 0
+                y: 0
+                width: parent.width * 0.54
+                height: parent.height * 0.52
+                color: "#3C3B6E"
+            }
+
+            Text {
+                visible: flagBadge.countryCode === ""
+                anchors.centerIn: parent
+                text: "•"
+                color: root.muted
+                font.pixelSize: parent.width * 0.52
+            }
+        }
+        Rectangle {
+            anchors.fill: parent
+            radius: width / 2
+            color: "transparent"
+            border.color: "#31272B"
+            border.width: 1
         }
     }
 

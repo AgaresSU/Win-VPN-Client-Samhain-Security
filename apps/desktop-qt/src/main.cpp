@@ -6,7 +6,24 @@
 #include <QLocalSocket>
 #include <QQmlApplicationEngine>
 #include <QQmlContext>
+#include <QQuickWindow>
 #include <QTimer>
+#include <QWindow>
+
+#ifdef Q_OS_WIN
+#include <windows.h>
+#include <dwmapi.h>
+
+#ifndef DWMWA_USE_IMMERSIVE_DARK_MODE
+#define DWMWA_USE_IMMERSIVE_DARK_MODE 20
+#endif
+#ifndef DWMWA_CAPTION_COLOR
+#define DWMWA_CAPTION_COLOR 35
+#endif
+#ifndef DWMWA_TEXT_COLOR
+#define DWMWA_TEXT_COLOR 36
+#endif
+#endif
 
 namespace {
 constexpr auto SingleInstanceServerName = "SamhainSecurityNative.SingleInstance";
@@ -24,6 +41,29 @@ bool sendToRunningInstance(const QStringList &arguments)
     socket.waitForBytesWritten(180);
     return true;
 }
+
+void applyDarkTitleBar(QWindow *window)
+{
+#ifdef Q_OS_WIN
+    if (!window) {
+        return;
+    }
+
+    const auto hwnd = reinterpret_cast<HWND>(window->winId());
+    if (!hwnd) {
+        return;
+    }
+
+    const BOOL darkMode = TRUE;
+    const DWORD captionColor = RGB(18, 16, 18);
+    const DWORD textColor = RGB(241, 237, 238);
+    DwmSetWindowAttribute(hwnd, DWMWA_USE_IMMERSIVE_DARK_MODE, &darkMode, sizeof(darkMode));
+    DwmSetWindowAttribute(hwnd, DWMWA_CAPTION_COLOR, &captionColor, sizeof(captionColor));
+    DwmSetWindowAttribute(hwnd, DWMWA_TEXT_COLOR, &textColor, sizeof(textColor));
+#else
+    Q_UNUSED(window);
+#endif
+}
 }
 
 int main(int argc, char *argv[])
@@ -31,7 +71,7 @@ int main(int argc, char *argv[])
     QApplication app(argc, argv);
     app.setApplicationName("Samhain Security");
     app.setOrganizationName("Samhain Security");
-    app.setApplicationVersion("1.0.4");
+    app.setApplicationVersion("1.0.5");
     app.setWindowIcon(QIcon(":/qt/qml/SamhainSecurityNative/resources/app-icon.png"));
 
     const auto activationArguments = app.arguments().mid(1);
@@ -64,6 +104,15 @@ int main(int argc, char *argv[])
 
     if (engine.rootObjects().isEmpty()) {
         return -1;
+    }
+
+    if (auto *window = qobject_cast<QWindow *>(engine.rootObjects().first())) {
+        applyDarkTitleBar(window);
+        QObject::connect(window, &QWindow::visibleChanged, window, [window]() {
+            if (window->isVisible()) {
+                applyDarkTitleBar(window);
+            }
+        });
     }
 
     QTimer::singleShot(0, &controller, [&controller, activationArguments]() {
