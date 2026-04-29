@@ -1,6 +1,6 @@
 # Roadmap
 
-Current version: `1.0.9`
+Current version: `1.0.10`
 
 This roadmap is the working contract for Samhain Security. Future implementation should follow this order unless a blocker is found and documented in the same commit.
 
@@ -375,6 +375,16 @@ Done when the actions menu opens without an empty vertical artifact and mirrors 
 
 Status: shipped in `v1.0.9` with an overlay action menu, service-backed pinning, and protected URL copy.
 
+### 1.0.10 - Dark Button Hover And Menu Icons
+
+- Remove native light hover states from main-screen action buttons.
+- Replace text/emoji menu glyphs with custom-drawn action icons.
+- Make the subscription-menu latency check target the selected subscription.
+
+Done when row action buttons stay in the dark graphite palette and the subscription menu uses clean matching icons.
+
+Status: shipped in `v1.0.10` with custom action controls, Canvas menu icons, and subscription-scoped latency checks.
+
 ## Immediate Next Build Order
 
-1. `1.0.10`: app list dialog polish and clearer per-application routing state.
+1. `1.0.11`: app list dialog polish and clearer per-application routing state.

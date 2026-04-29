@@ -12,6 +12,16 @@ ApplicationWindow {
     visible: true
     title: "Samhain Security"
     color: bg
+    palette.window: bg
+    palette.windowText: text
+    palette.base: field
+    palette.alternateBase: panel
+    palette.text: text
+    palette.button: field
+    palette.buttonText: text
+    palette.highlight: "#4A2228"
+    palette.highlightedText: text
+    palette.link: accent
 
     readonly property bool compact: width < 1220
     readonly property bool tight: height < 790
@@ -298,7 +308,7 @@ ApplicationWindow {
             spacing: 0
 
             PopupAction {
-                iconText: "↻"
+                iconKind: "refresh"
                 text: "Обновить"
                 onTriggered: {
                     subscriptionActionsPopup.close()
@@ -307,16 +317,16 @@ ApplicationWindow {
             }
             PopupDivider {}
             PopupAction {
-                iconText: "◴"
+                iconKind: "latency"
                 text: "Тест пинга"
                 onTriggered: {
                     subscriptionActionsPopup.close()
-                    appController.testAllPings()
+                    appController.testSubscriptionPings(subscriptionActionsPopup.rowIndex)
                 }
             }
             PopupDivider {}
             PopupAction {
-                iconText: "⌖"
+                iconKind: "pin"
                 text: "Закрепить"
                 onTriggered: {
                     subscriptionActionsPopup.close()
@@ -325,7 +335,7 @@ ApplicationWindow {
             }
             PopupDivider {}
             PopupAction {
-                iconText: "▤"
+                iconKind: "copy"
                 text: "Копировать URL"
                 onTriggered: {
                     subscriptionActionsPopup.close()
@@ -334,7 +344,7 @@ ApplicationWindow {
             }
             PopupDivider {}
             PopupAction {
-                iconText: "⚙"
+                iconKind: "edit"
                 text: "Редактировать"
                 onTriggered: {
                     subscriptionActionsPopup.close()
@@ -345,7 +355,7 @@ ApplicationWindow {
             }
             PopupDivider {}
             PopupAction {
-                iconText: "⌫"
+                iconKind: "delete"
                 text: "Удалить"
                 danger: true
                 onTriggered: {
@@ -1147,7 +1157,7 @@ ApplicationWindow {
             spacing: 18
             PageTitle { text: "О программе" }
             MetricRow { title: "Программа"; value: "Samhain Security Native" }
-            MetricRow { title: "Версия"; value: "1.0.9" }
+            MetricRow { title: "Версия"; value: "1.0.10" }
             MetricRow { title: "Интерфейс"; value: "Qt 6 / QML" }
             MetricRow { title: "Ядро"; value: "Rust workspace" }
             MetricRow { title: "Статус"; value: appController.statusText }
@@ -1394,23 +1404,41 @@ ApplicationWindow {
         }
     }
 
-    component ButtonIcon: Button {
+    component ButtonIcon: Item {
         id: iconButton
         property string label: ""
         property bool danger: false
+        signal clicked()
         Layout.preferredWidth: 42
         Layout.preferredHeight: 42
-        background: Rectangle {
-            color: iconButton.down ? "#332126" : (iconButton.hovered ? "#211A1D" : "transparent")
-            radius: 21
-            border.color: iconButton.hovered ? "#4A373D" : "transparent"
+        implicitWidth: 42
+        implicitHeight: 42
+
+        Rectangle {
+            anchors.centerIn: parent
+            width: 38
+            height: 38
+            radius: 8
+            color: iconMouse.pressed ? "#2A1E22" : (iconMouse.containsMouse ? "#211A1D" : "transparent")
+            border.color: iconMouse.containsMouse ? "#4A373D" : "transparent"
+            border.width: 1
         }
-        contentItem: Text {
+
+        Text {
+            anchors.centerIn: parent
             text: iconButton.label
-            color: danger ? root.samhainRed : root.muted
+            color: danger ? "#D4515A" : (iconMouse.containsMouse ? "#C9C1C5" : root.muted)
             font.pixelSize: 24
             horizontalAlignment: Text.AlignHCenter
             verticalAlignment: Text.AlignVCenter
+        }
+
+        MouseArea {
+            id: iconMouse
+            anchors.fill: parent
+            hoverEnabled: true
+            cursorShape: Qt.PointingHandCursor
+            onClicked: iconButton.clicked()
         }
     }
 
@@ -1425,28 +1453,26 @@ ApplicationWindow {
 
     component PopupAction: Rectangle {
         id: popupAction
-        property string iconText: ""
+        property string iconKind: ""
         property string text: ""
         property bool danger: false
         signal triggered()
         Layout.fillWidth: true
-        Layout.preferredHeight: 44
+        Layout.preferredHeight: 48
         radius: 4
-        color: popupActionMouse.containsMouse ? "#52504D" : "transparent"
+        color: popupActionMouse.pressed ? "#3D3938" : (popupActionMouse.containsMouse ? "#4A4644" : "transparent")
 
         RowLayout {
             anchors.fill: parent
-            anchors.leftMargin: 16
+            anchors.leftMargin: 15
             anchors.rightMargin: 16
-            spacing: 12
+            spacing: 15
 
-            Text {
-                text: popupAction.iconText
-                color: popupAction.danger ? "#D9A1A3" : "#AFAAA6"
-                font.pixelSize: 22
-                Layout.preferredWidth: 28
-                horizontalAlignment: Text.AlignHCenter
-                verticalAlignment: Text.AlignVCenter
+            PopupIcon {
+                iconKind: popupAction.iconKind
+                iconColor: popupAction.danger ? "#DFA0A4" : "#AAA6A2"
+                Layout.preferredWidth: 34
+                Layout.preferredHeight: 34
             }
             Text {
                 text: popupAction.text
@@ -1467,18 +1493,112 @@ ApplicationWindow {
         }
     }
 
-    component QuickActionButton: Button {
+    component PopupIcon: Canvas {
+        id: popupIcon
+        property string iconKind: ""
+        property color iconColor: "#AAA6A2"
+        implicitWidth: 34
+        implicitHeight: 34
+        onIconKindChanged: requestPaint()
+        onIconColorChanged: requestPaint()
+        onWidthChanged: requestPaint()
+        onHeightChanged: requestPaint()
+        onPaint: {
+            var ctx = getContext("2d")
+            var w = width
+            var h = height
+            ctx.clearRect(0, 0, w, h)
+            ctx.save()
+            ctx.strokeStyle = iconColor
+            ctx.fillStyle = iconColor
+            ctx.lineWidth = 2
+            ctx.lineCap = "round"
+            ctx.lineJoin = "round"
+
+            if (iconKind === "refresh") {
+                ctx.beginPath()
+                ctx.arc(17, 17, 9, Math.PI * 0.15, Math.PI * 1.65, false)
+                ctx.stroke()
+                ctx.beginPath()
+                ctx.moveTo(11, 8)
+                ctx.lineTo(17, 7)
+                ctx.lineTo(15, 13)
+                ctx.stroke()
+            } else if (iconKind === "latency") {
+                ctx.beginPath()
+                ctx.arc(17, 17, 10, 0, Math.PI * 2)
+                ctx.stroke()
+                ctx.beginPath()
+                ctx.moveTo(17, 17)
+                ctx.lineTo(17, 10)
+                ctx.moveTo(17, 17)
+                ctx.lineTo(11, 17)
+                ctx.stroke()
+            } else if (iconKind === "pin") {
+                ctx.beginPath()
+                ctx.moveTo(13, 8)
+                ctx.lineTo(21, 8)
+                ctx.moveTo(15, 12)
+                ctx.lineTo(19, 12)
+                ctx.moveTo(17, 8)
+                ctx.lineTo(17, 24)
+                ctx.moveTo(13, 17)
+                ctx.lineTo(21, 17)
+                ctx.moveTo(17, 24)
+                ctx.lineTo(15, 28)
+                ctx.stroke()
+            } else if (iconKind === "copy") {
+                ctx.strokeRect(12, 10, 11, 13)
+                ctx.strokeRect(9, 13, 11, 13)
+            } else if (iconKind === "edit") {
+                ctx.beginPath()
+                ctx.moveTo(10, 24)
+                ctx.lineTo(12, 19)
+                ctx.lineTo(23, 8)
+                ctx.lineTo(26, 11)
+                ctx.lineTo(15, 22)
+                ctx.lineTo(10, 24)
+                ctx.stroke()
+                ctx.beginPath()
+                ctx.moveTo(20, 11)
+                ctx.lineTo(23, 14)
+                ctx.moveTo(9, 27)
+                ctx.lineTo(25, 27)
+                ctx.stroke()
+            } else if (iconKind === "delete") {
+                ctx.beginPath()
+                ctx.moveTo(11, 12)
+                ctx.lineTo(23, 12)
+                ctx.moveTo(14, 12)
+                ctx.lineTo(14, 25)
+                ctx.lineTo(20, 25)
+                ctx.lineTo(20, 12)
+                ctx.moveTo(15, 9)
+                ctx.lineTo(19, 9)
+                ctx.moveTo(15, 16)
+                ctx.lineTo(15, 22)
+                ctx.moveTo(19, 16)
+                ctx.lineTo(19, 22)
+                ctx.stroke()
+            }
+            ctx.restore()
+        }
+    }
+
+    component QuickActionButton: Rectangle {
         id: quickButton
         property string iconText: ""
         property string label: ""
+        signal clicked()
         Layout.fillWidth: true
         Layout.preferredHeight: 58
-        background: Rectangle {
-            color: quickButton.down ? "#2D2024" : (quickButton.hovered ? "#211B1D" : "#171516")
-            radius: 8
-            border.color: quickButton.hovered ? "#514248" : "#2E272A"
-        }
-        contentItem: RowLayout {
+        radius: 8
+        color: quickMouse.pressed ? "#2D2024" : (quickMouse.containsMouse ? "#211B1D" : "#171516")
+        border.color: quickMouse.containsMouse ? "#514248" : "#2E272A"
+        border.width: 1
+
+        RowLayout {
+            anchors.fill: parent
             spacing: 12
             Item { Layout.fillWidth: true }
             Text {
@@ -1495,6 +1615,14 @@ ApplicationWindow {
                 elide: Text.ElideRight
             }
             Item { Layout.fillWidth: true }
+        }
+
+        MouseArea {
+            id: quickMouse
+            anchors.fill: parent
+            hoverEnabled: true
+            cursorShape: Qt.PointingHandCursor
+            onClicked: quickButton.clicked()
         }
     }
 

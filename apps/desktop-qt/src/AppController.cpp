@@ -361,6 +361,28 @@ QVector<QString> ServerListModel::serverIds() const
     return ids;
 }
 
+QVector<QString> ServerListModel::serverIdsAtSubscriptionRow(int row) const
+{
+    QVector<QString> ids;
+    if (row < 0 || row >= m_rows.size()) {
+        return ids;
+    }
+
+    const auto subscriptionIndex = m_rows.at(row).subscriptionIndex;
+    if (subscriptionIndex < 0 || subscriptionIndex >= m_subscriptions.size()) {
+        return ids;
+    }
+
+    const auto &subscription = m_subscriptions.at(subscriptionIndex);
+    ids.reserve(subscription.servers.size());
+    for (const auto &server : subscription.servers) {
+        if (!server.id.isEmpty()) {
+            ids.push_back(server.id);
+        }
+    }
+    return ids;
+}
+
 const ServerItem *ServerListModel::selectedServer() const
 {
     for (const auto &subscription : m_subscriptions) {
@@ -867,6 +889,51 @@ void AppController::testAllPings()
     m_statusText = "Пинг недоступен";
     emit statusChanged();
     appendLog("Пинг: сервис недоступен, псевдо-оценка отключена");
+}
+
+void AppController::testSubscriptionPings(int row)
+{
+    const auto serverIds = m_serverModel.serverIdsAtSubscriptionRow(row);
+    const auto subscriptionName = m_serverModel.subscriptionNameAtRow(row);
+    if (serverIds.isEmpty()) {
+        m_statusText = "В подписке нет серверов";
+        emit statusChanged();
+        return;
+    }
+
+    QJsonArray ids;
+    for (const auto &serverId : serverIds) {
+        ids.push_back(serverId);
+        m_serverModel.setPingByServerId(serverId, "...");
+    }
+
+    QJsonObject command;
+    command["type"] = "test-pings";
+    command["server_ids"] = ids;
+    const auto response = requestService(command, IpcRequestTimeoutMs);
+
+    if (!response.isEmpty()) {
+        const auto document = QJsonDocument::fromJson(response.toUtf8());
+        const auto root = document.object();
+        const auto event = root.value("event").toObject();
+        if (root.value("ok").toBool(false) && applyPingEvent(event)) {
+            updateSelectedServerProperties();
+            saveState();
+            m_statusText = "Проверка задержки подписки завершена";
+            emit statusChanged();
+            appendLog("Пинг: проверена подписка " + subscriptionName);
+            return;
+        }
+    }
+
+    for (const auto &serverId : serverIds) {
+        m_serverModel.setPingByServerId(serverId, "n/a");
+    }
+    updateSelectedServerProperties();
+    saveState();
+    m_statusText = "Пинг подписки недоступен";
+    emit statusChanged();
+    appendLog("Пинг: подписка недоступна для проверки " + subscriptionName);
 }
 
 void AppController::pasteFromClipboard()

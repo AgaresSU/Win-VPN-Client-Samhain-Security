@@ -75,6 +75,7 @@ public:
     QString subscriptionNameAtRow(int row) const;
     int serverCountAtRow(int row) const;
     QVector<QString> serverIds() const;
+    QVector<QString> serverIdsAtSubscriptionRow(int row) const;
     const ServerItem *selectedServer() const;
     const SubscriptionItem *selectedSubscription() const;
     const QVector<SubscriptionItem> &subscriptions() const;
@@ -182,6 +183,7 @@ public:
     Q_INVOKABLE void toggleConnection();
     Q_INVOKABLE void testPing();
     Q_INVOKABLE void testAllPings();
+    Q_INVOKABLE void testSubscriptionPings(int row);
     Q_INVOKABLE void pasteFromClipboard();
     Q_INVOKABLE void addSubscription(const QString &name, const QString &url);
     Q_INVOKABLE void refreshSubscription(int row);
