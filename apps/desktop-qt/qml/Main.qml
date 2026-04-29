@@ -705,7 +705,7 @@ ApplicationWindow {
 
                     NavButton {
                         label: "Добавить"
-                        iconText: "+"
+                        iconKind: "add"
                         active: appController.page === "add"
                         onClicked: {
                             appController.navigate("add")
@@ -714,25 +714,25 @@ ApplicationWindow {
                     }
                     NavButton {
                         label: "Серверы"
-                        iconText: "◎"
+                        iconKind: "servers"
                         active: appController.page === "servers"
                         onClicked: appController.navigate("servers")
                     }
                     NavButton {
                         label: "Настройки"
-                        iconText: "⚙"
+                        iconKind: "settings"
                         active: appController.page === "settings"
                         onClicked: appController.navigate("settings")
                     }
                     NavButton {
                         label: "Статистика"
-                        iconText: "⌁"
+                        iconKind: "stats"
                         active: appController.page === "stats"
                         onClicked: appController.navigate("stats")
                     }
                     NavButton {
                         label: "Логи"
-                        iconText: "↻"
+                        iconKind: "logs"
                         active: appController.page === "logs"
                         onClicked: appController.navigate("logs")
                     }
@@ -741,7 +741,7 @@ ApplicationWindow {
 
                     NavButton {
                         label: "О программе"
-                        iconText: "i"
+                        iconKind: "about"
                         active: appController.page === "about"
                         onClicked: appController.navigate("about")
                     }
@@ -1279,7 +1279,7 @@ ApplicationWindow {
             spacing: 18
             PageTitle { text: "О программе" }
             MetricRow { title: "Программа"; value: "Samhain Security Native" }
-            MetricRow { title: "Версия"; value: "1.1.3" }
+            MetricRow { title: "Версия"; value: "1.1.4" }
             MetricRow { title: "Интерфейс"; value: "Qt 6 / QML" }
             MetricRow { title: "Ядро"; value: "Rust workspace" }
             MetricRow { title: "Статус"; value: appController.statusText }
@@ -1289,45 +1289,37 @@ ApplicationWindow {
 
     component NavButton: Rectangle {
         id: navButton
-        property string iconText: ""
+        property string iconKind: ""
         property string label: ""
         property bool active: false
         signal clicked()
         Layout.fillWidth: true
-        Layout.preferredHeight: root.compact ? 58 : 64
+        Layout.preferredHeight: root.compact ? 54 : 62
         Layout.leftMargin: root.compact ? 6 : 8
         Layout.rightMargin: root.compact ? 6 : 10
-        color: active ? "#0B0809" : (navMouse.containsMouse ? "#1B1517" : "transparent")
-        radius: 10
-        border.color: active ? "#35272B" : (navMouse.containsMouse ? "#31262A" : "transparent")
+        color: active ? "#090708" : (navMouse.containsMouse ? "#171214" : "transparent")
+        radius: 8
+        border.color: active ? "#3A2930" : "transparent"
         border.width: 1
 
         RowLayout {
             anchors.fill: parent
-            spacing: root.compact ? 0 : 16
-            anchors.leftMargin: root.compact ? 17 : 18
-            anchors.rightMargin: root.compact ? 17 : 14
-            Rectangle {
-                Layout.preferredWidth: 42
-                Layout.preferredHeight: 42
-                radius: 12
-                color: navButton.active ? "#1C1114" : "#120F10"
-                border.color: navButton.active ? root.accent : "#30272A"
-                Text {
-                    anchors.centerIn: parent
-                    text: navButton.iconText
-                    color: navButton.active ? "#FFFFFF" : "#D7D0D3"
-                    font.pixelSize: navButton.iconText === "i" ? 22 : 24
-                    font.bold: navButton.active
-                    horizontalAlignment: Text.AlignHCenter
-                    verticalAlignment: Text.AlignVCenter
-                }
+            spacing: root.compact ? 0 : 14
+            anchors.leftMargin: root.compact ? 14 : 16
+            anchors.rightMargin: root.compact ? 14 : 14
+
+            NavIcon {
+                iconKind: navButton.iconKind
+                active: navButton.active
+                hovered: navMouse.containsMouse
+                Layout.preferredWidth: 34
+                Layout.preferredHeight: 34
             }
             Text {
                 visible: !root.compact
                 text: navButton.label
                 color: navButton.active ? "#FFFFFF" : root.text
-                font.pixelSize: 20
+                font.pixelSize: 18
                 Layout.fillWidth: true
                 elide: Text.ElideRight
             }
@@ -1339,6 +1331,133 @@ ApplicationWindow {
             hoverEnabled: true
             cursorShape: Qt.PointingHandCursor
             onClicked: navButton.clicked()
+        }
+    }
+
+    component NavIcon: Canvas {
+        id: navIcon
+        property string iconKind: ""
+        property bool active: false
+        property bool hovered: false
+        implicitWidth: 34
+        implicitHeight: 34
+        onIconKindChanged: requestPaint()
+        onActiveChanged: requestPaint()
+        onHoveredChanged: requestPaint()
+        onWidthChanged: requestPaint()
+        onHeightChanged: requestPaint()
+
+        onPaint: {
+            var ctx = getContext("2d")
+            var w = width
+            var h = height
+            var color = active ? "#FFFFFF" : (hovered ? "#E8E1E4" : "#F2F0F0")
+            ctx.clearRect(0, 0, w, h)
+            ctx.save()
+            ctx.translate(w / 2, h / 2)
+            ctx.scale(Math.min(w, h) / 34, Math.min(w, h) / 34)
+            ctx.translate(-17, -17)
+            ctx.strokeStyle = color
+            ctx.fillStyle = color
+            ctx.lineWidth = 2
+            ctx.lineCap = "round"
+            ctx.lineJoin = "round"
+
+            function roundedRect(x, y, rw, rh, radius) {
+                ctx.beginPath()
+                ctx.moveTo(x + radius, y)
+                ctx.lineTo(x + rw - radius, y)
+                ctx.quadraticCurveTo(x + rw, y, x + rw, y + radius)
+                ctx.lineTo(x + rw, y + rh - radius)
+                ctx.quadraticCurveTo(x + rw, y + rh, x + rw - radius, y + rh)
+                ctx.lineTo(x + radius, y + rh)
+                ctx.quadraticCurveTo(x, y + rh, x, y + rh - radius)
+                ctx.lineTo(x, y + radius)
+                ctx.quadraticCurveTo(x, y, x + radius, y)
+            }
+
+            if (iconKind === "add") {
+                roundedRect(5, 5, 24, 24, 6)
+                ctx.stroke()
+                ctx.beginPath()
+                ctx.moveTo(17, 11)
+                ctx.lineTo(17, 23)
+                ctx.moveTo(11, 17)
+                ctx.lineTo(23, 17)
+                ctx.stroke()
+            } else if (iconKind === "servers") {
+                ctx.beginPath()
+                ctx.arc(17, 17, 12, 0, Math.PI * 2)
+                ctx.stroke()
+                ctx.beginPath()
+                ctx.moveTo(5, 17)
+                ctx.lineTo(29, 17)
+                ctx.moveTo(17, 5)
+                ctx.bezierCurveTo(12, 9, 12, 25, 17, 29)
+                ctx.moveTo(17, 5)
+                ctx.bezierCurveTo(22, 9, 22, 25, 17, 29)
+                ctx.moveTo(8, 10.5)
+                ctx.lineTo(26, 10.5)
+                ctx.moveTo(8, 23.5)
+                ctx.lineTo(26, 23.5)
+                ctx.stroke()
+            } else if (iconKind === "settings") {
+                ctx.beginPath()
+                for (var i = 0; i < 8; ++i) {
+                    var a = -Math.PI / 2 + i * Math.PI / 4
+                    var r1 = i % 2 === 0 ? 13 : 10.2
+                    var x = 17 + Math.cos(a) * r1
+                    var y = 17 + Math.sin(a) * r1
+                    if (i === 0) {
+                        ctx.moveTo(x, y)
+                    } else {
+                        ctx.lineTo(x, y)
+                    }
+                }
+                ctx.closePath()
+                ctx.stroke()
+                ctx.beginPath()
+                ctx.arc(17, 17, 4.6, 0, Math.PI * 2)
+                ctx.stroke()
+            } else if (iconKind === "stats") {
+                roundedRect(6, 7, 22, 20, 5)
+                ctx.stroke()
+                ctx.beginPath()
+                ctx.moveTo(10, 20)
+                ctx.lineTo(14, 20)
+                ctx.lineTo(16, 15)
+                ctx.lineTo(20, 23)
+                ctx.lineTo(23, 14)
+                ctx.lineTo(26, 14)
+                ctx.stroke()
+            } else if (iconKind === "logs") {
+                roundedRect(8, 8, 18, 20, 4)
+                ctx.stroke()
+                ctx.beginPath()
+                ctx.moveTo(13, 8)
+                ctx.lineTo(13, 5)
+                ctx.moveTo(21, 8)
+                ctx.lineTo(21, 5)
+                ctx.moveTo(13, 14)
+                ctx.lineTo(22, 14)
+                ctx.moveTo(13, 19)
+                ctx.lineTo(21, 19)
+                ctx.moveTo(13, 24)
+                ctx.lineTo(19, 24)
+                ctx.stroke()
+            } else if (iconKind === "about") {
+                ctx.beginPath()
+                ctx.arc(17, 17, 12, 0, Math.PI * 2)
+                ctx.stroke()
+                ctx.beginPath()
+                ctx.arc(17, 11, 1.1, 0, Math.PI * 2)
+                ctx.fill()
+                ctx.beginPath()
+                ctx.moveTo(17, 16)
+                ctx.lineTo(17, 23)
+                ctx.stroke()
+            }
+            ctx.restore()
         }
     }
 
@@ -1634,74 +1753,127 @@ ApplicationWindow {
             ctx.save()
             ctx.strokeStyle = iconColor
             ctx.fillStyle = iconColor
-            ctx.lineWidth = 2
+            ctx.lineWidth = 2.25
             ctx.lineCap = "round"
             ctx.lineJoin = "round"
+            ctx.translate(w / 2, h / 2)
+            ctx.scale(Math.min(w, h) / 34, Math.min(w, h) / 34)
+            ctx.translate(-17, -17)
+
+            function roundedRect(x, y, rw, rh, radius) {
+                ctx.beginPath()
+                ctx.moveTo(x + radius, y)
+                ctx.lineTo(x + rw - radius, y)
+                ctx.quadraticCurveTo(x + rw, y, x + rw, y + radius)
+                ctx.lineTo(x + rw, y + rh - radius)
+                ctx.quadraticCurveTo(x + rw, y + rh, x + rw - radius, y + rh)
+                ctx.lineTo(x + radius, y + rh)
+                ctx.quadraticCurveTo(x, y + rh, x, y + rh - radius)
+                ctx.lineTo(x, y + radius)
+                ctx.quadraticCurveTo(x, y, x + radius, y)
+            }
 
             if (iconKind === "refresh") {
+                var end = Math.PI * 1.62
+                var arrowX = 17 + Math.cos(end) * 10
+                var arrowY = 17 + Math.sin(end) * 10
                 ctx.beginPath()
-                ctx.arc(17, 17, 9, Math.PI * 0.15, Math.PI * 1.65, false)
+                ctx.arc(17, 17, 10, Math.PI * 0.18, end, false)
                 ctx.stroke()
                 ctx.beginPath()
-                ctx.moveTo(11, 8)
-                ctx.lineTo(17, 7)
-                ctx.lineTo(15, 13)
+                ctx.moveTo(arrowX - 1, arrowY - 6)
+                ctx.lineTo(arrowX, arrowY)
+                ctx.lineTo(arrowX + 6, arrowY - 1)
                 ctx.stroke()
             } else if (iconKind === "latency") {
+                ctx.lineWidth = 2.35
                 ctx.beginPath()
-                ctx.arc(17, 17, 10, 0, Math.PI * 2)
+                ctx.arc(17, 21, 11, Math.PI * 1.05, Math.PI * 1.95, false)
                 ctx.stroke()
                 ctx.beginPath()
-                ctx.moveTo(17, 17)
+                ctx.moveTo(9, 20)
+                ctx.lineTo(7.5, 18.5)
+                ctx.moveTo(17, 12)
                 ctx.lineTo(17, 10)
-                ctx.moveTo(17, 17)
-                ctx.lineTo(11, 17)
+                ctx.moveTo(25, 20)
+                ctx.lineTo(26.5, 18.5)
                 ctx.stroke()
+                ctx.beginPath()
+                ctx.moveTo(17, 21)
+                ctx.lineTo(23, 15)
+                ctx.stroke()
+                ctx.beginPath()
+                ctx.arc(17, 21, 2.2, 0, Math.PI * 2)
+                ctx.fill()
             } else if (iconKind === "pin") {
-                ctx.beginPath()
-                ctx.moveTo(13, 8)
-                ctx.lineTo(21, 8)
-                ctx.moveTo(15, 12)
-                ctx.lineTo(19, 12)
-                ctx.moveTo(17, 8)
-                ctx.lineTo(17, 24)
-                ctx.moveTo(13, 17)
-                ctx.lineTo(21, 17)
-                ctx.moveTo(17, 24)
-                ctx.lineTo(15, 28)
+                ctx.save()
+                ctx.translate(17, 17)
+                ctx.rotate(-0.45)
+                roundedRect(-5.5, -11, 11, 7, 2)
                 ctx.stroke()
+                ctx.beginPath()
+                ctx.moveTo(0, -4)
+                ctx.lineTo(0, 8)
+                ctx.moveTo(-6, 2)
+                ctx.lineTo(6, 2)
+                ctx.moveTo(0, 8)
+                ctx.lineTo(-3.5, 14)
+                ctx.moveTo(0, 8)
+                ctx.lineTo(3.5, 14)
+                ctx.stroke()
+                ctx.restore()
+                ctx.globalAlpha = 0.55
+                ctx.beginPath()
+                ctx.moveTo(20, 24)
+                ctx.lineTo(24, 28)
+                ctx.stroke()
+                ctx.globalAlpha = 1
             } else if (iconKind === "copy") {
-                ctx.strokeRect(12, 10, 11, 13)
-                ctx.strokeRect(9, 13, 11, 13)
-            } else if (iconKind === "edit") {
-                ctx.beginPath()
-                ctx.moveTo(10, 24)
-                ctx.lineTo(12, 19)
-                ctx.lineTo(23, 8)
-                ctx.lineTo(26, 11)
-                ctx.lineTo(15, 22)
-                ctx.lineTo(10, 24)
+                roundedRect(12, 8, 12, 15, 2)
+                ctx.stroke()
+                roundedRect(8, 12, 12, 15, 2)
                 ctx.stroke()
                 ctx.beginPath()
-                ctx.moveTo(20, 11)
-                ctx.lineTo(23, 14)
-                ctx.moveTo(9, 27)
-                ctx.lineTo(25, 27)
+                ctx.moveTo(11, 17)
+                ctx.lineTo(17, 17)
+                ctx.moveTo(11, 21)
+                ctx.lineTo(16, 21)
+                ctx.stroke()
+            } else if (iconKind === "edit") {
+                ctx.save()
+                ctx.translate(18, 16)
+                ctx.rotate(-Math.PI / 4)
+                roundedRect(-2.4, -10, 4.8, 17, 1.6)
+                ctx.stroke()
+                ctx.beginPath()
+                ctx.moveTo(-2.4, 7)
+                ctx.lineTo(0, 11.5)
+                ctx.lineTo(2.4, 7)
+                ctx.stroke()
+                ctx.restore()
+                ctx.beginPath()
+                ctx.moveTo(9, 26)
+                ctx.lineTo(25, 26)
                 ctx.stroke()
             } else if (iconKind === "delete") {
+                ctx.lineWidth = 2.15
                 ctx.beginPath()
-                ctx.moveTo(11, 12)
-                ctx.lineTo(23, 12)
-                ctx.moveTo(14, 12)
-                ctx.lineTo(14, 25)
-                ctx.lineTo(20, 25)
-                ctx.lineTo(20, 12)
-                ctx.moveTo(15, 9)
-                ctx.lineTo(19, 9)
+                ctx.moveTo(10, 11)
+                ctx.lineTo(24, 11)
+                ctx.moveTo(14, 8)
+                ctx.lineTo(20, 8)
+                ctx.moveTo(15, 8)
+                ctx.lineTo(14, 11)
+                ctx.moveTo(19, 8)
+                ctx.lineTo(20, 11)
+                ctx.stroke()
+                roundedRect(12, 13, 10, 14, 2)
+                ctx.stroke()
+                ctx.beginPath()
                 ctx.moveTo(15, 16)
-                ctx.lineTo(15, 22)
+                ctx.lineTo(15, 24)
                 ctx.moveTo(19, 16)
-                ctx.lineTo(19, 22)
+                ctx.lineTo(19, 24)
                 ctx.stroke()
             }
             ctx.restore()

@@ -1,6 +1,6 @@
 # Roadmap
 
-Current version: `1.1.3`
+Current version: `1.1.4`
 
 This roadmap is the working contract for Samhain Security. Future implementation should follow this order unless a blocker is found and documented in the same commit.
 
@@ -417,6 +417,17 @@ Done when every action in the subscription menu gives an observable result in bo
 
 Status: shipped in `v1.1.3` with local fallbacks and popup click reliability fixes.
 
+### 1.1.4 - Action Icon Polish
+
+- Replace rough Canvas menu glyphs with cleaner, centered action icons.
+- Use a speedometer for latency checks, a recognizable pushpin for pinning, stacked documents for URL copy, a pencil for edit, and a polished trash can for delete.
+- Replace sidebar text glyphs with clean line icons for add, servers, settings, statistics, logs, and about.
+- Keep action icon strokes consistent with the graphite/red shell.
+
+Done when subscription and sidebar actions read clearly without explaining the icons in text.
+
+Status: shipped in `v1.1.4` with polished menu and navigation action glyphs.
+
 ## Immediate Next Build Order
 
-1. `1.1.4`: installer-managed privileged service registration plan and dry-run operation surface.
+1. `1.1.5`: installer-managed privileged service registration plan and dry-run operation surface.
