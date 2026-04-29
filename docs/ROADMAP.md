@@ -1,6 +1,6 @@
 # Roadmap
 
-Current version: `1.0.10`
+Current version: `1.0.11`
 
 This roadmap is the working contract for Samhain Security. Future implementation should follow this order unless a blocker is found and documented in the same commit.
 
@@ -385,6 +385,16 @@ Done when row action buttons stay in the dark graphite palette and the subscript
 
 Status: shipped in `v1.0.10` with custom action controls, Canvas menu icons, and subscription-scoped latency checks.
 
+### 1.0.11 - Application Routing Dialog Polish
+
+- Split application routing rows into application name, path, and mode-specific state.
+- Replace remaining native controls in the application routing dialog with dark custom actions.
+- Clarify empty states and mode descriptions for selected-app and excluded-app flows.
+
+Done when the app list is scannable, mode-specific, and free of native light hover states.
+
+Status: shipped in `v1.0.11` with structured application routing rows, a compact mode summary, and custom dark dialog controls.
+
 ## Immediate Next Build Order
 
-1. `1.0.11`: app list dialog polish and clearer per-application routing state.
+1. `1.0.12`: privileged service identity preparation and app-routing enforcement evidence.

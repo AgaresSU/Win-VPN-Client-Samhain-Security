@@ -18,6 +18,7 @@
 #include <QTime>
 #include <QUrl>
 #include <QUrlQuery>
+#include <QVariantMap>
 
 #ifdef Q_OS_WIN
 #ifndef NOMINMAX
@@ -654,6 +655,30 @@ QStringList AppController::routeApplications() const
         lines.push_back(application.name + " · " + application.path);
     }
     return lines;
+}
+
+QVariantList AppController::routeApplicationItems() const
+{
+    QVariantList items;
+    items.reserve(m_routeApplications.size());
+
+    QString state = "Не используется";
+    if (m_routeModeIndex == 1) {
+        state = "Через туннель";
+    } else if (m_routeModeIndex == 2) {
+        state = "В обход";
+    }
+
+    for (const auto &application : m_routeApplications) {
+        QVariantMap item;
+        item.insert("name", application.name);
+        item.insert("path", application.path);
+        item.insert("enabled", application.enabled);
+        item.insert("state", state);
+        items.push_back(item);
+    }
+
+    return items;
 }
 
 QString AppController::protectionStatus() const

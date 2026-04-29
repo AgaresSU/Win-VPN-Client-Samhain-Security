@@ -7,6 +7,7 @@
 #include <QObject>
 #include <QStringList>
 #include <QTimer>
+#include <QVariantList>
 #include <QVector>
 
 class QAction;
@@ -126,6 +127,7 @@ class AppController final : public QObject {
     Q_PROPERTY(QString routePolicyStatus READ routePolicyStatus NOTIFY appRoutingChanged)
     Q_PROPERTY(QString routePolicyDetail READ routePolicyDetail NOTIFY appRoutingChanged)
     Q_PROPERTY(QStringList routeApplications READ routeApplications NOTIFY appRoutingChanged)
+    Q_PROPERTY(QVariantList routeApplicationItems READ routeApplicationItems NOTIFY appRoutingChanged)
     Q_PROPERTY(QString protectionStatus READ protectionStatus NOTIFY protectionChanged)
     Q_PROPERTY(QString protectionDetail READ protectionDetail NOTIFY protectionChanged)
     Q_PROPERTY(bool minimizeToTray READ minimizeToTray NOTIFY desktopIntegrationChanged)
@@ -167,6 +169,7 @@ public:
     QString routePolicyStatus() const;
     QString routePolicyDetail() const;
     QStringList routeApplications() const;
+    QVariantList routeApplicationItems() const;
     QString protectionStatus() const;
     QString protectionDetail() const;
     bool minimizeToTray() const;

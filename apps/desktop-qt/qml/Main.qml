@@ -41,6 +41,36 @@ ApplicationWindow {
     readonly property color field: "#181617"
     readonly property color fieldHot: "#272124"
 
+    function routeModeTitle() {
+        if (appController.routeModeIndex === 1) {
+            return "Только выбранные"
+        }
+        if (appController.routeModeIndex === 2) {
+            return "Исключения"
+        }
+        return "Весь компьютер"
+    }
+
+    function routeModeBody() {
+        if (appController.routeModeIndex === 1) {
+            return "Через туннель идут только приложения из списка."
+        }
+        if (appController.routeModeIndex === 2) {
+            return "Весь компьютер идет через туннель, кроме приложений из списка."
+        }
+        return "Список приложений не используется в этом режиме."
+    }
+
+    function routeEmptyBody() {
+        if (appController.routeModeIndex === 1) {
+            return "Добавьте приложения, которые должны идти через туннель."
+        }
+        if (appController.routeModeIndex === 2) {
+            return "Добавьте приложения, которые должны идти мимо туннеля."
+        }
+        return "Переключите режим работы, чтобы использовать список."
+    }
+
     Shortcut {
         sequences: [StandardKey.Paste]
         onActivated: appController.pasteFromClipboard()
@@ -378,92 +408,181 @@ ApplicationWindow {
         modal: true
         x: Math.round((root.width - width) / 2)
         y: Math.round((root.height - height) / 2)
-        width: 680
-        height: 560
+        width: Math.min(root.width - 80, 760)
+        height: Math.min(root.height - 80, 650)
         padding: 0
         closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutside
 
         background: Rectangle {
-            color: "#262626"
+            color: "#171314"
             radius: 18
-            border.color: "#34343A"
+            border.color: "#3A2D31"
         }
 
         contentItem: ColumnLayout {
-            spacing: 16
+            spacing: 14
             anchors.fill: parent
             anchors.margins: 34
 
             RowLayout {
                 Layout.fillWidth: true
-                Text {
-                    text: "Приложения"
-                    color: root.text
-                    font.pixelSize: 28
-                    font.bold: true
+                spacing: 14
+                ColumnLayout {
                     Layout.fillWidth: true
-                }
-                Button {
-                    text: "×"
-                    width: 42
-                    height: 42
-                    onClicked: appRoutingDialog.close()
-                    background: Rectangle { color: "transparent" }
-                    contentItem: Text {
-                        text: parent.text
-                        color: root.muted
-                        font.pixelSize: 34
-                        horizontalAlignment: Text.AlignHCenter
-                        verticalAlignment: Text.AlignVCenter
+                    spacing: 4
+                    Text {
+                        text: "Приложения"
+                        color: root.text
+                        font.pixelSize: 28
+                        font.bold: true
+                        Layout.fillWidth: true
+                        elide: Text.ElideRight
                     }
+                    Text {
+                        text: appController.routePolicyStatus
+                        color: root.muted
+                        font.pixelSize: 14
+                        Layout.fillWidth: true
+                        elide: Text.ElideRight
+                    }
+                }
+                RouteStatePill {
+                    text: root.routeModeTitle()
+                    active: appController.routeModeIndex !== 0
+                }
+                DialogIconButton {
+                    symbol: "×"
+                    onClicked: appRoutingDialog.close()
                 }
             }
 
-            Text {
+            Rectangle {
                 Layout.fillWidth: true
-                text: appController.routePolicyDetail
-                color: root.muted
-                font.pixelSize: 14
-                wrapMode: Text.WordWrap
+                Layout.preferredHeight: 76
+                color: root.panelHot
+                radius: 8
+                border.color: root.line
+                RowLayout {
+                    anchors.fill: parent
+                    anchors.leftMargin: 18
+                    anchors.rightMargin: 18
+                    spacing: 14
+                    Rectangle {
+                        Layout.preferredWidth: 40
+                        Layout.preferredHeight: 40
+                        radius: 10
+                        color: "#211B1D"
+                        border.color: "#4A353A"
+                        Text {
+                            anchors.centerIn: parent
+                            text: "↔"
+                            color: root.accent
+                            font.pixelSize: 22
+                        }
+                    }
+                    ColumnLayout {
+                        Layout.fillWidth: true
+                        spacing: 4
+                        Text {
+                            text: root.routeModeTitle()
+                            color: root.text
+                            font.pixelSize: 17
+                            font.bold: true
+                            Layout.fillWidth: true
+                            elide: Text.ElideRight
+                        }
+                        Text {
+                            text: root.routeModeBody()
+                            color: root.muted
+                            font.pixelSize: 14
+                            Layout.fillWidth: true
+                            elide: Text.ElideRight
+                        }
+                    }
+                    Text {
+                        text: appController.routeAppCountLabel
+                        color: root.text
+                        font.pixelSize: 15
+                        font.bold: true
+                        horizontalAlignment: Text.AlignRight
+                        Layout.maximumWidth: 140
+                        elide: Text.ElideRight
+                    }
+                }
             }
 
             Rectangle {
                 Layout.fillWidth: true
                 Layout.fillHeight: true
-                color: "#202020"
+                color: root.field
                 radius: 8
-                border.color: "#38383D"
+                border.color: root.line
+                clip: true
 
                 ListView {
                     id: routeAppList
                     anchors.fill: parent
                     anchors.margins: 8
                     clip: true
-                    model: appController.routeApplications
+                    spacing: 4
+                    model: appController.routeApplicationItems
                     delegate: Rectangle {
+                        id: routeAppRow
                         width: ListView.view.width
-                        height: 56
-                        color: index % 2 === 0 ? "#242424" : "#202020"
+                        height: 70
+                        radius: 7
+                        color: routeAppHover.hovered ? "#2B2326" : (index % 2 === 0 ? "#211D1F" : "#1B1819")
+                        border.color: routeAppHover.hovered ? "#46373C" : "transparent"
                         RowLayout {
                             anchors.fill: parent
-                            anchors.leftMargin: 12
-                            anchors.rightMargin: 8
-                            Text {
-                                text: modelData
-                                color: root.text
-                                font.pixelSize: 14
-                                elide: Text.ElideMiddle
-                                Layout.fillWidth: true
+                            anchors.leftMargin: 14
+                            anchors.rightMargin: 10
+                            spacing: 12
+                            Rectangle {
+                                Layout.preferredWidth: 38
+                                Layout.preferredHeight: 38
+                                radius: 10
+                                color: "#171516"
+                                border.color: "#4A353A"
+                                Text {
+                                    anchors.centerIn: parent
+                                    text: "EXE"
+                                    color: root.muted
+                                    font.pixelSize: 12
+                                    font.bold: true
+                                }
                             }
-                            Button {
-                                text: "Удалить"
-                                Layout.preferredWidth: 104
-                                height: 38
+                            ColumnLayout {
+                                Layout.fillWidth: true
+                                spacing: 4
+                                Text {
+                                    text: modelData.name
+                                    color: root.text
+                                    font.pixelSize: 16
+                                    font.bold: true
+                                    Layout.fillWidth: true
+                                    elide: Text.ElideRight
+                                }
+                                Text {
+                                    text: modelData.path
+                                    color: root.muted
+                                    font.pixelSize: 12
+                                    Layout.fillWidth: true
+                                    elide: Text.ElideMiddle
+                                }
+                            }
+                            RouteStatePill {
+                                text: modelData.state
+                                active: appController.routeModeIndex !== 0
+                                Layout.maximumWidth: 130
+                            }
+                            DialogIconButton {
+                                symbol: "×"
+                                danger: true
                                 onClicked: appController.removeRouteApplication(index)
-                                background: Rectangle { color: "#3A2224"; radius: 7 }
-                                contentItem: Text { text: parent.text; color: "#FF8C91"; horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter }
                             }
                         }
+                        HoverHandler { id: routeAppHover }
                     }
                 }
 
@@ -471,62 +590,58 @@ ApplicationWindow {
                     anchors.centerIn: parent
                     visible: routeAppList.count === 0
                     title: "Список пуст"
-                    body: "Приложения не выбраны"
+                    body: root.routeEmptyBody()
                 }
             }
 
             RowLayout {
                 Layout.fillWidth: true
+                spacing: 10
                 TextField {
                     id: appPathInput
                     Layout.fillWidth: true
                     height: 46
                     color: root.text
                     placeholderText: "C:\\Program Files\\App\\app.exe"
-                    placeholderTextColor: "#77777F"
+                    placeholderTextColor: "#777177"
+                    selectByMouse: true
                     background: Rectangle {
-                        color: "#3A3A3A"
+                        color: root.field
                         radius: 8
-                        border.color: appPathInput.activeFocus ? root.accent : "#4A4A4A"
+                        border.color: appPathInput.activeFocus ? root.accent : "#4A3A3F"
                     }
                 }
-                Button {
+                DialogActionButton {
                     text: "Выбрать"
                     Layout.preferredWidth: 112
-                    height: 46
                     onClicked: appFileDialog.open()
-                    background: Rectangle { color: "#333333"; radius: 8 }
-                    contentItem: Text { text: parent.text; color: root.text; horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter }
                 }
-                Button {
+                DialogActionButton {
                     text: "Добавить"
+                    accentButton: true
                     Layout.preferredWidth: 112
-                    height: 46
+                    enabled: appPathInput.text.trim().length > 0
                     onClicked: {
                         appController.addRouteApplication(appPathInput.text)
                         appPathInput.text = ""
                     }
-                    background: Rectangle { color: root.accent; radius: 8 }
-                    contentItem: Text { text: parent.text; color: "white"; font.bold: true; horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter }
                 }
             }
 
             RowLayout {
                 Layout.fillWidth: true
                 Text {
-                    text: appController.routePolicyStatus
+                    text: appController.routePolicyDetail
                     color: root.muted
-                    font.pixelSize: 14
+                    font.pixelSize: 13
                     Layout.fillWidth: true
                     elide: Text.ElideRight
                 }
-                Button {
+                DialogActionButton {
                     text: "Восстановить"
                     Layout.preferredWidth: 136
-                    height: 42
+                    danger: true
                     onClicked: appController.restoreAppRoutingPolicy()
-                    background: Rectangle { color: "#333333"; radius: 8 }
-                    contentItem: Text { text: parent.text; color: root.text; horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter }
                 }
             }
         }
@@ -1010,8 +1125,8 @@ ApplicationWindow {
                     }
                 }
                 SettingsCard {
-                    title: "Приложения"
-                    subtitle: appController.routeAppCountLabel
+                    title: "Список приложений"
+                    subtitle: appController.routeAppCountLabel + " · " + appController.routePolicyStatus
                     visible: appController.routeModeIndex !== 0
                     Text {
                         text: appController.routePolicyDetail
@@ -1157,7 +1272,7 @@ ApplicationWindow {
             spacing: 18
             PageTitle { text: "О программе" }
             MetricRow { title: "Программа"; value: "Samhain Security Native" }
-            MetricRow { title: "Версия"; value: "1.0.10" }
+            MetricRow { title: "Версия"; value: "1.0.11" }
             MetricRow { title: "Интерфейс"; value: "Qt 6 / QML" }
             MetricRow { title: "Ядро"; value: "Rust workspace" }
             MetricRow { title: "Статус"; value: appController.statusText }
@@ -1662,6 +1777,104 @@ ApplicationWindow {
         spacing: 4
         Text { text: title; color: root.muted; font.pixelSize: 13 }
         Text { text: value; color: root.text; font.pixelSize: 17; font.bold: true; elide: Text.ElideRight; Layout.fillWidth: true }
+    }
+
+    component RouteStatePill: Rectangle {
+        id: statePill
+        property string text: ""
+        property bool active: true
+        implicitWidth: Math.min(statePillLabel.implicitWidth + 22, 142)
+        implicitHeight: 28
+        Layout.preferredWidth: implicitWidth
+        Layout.preferredHeight: implicitHeight
+        radius: 14
+        color: active ? "#2E2225" : "#1B1819"
+        border.color: active ? "#5C3A40" : "#363033"
+        Text {
+            id: statePillLabel
+            anchors.fill: parent
+            anchors.leftMargin: 11
+            anchors.rightMargin: 11
+            text: statePill.text
+            color: active ? "#F0C4CA" : root.muted
+            font.pixelSize: 12
+            font.bold: true
+            horizontalAlignment: Text.AlignHCenter
+            verticalAlignment: Text.AlignVCenter
+            elide: Text.ElideRight
+        }
+    }
+
+    component DialogActionButton: Rectangle {
+        id: dialogActionButton
+        property string text: ""
+        property bool accentButton: false
+        property bool danger: false
+        signal clicked()
+        implicitHeight: 46
+        Layout.preferredHeight: 46
+        radius: 8
+        opacity: enabled ? 1 : 0.5
+        color: !enabled
+            ? "#1A1718"
+            : (dialogActionMouse.pressed
+                ? (danger ? "#341E22" : (accentButton ? "#8E3037" : "#211B1D"))
+                : (dialogActionMouse.containsMouse
+                    ? (danger ? "#2A1D20" : (accentButton ? "#A7353D" : "#241D20"))
+                    : (accentButton ? root.accent : "#171516")))
+        border.color: dialogActionMouse.containsMouse
+            ? (danger ? "#6A353B" : (accentButton ? "#D05B64" : "#4A3A3F"))
+            : (danger ? "#563038" : "#3A3034")
+        Text {
+            anchors.fill: parent
+            anchors.leftMargin: 12
+            anchors.rightMargin: 12
+            text: dialogActionButton.text
+            color: danger ? "#F08A91" : root.text
+            font.pixelSize: 15
+            font.bold: accentButton
+            horizontalAlignment: Text.AlignHCenter
+            verticalAlignment: Text.AlignVCenter
+            elide: Text.ElideRight
+        }
+        MouseArea {
+            id: dialogActionMouse
+            anchors.fill: parent
+            enabled: dialogActionButton.enabled
+            hoverEnabled: true
+            cursorShape: dialogActionButton.enabled ? Qt.PointingHandCursor : Qt.ArrowCursor
+            onClicked: dialogActionButton.clicked()
+        }
+    }
+
+    component DialogIconButton: Rectangle {
+        id: dialogIconButton
+        property string symbol: ""
+        property bool danger: false
+        signal clicked()
+        implicitWidth: 42
+        implicitHeight: 42
+        Layout.preferredWidth: implicitWidth
+        Layout.preferredHeight: implicitHeight
+        radius: 10
+        color: dialogIconMouse.pressed
+            ? (danger ? "#341E22" : "#211B1D")
+            : (dialogIconMouse.containsMouse ? (danger ? "#2A1D20" : "#241D20") : "#171516")
+        border.color: dialogIconMouse.containsMouse ? (danger ? "#6A353B" : "#4A3A3F") : "#3A3034"
+        Text {
+            anchors.centerIn: parent
+            text: dialogIconButton.symbol
+            color: danger ? "#F08A91" : root.muted
+            font.pixelSize: 26
+            font.bold: danger
+        }
+        MouseArea {
+            id: dialogIconMouse
+            anchors.fill: parent
+            hoverEnabled: true
+            cursorShape: Qt.PointingHandCursor
+            onClicked: dialogIconButton.clicked()
+        }
     }
 
     component EmptyState: ColumnLayout {

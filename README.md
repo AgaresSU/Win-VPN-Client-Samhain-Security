@@ -1,6 +1,6 @@
 # Samhain Security Native
 
-Version: `1.0.10`
+Version: `1.0.11`
 
 Native Windows secure tunneling client prototype built from a clean base.
 
@@ -16,7 +16,7 @@ Native Windows secure tunneling client prototype built from a clean base.
 
 This release is the native foundation. It focuses on the product shell, simple daily UX, local models, persistence, and build/package flow.
 
-Implemented through `1.0.10`:
+Implemented through `1.0.11`:
 
 - Happ-inspired Qt/QML shell with servers, add, settings, statistics, logs, and about sections.
 - Compact subscription group and server rows without technical clutter.
@@ -38,6 +38,7 @@ Implemented through `1.0.10`:
 - Whole-computer TUN path foundation: sing-box TUN config generation, DNS hijack policy, TUN lifecycle IPC state, advanced TUN status, and rollback on stop or unrecovered crash.
 - WireGuard and AmneziaWG adapter path: `.conf` generation, secret-redacted preview, required field validation, adapter lifecycle commands, dry-run diagnostics, and stop rollback.
 - App routing policy foundation: selected/excluded app list, service-owned policy state, UI editor, IPC commands, validation, rollback, and clear limited-support status for transparent per-app routing.
+- Polished app-routing editor with structured application rows, mode-specific state labels, and dark custom actions.
 - Protection layer foundation: service-owned kill switch/DNS/IPv6/watchdog policy state, emergency restore IPC, rollback on stop/crash, scoped firewall command planning, and explicit enforcement gating for privileged service runs.
 - Desktop integration: tray status/menu, minimize-to-tray behavior, single-instance handoff, Windows startup toggle, and `samhain://` import handler registration.
 - Service telemetry: per-session traffic state, categorized service/engine logs, and redacted support export for diagnostics.
@@ -78,7 +79,7 @@ Not implemented yet:
 The package is written to:
 
 ```text
-dist\SamhainSecurityNative-1.0.10-win-x64
+dist\SamhainSecurityNative-1.0.11-win-x64
 ```
 
 ## Local Operations
@@ -97,8 +98,8 @@ See `docs\LOCAL_OPERATIONS.md` and `docs\SIGNING.md` for install scope, storage,
 ## Package Checks
 
 ```powershell
-.\scripts\validate-package.ps1 -ExpectedVersion 1.0.10 -RunServiceStatus
-.\scripts\smoke-package.ps1 -ExpectedVersion 1.0.10
+.\scripts\validate-package.ps1 -ExpectedVersion 1.0.11 -RunServiceStatus
+.\scripts\smoke-package.ps1 -ExpectedVersion 1.0.11
 ```
 
 See `docs\BETA_CHECKLIST.md` for the manual Windows and protocol matrix.
@@ -106,10 +107,10 @@ See `docs\BETA_CHECKLIST.md` for the manual Windows and protocol matrix.
 ## Stable Checks
 
 ```powershell
-.\scripts\verify-update-manifest.ps1 -ExpectedVersion 1.0.10 -RequireStableChannel
-.\scripts\test-signing-readiness.ps1 -ExpectedVersion 1.0.10
-.\scripts\write-clean-machine-evidence.ps1 -ExpectedVersion 1.0.10 -SkipLaunch
-.\scripts\write-release-evidence.ps1 -ExpectedVersion 1.0.10
+.\scripts\verify-update-manifest.ps1 -ExpectedVersion 1.0.11 -RequireStableChannel
+.\scripts\test-signing-readiness.ps1 -ExpectedVersion 1.0.11
+.\scripts\write-clean-machine-evidence.ps1 -ExpectedVersion 1.0.11 -SkipLaunch
+.\scripts\write-release-evidence.ps1 -ExpectedVersion 1.0.11
 ```
 
 See `docs\STABLE_RELEASE.md` and `docs\CLEAN_MACHINE_EVIDENCE.md` for the stable release checklist and external test evidence flow.
