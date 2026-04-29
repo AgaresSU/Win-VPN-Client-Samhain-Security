@@ -1,6 +1,6 @@
 # Signing And Integrity
 
-Version: `0.9.0`
+Version: `0.9.5`
 
 Current status: `unsigned-dev`.
 
@@ -10,6 +10,7 @@ The package is prepared for a future signing pipeline but is not production-sign
 
 - `release-manifest.json`
 - `checksums.txt`
+- `SamhainSecurityNative-<version>-win-x64.update-manifest.json`
 
 `checksums.txt` covers:
 
@@ -18,6 +19,7 @@ The package is prepared for a future signing pipeline but is not production-sign
 - `tools\local-ops.ps1`
 - `tools\validate-package.ps1`
 - `tools\smoke-package.ps1`
+- `tools\verify-update-manifest.ps1`
 - `release-manifest.json`
 - `README.md`
 - `VERSION`

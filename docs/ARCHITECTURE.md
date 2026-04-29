@@ -1,6 +1,6 @@
 # Architecture
 
-Version: `0.9.0`
+Version: `0.9.5`
 
 ## Components
 
@@ -22,6 +22,9 @@ scripts/local-ops.ps1
 
 scripts/validate-package.ps1 and scripts/smoke-package.ps1
   Beta package validation, checksum verification, dry-run operation checks, service status, and packaged desktop launch smoke
+
+scripts/verify-update-manifest.ps1
+  Release candidate update manifest verification for archive hash, size, extracted package contents, and embedded validation
 ```
 
 ## Direction
@@ -50,4 +53,4 @@ Ctrl+V / Add subscription
   -> show speed, traffic, session time
 ```
 
-The `0.9.0` build implements the shell, state model, versioned IPC envelopes, a Windows named-pipe service endpoint, real subscription ingestion, DPAPI-protected service storage, compact service-backed subscription groups, service-owned latency probes, Engine Manager V1, the first proxy path, the whole-computer TUN path foundation, the WireGuard/AmneziaWG adapter path, the app-routing policy foundation, the first protection layer, desktop integration, service-owned session traffic state, categorized log snapshots, redacted support export, responsive dark red graphite UI polish, current-user package operations, and repeatable beta package validation. Firewall enforcement remains gated for privileged service runs until the installer/service identity and WFP layer are complete.
+The `0.9.5` build implements the shell, state model, versioned IPC envelopes, a Windows named-pipe service endpoint, real subscription ingestion, DPAPI-protected service storage, compact service-backed subscription groups, service-owned latency probes, Engine Manager V1, the first proxy path, the whole-computer TUN path foundation, the WireGuard/AmneziaWG adapter path, the app-routing policy foundation, the first protection layer, desktop integration, service-owned session traffic state, categorized log snapshots, redacted support export, responsive dark red graphite UI polish, current-user package operations, repeatable beta package validation, and release candidate update-manifest verification. Firewall enforcement remains gated for privileged service runs until the installer/service identity and WFP layer are complete.

@@ -1,6 +1,6 @@
 # Samhain Security Native
 
-Version: `0.9.0`
+Version: `0.9.5`
 
 Native Windows secure tunneling client prototype built from a clean base.
 
@@ -16,7 +16,7 @@ Native Windows secure tunneling client prototype built from a clean base.
 
 This release is the native foundation. It focuses on the product shell, simple daily UX, local models, persistence, and build/package flow.
 
-Implemented through `0.9.0`:
+Implemented through `0.9.5`:
 
 - Happ-inspired Qt/QML shell with servers, add, settings, statistics, logs, and about sections.
 - Compact subscription group and server rows without technical clutter.
@@ -44,6 +44,7 @@ Implemented through `0.9.0`:
 - Package script for a local Windows distributable.
 - Local operations script for current-user install, repair, uninstall, status, migration backup, and package integrity files.
 - Beta hardening scripts for package validation, SHA256 verification, operation dry-runs, service status, and packaged desktop smoke launch.
+- Release candidate update manifest, archive hash/size verification, extracted-package validation, and RC gate documentation.
 
 Not implemented yet:
 
@@ -68,7 +69,7 @@ Not implemented yet:
 The package is written to:
 
 ```text
-dist\SamhainSecurityNative-0.9.0-win-x64
+dist\SamhainSecurityNative-0.9.5-win-x64
 ```
 
 ## Local Operations
@@ -87,8 +88,17 @@ See `docs\LOCAL_OPERATIONS.md` and `docs\SIGNING.md` for install scope, storage,
 ## Beta Checks
 
 ```powershell
-.\scripts\validate-package.ps1 -ExpectedVersion 0.9.0 -RunServiceStatus
-.\scripts\smoke-package.ps1 -ExpectedVersion 0.9.0
+.\scripts\validate-package.ps1 -ExpectedVersion 0.9.5 -RunServiceStatus
+.\scripts\smoke-package.ps1 -ExpectedVersion 0.9.5
 ```
 
 See `docs\BETA_CHECKLIST.md` for the manual Windows and protocol matrix.
+
+## Release Candidate Checks
+
+```powershell
+.\scripts\verify-update-manifest.ps1 -ExpectedVersion 0.9.5
+.\scripts\smoke-package.ps1 -ExpectedVersion 0.9.5
+```
+
+See `docs\RELEASE_CANDIDATE.md` for the RC evidence checklist.

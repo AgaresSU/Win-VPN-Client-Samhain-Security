@@ -1,5 +1,5 @@
 param(
-    [string]$Version = "0.9.0",
+    [string]$Version = "0.9.5",
     [string]$Configuration = "Release"
 )
 
@@ -10,6 +10,8 @@ $QtRoot = "C:\Qt\6.10.3\mingw_64"
 $MingwRoot = "C:\Qt\Tools\mingw1310_64"
 $PythonScripts = Join-Path $env:APPDATA "Python\Python313\Scripts"
 $PackageRoot = Join-Path $RepoRoot "dist\SamhainSecurityNative-$Version-win-x64"
+$ArchivePath = "$PackageRoot.zip"
+$UpdateManifestPath = "$PackageRoot.update-manifest.json"
 $AppOut = Join-Path $PackageRoot "app"
 $ServiceOut = Join-Path $PackageRoot "service"
 $DocsOut = Join-Path $PackageRoot "docs"
@@ -58,6 +60,7 @@ Copy-Item -Path (Join-Path $RepoRoot "docs\*") -Destination $DocsOut -Recurse -F
 Copy-Item -LiteralPath (Join-Path $RepoRoot "scripts\local-ops.ps1") -Destination $ToolsOut -Force
 Copy-Item -LiteralPath (Join-Path $RepoRoot "scripts\validate-package.ps1") -Destination $ToolsOut -Force
 Copy-Item -LiteralPath (Join-Path $RepoRoot "scripts\smoke-package.ps1") -Destination $ToolsOut -Force
+Copy-Item -LiteralPath (Join-Path $RepoRoot "scripts\verify-update-manifest.ps1") -Destination $ToolsOut -Force
 Copy-Item -LiteralPath (Join-Path $RepoRoot "assets") -Destination $PackageRoot -Recurse -Force
 if (Test-Path (Join-Path $RepoRoot "engines")) {
     Copy-Item -Path (Join-Path $RepoRoot "engines\*") -Destination $EnginesOut -Recurse -Force
@@ -86,16 +89,23 @@ $manifest = [PSCustomObject]@{
         digestAlgorithm = "SHA256"
     }
     quality = [PSCustomObject]@{
-        channel = "beta"
+        channel = "release-candidate"
         validationScript = "tools\validate-package.ps1"
         smokeScript = "tools\smoke-package.ps1"
+        updateManifestVerifier = "tools\verify-update-manifest.ps1"
         gates = @(
             "cargo test --workspace",
             "scripts\build.ps1",
             "scripts\package.ps1",
             "tools\validate-package.ps1",
-            "tools\smoke-package.ps1"
+            "tools\smoke-package.ps1",
+            "tools\verify-update-manifest.ps1"
         )
+    }
+    updates = [PSCustomObject]@{
+        manifestFile = "SamhainSecurityNative-$Version-win-x64.update-manifest.json"
+        archiveFile = "SamhainSecurityNative-$Version-win-x64.zip"
+        verifier = "tools\verify-update-manifest.ps1"
     }
     createdAtUtc = (Get-Date).ToUniversalTime().ToString("O")
 }
@@ -107,6 +117,7 @@ $checksumTargets = @(
     "tools\local-ops.ps1",
     "tools\validate-package.ps1",
     "tools\smoke-package.ps1",
+    "tools\verify-update-manifest.ps1",
     "release-manifest.json",
     "README.md",
     "VERSION"
@@ -121,7 +132,36 @@ $checksums = foreach ($relative in $checksumTargets) {
 }
 $checksums | Set-Content -LiteralPath (Join-Path $PackageRoot "checksums.txt") -Encoding ASCII
 
-Compress-Archive -Path (Join-Path $PackageRoot "*") -DestinationPath "$PackageRoot.zip" -Force
+Compress-Archive -Path (Join-Path $PackageRoot "*") -DestinationPath $ArchivePath -Force
+
+$archive = Get-Item -LiteralPath $ArchivePath
+$archiveHash = (Get-FileHash -Algorithm SHA256 -LiteralPath $ArchivePath).Hash.ToLowerInvariant()
+$updateManifest = [PSCustomObject]@{
+    product = "Samhain Security Native"
+    version = $Version
+    channel = "release-candidate"
+    runtime = "win-x64"
+    package = [PSCustomObject]@{
+        fileName = Split-Path -Leaf $ArchivePath
+        sizeBytes = $archive.Length
+        sha256 = $archiveHash
+        algorithm = "SHA256"
+    }
+    install = [PSCustomObject]@{
+        scope = "CurrentUser"
+        script = "tools\local-ops.ps1"
+    }
+    verification = [PSCustomObject]@{
+        packageValidationScript = "tools\validate-package.ps1"
+        smokeScript = "tools\smoke-package.ps1"
+        updateManifestVerifier = "tools\verify-update-manifest.ps1"
+        signingStatus = "unsigned-dev"
+        expectedPublisher = "Samhain Security"
+    }
+    createdAtUtc = (Get-Date).ToUniversalTime().ToString("O")
+}
+$updateManifest | ConvertTo-Json -Depth 5 | Set-Content -LiteralPath $UpdateManifestPath -Encoding UTF8
 
 Write-Host "Package: $PackageRoot"
-Write-Host "Archive: $PackageRoot.zip"
+Write-Host "Archive: $ArchivePath"
+Write-Host "Update manifest: $UpdateManifestPath"

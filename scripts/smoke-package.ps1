@@ -81,14 +81,23 @@ function Invoke-ScriptStep {
 
 $toolsRoot = Join-Path $PackageRoot "tools"
 $validateScript = Join-Path $toolsRoot "validate-package.ps1"
+$updateVerifierScript = Join-Path $toolsRoot "verify-update-manifest.ps1"
 $localOpsScript = Join-Path $toolsRoot "local-ops.ps1"
 $serviceExe = Join-Path $PackageRoot "service\samhain-service.exe"
 $appExe = Join-Path $PackageRoot "app\SamhainSecurityNative.exe"
+$updateManifestPath = "$PackageRoot.update-manifest.json"
+$archivePath = "$PackageRoot.zip"
 
 Invoke-ScriptStep -Name "validate-package" -ScriptPath $validateScript -Parameters @{
     PackageRoot = $PackageRoot
     ExpectedVersion = $ExpectedVersion
     RunServiceStatus = $true
+    Json = $true
+}
+Invoke-ScriptStep -Name "update-manifest" -ScriptPath $updateVerifierScript -Parameters @{
+    ManifestPath = $updateManifestPath
+    ArchivePath = $archivePath
+    ExpectedVersion = $ExpectedVersion
     Json = $true
 }
 Invoke-ScriptStep -Name "local-ops:status" -ScriptPath $localOpsScript -Parameters @{
