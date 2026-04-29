@@ -1,6 +1,6 @@
 # Samhain Security Native
 
-Version: `0.8.3`
+Version: `0.8.4`
 
 Native Windows secure tunneling client prototype built from a clean base.
 
@@ -40,6 +40,7 @@ Implemented in `0.7.0`:
 - Protection layer foundation: service-owned kill switch/DNS/IPv6/watchdog policy state, emergency restore IPC, rollback on stop/crash, scoped firewall command planning, and explicit enforcement gating for privileged service runs.
 - Desktop integration: tray status/menu, minimize-to-tray behavior, single-instance handoff, Windows startup toggle, and `samhain://` import handler registration.
 - Service telemetry: per-session traffic state, categorized service/engine logs, and redacted support export for diagnostics.
+- UX polish: dark red graphite theme pass, responsive compact navigation, bundled app icon in the shell, and empty states for quiet screens.
 - Package script for a local Windows distributable.
 
 Not implemented yet:
@@ -65,5 +66,5 @@ Not implemented yet:
 The package is written to:
 
 ```text
-dist\SamhainSecurityNative-0.8.3-win-x64
+dist\SamhainSecurityNative-0.8.4-win-x64
 ```

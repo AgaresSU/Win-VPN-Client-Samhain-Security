@@ -5,14 +5,18 @@ import QtQuick.Layouts
 
 ApplicationWindow {
     id: root
-    width: 1496
-    height: 998
-    minimumWidth: 1180
-    minimumHeight: 760
+    width: 1360
+    height: 880
+    minimumWidth: 980
+    minimumHeight: 700
     visible: true
     title: "Samhain Security"
-    color: "#111111"
+    color: bg
 
+    readonly property bool compact: width < 1220
+    readonly property bool tight: height < 790
+    readonly property int pageMargin: compact ? 26 : 36
+    readonly property string appIconSource: "qrc:/qt/qml/SamhainSecurityNative/resources/app-icon.png"
     readonly property color bg: "#101010"
     readonly property color rail: "#171315"
     readonly property color panel: "#201B1D"
@@ -24,6 +28,8 @@ ApplicationWindow {
     readonly property color line: "#3B3033"
     readonly property color accent: "#D0434C"
     readonly property color samhainRed: "#D0434C"
+    readonly property color field: "#261F22"
+    readonly property color fieldHot: "#31272B"
 
     Shortcut {
         sequences: [StandardKey.Paste]
@@ -297,6 +303,7 @@ ApplicationWindow {
                 border.color: "#38383D"
 
                 ListView {
+                    id: routeAppList
                     anchors.fill: parent
                     anchors.margins: 8
                     clip: true
@@ -326,6 +333,13 @@ ApplicationWindow {
                             }
                         }
                     }
+                }
+
+                EmptyState {
+                    anchors.centerIn: parent
+                    visible: routeAppList.count === 0
+                    title: "Список пуст"
+                    body: "Приложения не выбраны"
                 }
             }
 
@@ -395,7 +409,7 @@ ApplicationWindow {
             spacing: 0
 
             Rectangle {
-                Layout.preferredWidth: 246
+                Layout.preferredWidth: root.compact ? 92 : 246
                 Layout.fillHeight: true
                 color: root.rail
 
@@ -406,18 +420,27 @@ ApplicationWindow {
 
                     RowLayout {
                         Layout.fillWidth: true
-                        Layout.preferredHeight: 84
-                        Layout.leftMargin: 22
-                        Layout.rightMargin: 18
-                        spacing: 14
+                        Layout.preferredHeight: root.compact ? 76 : 84
+                        Layout.leftMargin: root.compact ? 18 : 22
+                        Layout.rightMargin: root.compact ? 18 : 18
+                        spacing: root.compact ? 0 : 14
 
-                        Text {
-                            text: "←"
-                            color: root.text
-                            font.pixelSize: 34
+                        Rectangle {
                             Layout.preferredWidth: 42
+                            Layout.preferredHeight: 42
+                            radius: 8
+                            color: "#24191C"
+                            border.color: "#473137"
+                            Image {
+                                anchors.fill: parent
+                                anchors.margins: 4
+                                source: root.appIconSource
+                                fillMode: Image.PreserveAspectFit
+                                smooth: true
+                            }
                         }
                         Text {
+                            visible: !root.compact
                             text: "Samhain Security"
                             color: root.muted
                             font.pixelSize: 16
@@ -472,7 +495,7 @@ ApplicationWindow {
             }
 
             Rectangle {
-                Layout.preferredWidth: 626
+                Layout.preferredWidth: root.compact ? Math.min(560, root.width * 0.56) : 626
                 Layout.fillHeight: true
                 color: root.bg
 
@@ -514,46 +537,46 @@ ApplicationWindow {
 
                 ColumnLayout {
                     anchors.fill: parent
-                    anchors.margins: 44
-                    spacing: 26
+                    anchors.margins: root.compact ? 30 : 44
+                    spacing: root.tight ? 18 : 26
 
                     Item {
                         Layout.fillWidth: true
-                        Layout.preferredHeight: 520
+                        Layout.preferredHeight: root.tight ? 360 : 520
 
                         Rectangle {
-                            width: 334
-                            height: 334
-                            radius: 167
+                            width: root.tight ? 250 : 334
+                            height: width
+                            radius: width / 2
                             anchors.centerIn: parent
                             color: "transparent"
                             border.color: "#4C1E25"
                             border.width: 2
                         }
                         Rectangle {
-                            width: 238
-                            height: 238
-                            radius: 119
+                            width: root.tight ? 184 : 238
+                            height: width
+                            radius: width / 2
                             anchors.centerIn: parent
                             color: "#33262A"
                             opacity: 0.92
                         }
                         Rectangle {
-                            width: 174
-                            height: 174
-                            radius: 87
+                            width: root.tight ? 136 : 174
+                            height: width
+                            radius: width / 2
                             anchors.centerIn: parent
                             color: "#1C181B"
                             border.color: "#6C3940"
                             border.width: 3
                         }
                         Button {
-                            width: 110
-                            height: 110
+                            width: root.tight ? 90 : 110
+                            height: width
                             anchors.centerIn: parent
                             onClicked: appController.toggleConnection()
                             background: Rectangle {
-                                radius: 55
+                                radius: width / 2
                                 color: appController.connected ? root.samhainRed : "#6A353B"
                                 border.color: appController.connected ? "#F08A91" : "#A74A52"
                                 border.width: 2
@@ -587,15 +610,17 @@ ApplicationWindow {
                     Text {
                         text: appController.selectedServerFlag
                         color: root.text
-                        font.pixelSize: 46
+                        font.pixelSize: root.tight ? 34 : 46
                         Layout.alignment: Qt.AlignHCenter
                     }
                     Text {
                         text: appController.selectedServerName
                         color: root.text
-                        font.pixelSize: 22
+                        font.pixelSize: root.tight ? 18 : 22
                         Layout.alignment: Qt.AlignHCenter
                         horizontalAlignment: Text.AlignHCenter
+                        elide: Text.ElideRight
+                        Layout.fillWidth: true
                     }
                     Text {
                         text: appController.selectedServerProtocol + " · " + appController.selectedServerPing
@@ -606,7 +631,7 @@ ApplicationWindow {
                     Button {
                         text: "Тест пинга"
                         Layout.preferredWidth: 288
-                        Layout.preferredHeight: 48
+                        Layout.preferredHeight: root.tight ? 42 : 48
                         Layout.alignment: Qt.AlignHCenter
                         onClicked: appController.testPing()
                         background: Rectangle { radius: 6; color: root.accent }
@@ -622,7 +647,7 @@ ApplicationWindow {
 
                     Rectangle {
                         Layout.fillWidth: true
-                        Layout.preferredHeight: 92
+                        Layout.preferredHeight: root.tight ? 80 : 92
                         color: "#1C1F28"
                         border.color: "#3A3034"
                         radius: 8
@@ -646,8 +671,8 @@ ApplicationWindow {
         id: serversPage
         ColumnLayout {
             anchors.fill: parent
-            anchors.margins: 36
-            spacing: 22
+            anchors.margins: root.pageMargin
+            spacing: 20
 
             Text {
                 text: "Серверы"
@@ -792,6 +817,13 @@ ApplicationWindow {
                         }
                     }
                 }
+
+                EmptyState {
+                    anchors.centerIn: parent
+                    visible: serverList.count === 0
+                    title: "Серверов нет"
+                    body: "Добавьте подписку"
+                }
             }
 
             Text {
@@ -811,8 +843,8 @@ ApplicationWindow {
             contentWidth: availableWidth
             ColumnLayout {
                 width: parent.width
-                spacing: 22
-                anchors.margins: 36
+                spacing: 20
+                anchors.margins: root.pageMargin
                 anchors.left: parent.left
                 anchors.right: parent.right
                 anchors.top: parent.top
@@ -892,7 +924,7 @@ ApplicationWindow {
         id: statsPage
         ColumnLayout {
             anchors.fill: parent
-            anchors.margins: 36
+            anchors.margins: root.pageMargin
             spacing: 18
             PageTitle { text: "Статистика" }
             MetricRow { title: "Время подключения"; value: appController.sessionTime }
@@ -908,7 +940,7 @@ ApplicationWindow {
         id: logsPage
         ColumnLayout {
             anchors.fill: parent
-            anchors.margins: 36
+            anchors.margins: root.pageMargin
             spacing: 18
             RowLayout {
                 Layout.fillWidth: true
@@ -951,18 +983,30 @@ ApplicationWindow {
                     contentItem: Text { text: parent.text; color: root.text; horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter }
                 }
             }
-            ListView {
+            Item {
                 Layout.fillWidth: true
                 Layout.fillHeight: true
-                clip: true
-                model: appController.logs
-                delegate: Text {
-                    width: ListView.view.width
-                    text: modelData
-                    color: root.text
-                    font.family: "Consolas"
-                    font.pixelSize: 15
-                    padding: 6
+
+                ListView {
+                    id: logsList
+                    anchors.fill: parent
+                    clip: true
+                    model: appController.logs
+                    delegate: Text {
+                        width: ListView.view.width
+                        text: modelData
+                        color: root.text
+                        font.family: "Consolas"
+                        font.pixelSize: 15
+                        padding: 6
+                    }
+                }
+
+                EmptyState {
+                    anchors.centerIn: parent
+                    visible: logsList.count === 0
+                    title: "Логи пусты"
+                    body: "Сервис пока ничего не сообщил"
                 }
             }
             Text {
@@ -979,11 +1023,11 @@ ApplicationWindow {
         id: aboutPage
         ColumnLayout {
             anchors.fill: parent
-            anchors.margins: 36
+            anchors.margins: root.pageMargin
             spacing: 18
             PageTitle { text: "О программе" }
-                MetricRow { title: "Программа"; value: "Samhain Security Native" }
-            MetricRow { title: "Версия"; value: "0.8.3" }
+            MetricRow { title: "Программа"; value: "Samhain Security Native" }
+            MetricRow { title: "Версия"; value: "0.8.4" }
             MetricRow { title: "Интерфейс"; value: "Qt 6 / QML" }
             MetricRow { title: "Ядро"; value: "Rust workspace" }
             MetricRow { title: "Статус"; value: appController.statusText }
@@ -996,11 +1040,11 @@ ApplicationWindow {
         property string label: ""
         property bool active: false
         Layout.fillWidth: true
-        Layout.preferredHeight: 60
+        Layout.preferredHeight: root.compact ? 56 : 60
         leftPadding: 0
         rightPadding: 0
         background: Rectangle {
-            color: active ? "#000000" : "transparent"
+            color: active ? "#090708" : "transparent"
             radius: 6
             Rectangle {
                 visible: active
@@ -1013,11 +1057,11 @@ ApplicationWindow {
             }
         }
         contentItem: RowLayout {
-            spacing: 18
-            anchors.leftMargin: 22
-            anchors.rightMargin: 10
+            spacing: root.compact ? 0 : 18
+            anchors.leftMargin: root.compact ? 22 : 22
+            anchors.rightMargin: root.compact ? 22 : 10
             Text { text: iconText; color: root.text; font.pixelSize: 28; Layout.preferredWidth: 38; horizontalAlignment: Text.AlignHCenter }
-            Text { text: label; color: root.text; font.pixelSize: 22; Layout.fillWidth: true; elide: Text.ElideRight }
+            Text { visible: !root.compact; text: label; color: root.text; font.pixelSize: 22; Layout.fillWidth: true; elide: Text.ElideRight }
         }
     }
 
@@ -1055,9 +1099,40 @@ ApplicationWindow {
         Text { text: value; color: root.text; font.pixelSize: 17; font.bold: true; elide: Text.ElideRight; Layout.fillWidth: true }
     }
 
+    component EmptyState: ColumnLayout {
+        property string title: ""
+        property string body: ""
+        spacing: 8
+        width: 260
+        Text {
+            Layout.alignment: Qt.AlignHCenter
+            text: "◇"
+            color: root.accent
+            opacity: 0.85
+            font.pixelSize: 28
+        }
+        Text {
+            Layout.fillWidth: true
+            text: title
+            color: root.text
+            font.pixelSize: 18
+            font.bold: true
+            horizontalAlignment: Text.AlignHCenter
+            elide: Text.ElideRight
+        }
+        Text {
+            Layout.fillWidth: true
+            text: body
+            color: root.muted
+            font.pixelSize: 14
+            horizontalAlignment: Text.AlignHCenter
+            elide: Text.ElideRight
+        }
+    }
+
     component PageTitle: Text {
         color: root.text
-        font.pixelSize: 36
+        font.pixelSize: root.compact ? 32 : 36
         font.bold: true
     }
 
@@ -1066,14 +1141,15 @@ ApplicationWindow {
         property string value: ""
         Layout.fillWidth: true
         Layout.preferredHeight: 66
-        color: "#333333"
+        color: root.fieldHot
         radius: 6
+        border.color: root.line
         RowLayout {
             anchors.fill: parent
             anchors.leftMargin: 20
             anchors.rightMargin: 20
             Text { text: title; color: root.text; font.pixelSize: 18; Layout.fillWidth: true }
-            Text { text: value; color: root.muted; font.pixelSize: 18; horizontalAlignment: Text.AlignRight }
+            Text { text: value; color: root.muted; font.pixelSize: 18; horizontalAlignment: Text.AlignRight; elide: Text.ElideRight; Layout.maximumWidth: parent.width * 0.56 }
         }
     }
 
@@ -1082,8 +1158,9 @@ ApplicationWindow {
         property string title: ""
         Layout.fillWidth: true
         Layout.preferredHeight: 72
-        color: "#333333"
+        color: root.fieldHot
         radius: 6
+        border.color: root.line
         RowLayout {
             id: contentRow
             anchors.fill: parent
@@ -1098,8 +1175,9 @@ ApplicationWindow {
         property bool expanded: false
         Layout.fillWidth: true
         Layout.preferredHeight: expanded ? 860 : 72
-        color: "#333333"
+        color: root.fieldHot
         radius: 6
+        border.color: root.line
         clip: true
 
         ColumnLayout {

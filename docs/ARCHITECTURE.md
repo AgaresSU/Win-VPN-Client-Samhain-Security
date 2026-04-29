@@ -1,6 +1,6 @@
 # Architecture
 
-Version: `0.8.3`
+Version: `0.8.4`
 
 ## Components
 
@@ -44,4 +44,4 @@ Ctrl+V / Add subscription
   -> show speed, traffic, session time
 ```
 
-The `0.8.3` build implements the shell, state model, versioned IPC envelopes, a Windows named-pipe service endpoint, real subscription ingestion, DPAPI-protected service storage, compact service-backed subscription groups, service-owned latency probes, Engine Manager V1, the first proxy path, the whole-computer TUN path foundation, the WireGuard/AmneziaWG adapter path, the app-routing policy foundation, the first protection layer, desktop integration, service-owned session traffic state, categorized log snapshots, and redacted support export. Firewall enforcement remains gated for privileged service runs until the installer/service identity and WFP layer are complete.
+The `0.8.4` build implements the shell, state model, versioned IPC envelopes, a Windows named-pipe service endpoint, real subscription ingestion, DPAPI-protected service storage, compact service-backed subscription groups, service-owned latency probes, Engine Manager V1, the first proxy path, the whole-computer TUN path foundation, the WireGuard/AmneziaWG adapter path, the app-routing policy foundation, the first protection layer, desktop integration, service-owned session traffic state, categorized log snapshots, redacted support export, and the first responsive dark red graphite UI polish pass. Firewall enforcement remains gated for privileged service runs until the installer/service identity and WFP layer are complete.

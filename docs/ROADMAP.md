@@ -1,6 +1,6 @@
 # Roadmap
 
-Current version: `0.8.3`
+Current version: `0.8.4`
 
 This roadmap is the working contract for Samhain Security. Future implementation should follow this order unless a blocker is found and documented in the same commit.
 
@@ -221,6 +221,8 @@ Status: shipped in `v0.8.3` with service-owned session traffic state, categorize
 
 Done when the main workflow feels clean, branded, and readable on common Windows display scales.
 
+Status: shipped in `v0.8.4` with the dark red graphite theme pass, responsive compact navigation, smaller safe window bounds, bundled icon usage in the shell, tuned status panel sizing, and empty states for server, app, and log surfaces.
+
 ### 0.8.5 - Installer And Local Operations
 
 - Add installer plan and service install/uninstall flow.
@@ -262,8 +264,7 @@ Done when Samhain Security is ready for normal users.
 
 ## Immediate Next Build Order
 
-1. `0.8.4`: UX polish.
-2. `0.8.5`: installer and local operations.
-3. `0.9.0`: beta hardening.
-4. `0.9.5`: release candidate hardening.
-5. `1.0.0`: stable packaging and release.
+1. `0.8.5`: installer and local operations.
+2. `0.9.0`: beta hardening.
+3. `0.9.5`: release candidate hardening.
+4. `1.0.0`: stable packaging and release.

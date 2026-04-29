@@ -19,6 +19,7 @@ No ranking controls, no visible protocol editor, no technical filter blocks on t
 - Big connection control.
 - Small speed and traffic summary.
 - Detailed logs and diagnostics stay off the main screen.
+- The shell can collapse navigation labels on narrower windows while keeping the connect flow visible.
 
 ## Add Flow
 
@@ -49,3 +50,7 @@ Hidden in advanced settings:
 ## Diagnostics
 
 The logs page can refresh service logs, filter by category, and export a redacted support folder. The export action copies the folder path to the clipboard after creation.
+
+## Visual Direction
+
+The default theme is dark red graphite: low-glare backgrounds, restrained red accents, and no bright text halos. Empty states should be short and quiet.
