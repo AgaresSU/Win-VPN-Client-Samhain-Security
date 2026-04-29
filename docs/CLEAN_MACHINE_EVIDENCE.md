@@ -1,6 +1,6 @@
 # Clean Machine Evidence
 
-Version: `1.1.8`
+Version: `1.1.9`
 
 This checklist records repeatable evidence from a fresh Windows profile or test machine without changing the simple desktop workflow.
 
@@ -9,13 +9,13 @@ This checklist records repeatable evidence from a fresh Windows profile or test 
 Run from the extracted package root or from the repository:
 
 ```powershell
-.\tools\write-clean-machine-evidence.ps1 -ExpectedVersion 1.1.8
+.\tools\write-clean-machine-evidence.ps1 -ExpectedVersion 1.1.9
 ```
 
 For local release verification without launching the desktop:
 
 ```powershell
-.\scripts\write-clean-machine-evidence.ps1 -ExpectedVersion 1.1.8 -SkipLaunch
+.\scripts\write-clean-machine-evidence.ps1 -ExpectedVersion 1.1.9 -SkipLaunch
 ```
 
 The script records:
@@ -26,6 +26,7 @@ The script records:
 - stable update-manifest verification when the sibling archive and manifest are present;
 - signing readiness inventory;
 - current-user install, repair, and uninstall dry-runs;
+- machine-scope service status plus install, repair, and uninstall dry-runs;
 - service status;
 - optional desktop launch smoke.
 

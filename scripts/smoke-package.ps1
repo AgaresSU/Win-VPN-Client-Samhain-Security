@@ -129,6 +129,25 @@ Invoke-ScriptStep -Name "local-ops:uninstall-dry-run" -ScriptPath $localOpsScrip
     Action = "Uninstall"
     DryRun = $true
 }
+Invoke-ScriptStep -Name "local-ops:machine-status" -ScriptPath $localOpsScript -Parameters @{
+    Action = "Status"
+    Scope = "Machine"
+}
+Invoke-ScriptStep -Name "local-ops:machine-install-dry-run" -ScriptPath $localOpsScript -Parameters @{
+    Action = "Install"
+    Scope = "Machine"
+    DryRun = $true
+}
+Invoke-ScriptStep -Name "local-ops:machine-repair-dry-run" -ScriptPath $localOpsScript -Parameters @{
+    Action = "Repair"
+    Scope = "Machine"
+    DryRun = $true
+}
+Invoke-ScriptStep -Name "local-ops:machine-uninstall-dry-run" -ScriptPath $localOpsScript -Parameters @{
+    Action = "Uninstall"
+    Scope = "Machine"
+    DryRun = $true
+}
 
 if (-not (Test-Path $serviceExe)) {
     Add-Step "service:status" $false "missing=$serviceExe"

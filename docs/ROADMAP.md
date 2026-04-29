@@ -1,6 +1,6 @@
 # Roadmap
 
-Current version: `1.1.8`
+Current version: `1.1.9`
 
 This roadmap is the working contract for Samhain Security. Future implementation should follow this order unless a blocker is found and documented in the same commit.
 
@@ -468,6 +468,210 @@ Done when popup icons render from resource files instead of ad hoc Canvas geomet
 
 Status: shipped in `v1.1.8` with SVG-backed subscription action icons.
 
+### 1.1.9 - Privileged Service Dry-Run Surface
+
+- Add `tools\local-ops.ps1 -Scope Machine` for service status and dry-run operation planning.
+- Define the future Windows service name, display name, target install root, service command, automatic start mode, recovery policy, and verification steps.
+- Keep machine-scope `Install`, `Repair`, and `Uninstall` write operations blocked unless `-DryRun` is supplied.
+- Include machine-scope dry-run checks in smoke and clean-machine evidence.
+- Extend package manifests and validation gates so the privileged service plan is visible in release artifacts.
+- Update local operations documentation with operator commands and the fail-fast rule.
+
+Done when a package can prove the installer-managed service surface without modifying SCM, `Program Files`, firewall, routing, or data roots.
+
+Status: shipped in `v1.1.9` with machine-scope service dry-run planning and package evidence.
+
+### 1.2.0 - Installer-Owned Machine Service Install
+
+- Convert the `1.1.9` dry-run plan into the first real elevated install path.
+- Copy package files to the machine install root through a single installer-owned flow.
+- Register `SamhainSecurityService` with a stable command, automatic start, failure restart, and explicit uninstall cleanup.
+- Keep current-user install as a fallback developer path, but make the production path machine-scoped.
+- Add rollback if service registration, file copy, or first status check fails.
+- Add tests and package gates for dry run, real status, uninstall dry run, and repair dry run.
+
+Done when an elevated operator can install, repair, inspect, and uninstall the service without manual SCM commands.
+
+Status: planned.
+
+### 1.2.1 - Service Identity And Recovery
+
+- Run privileged network actions only when service identity, elevation, and signing state match policy.
+- Move recovery, watchdog, and emergency restore ownership fully into the service.
+- Persist service audit events with redaction and rotation.
+- Add recovery policy evidence to status, support export, and release evidence.
+- Add a service-side self-check command for named pipe, engine directory, storage, routes, DNS, and firewall capability.
+
+Done when service status explains what is available, what is blocked, and which recovery path will run after a failure.
+
+Status: planned.
+
+### 1.2.2 - Enforcement Policy Planner
+
+- Turn protection firewall plans into a typed apply/rollback transaction model.
+- Add dry-run and apply evidence for DNS guard, IPv6 policy, kill switch, and emergency restore.
+- Keep rule names scoped to Samhain Security and avoid broad allow rules.
+- Add transaction IDs so applied rules can be rolled back precisely.
+- Extend clean-machine evidence with before/after snapshots for enforcement runs.
+
+Done when privileged protection can be applied and rolled back from one auditable transaction.
+
+Status: planned.
+
+### 1.2.3 - Production Engine Bundle Contract
+
+- Define exact bundled runtime layout for sing-box, Xray, WireGuard, and AmneziaWG.
+- Add SHA256 inventory, executable presence checks, and version probes.
+- Fail clearly when a selected protocol lacks its required runtime.
+- Keep raw configs and credentials redacted in logs and support bundles.
+- Package operator documentation for replacing or updating engine binaries.
+
+Done when protocol availability is determined by package inventory rather than assumptions.
+
+Status: planned.
+
+### 1.2.4 - Runtime Health And Counters
+
+- Read real engine health and byte counters where the selected runtime exposes them.
+- Keep the current service-session counters only as a fallback with a visible source label.
+- Add reconnect reason, last error, last successful handshake, and current route path to service state.
+- Add a compact statistics page that remains useful without cluttering the main screen.
+
+Done when the right panel and statistics page distinguish live runtime metrics from fallback telemetry.
+
+Status: planned.
+
+### 1.2.5 - Subscription Operations Hardening
+
+- Make refresh, pin, copy, rename, delete, and ping tests deterministic with service-backed and local-fallback paths.
+- Add subscription import tests for the Samhain landing URL, AWG URL, base64 payloads, and direct links.
+- Store update intervals and last-update status per subscription.
+- Add cancellation and timeout behavior for slow or unavailable subscription hosts.
+- Preserve the simple grouped UX: subscription row first, servers folded under it.
+
+Done when subscription actions work predictably without requiring the user to open logs.
+
+Status: planned.
+
+### 1.3.0 - Daily UX Freeze
+
+- Freeze the primary screen: add/paste, subscription group, server rows, connect button, status, latency, route chips, traffic.
+- Remove or hide any technical controls that still leak into the daily flow.
+- Keep advanced settings under one deliberate expansion point.
+- Verify small window, high-DPI, and Russian text fit for all major screens.
+- Keep the dark red graphite style without bright native hover artifacts.
+
+Done when the app feels simple enough for a non-technical user and stable enough for visual QA screenshots.
+
+Status: planned.
+
+### 1.3.1 - Connection Reliability Pass
+
+- Add connect-state timeouts, cancellation, and user-visible retry states.
+- Make disconnect and emergency restore safe to call repeatedly.
+- Add route-mode switching behavior while connected: block, reconnect, or apply live based on service capability.
+- Add clearer user messages for missing engine, missing adapter, invalid config, denied privilege, and rollback.
+
+Done when failed connects leave the system in a known state and the UI never pretends that a failed path is connected.
+
+Status: planned.
+
+### 1.3.2 - App Routing Design Gate
+
+- Validate the final Windows approach for selected-app and excluded-app modes: WFP, engine process matching, driver requirements, and limitations.
+- Keep unsupported combinations disabled with honest explanations.
+- Add a compatibility matrix for Windows 10, Windows 11, restricted user, admin user, proxy path, TUN path, WireGuard, and AmneziaWG.
+- Decide which combinations are release-supported and which remain advanced/experimental.
+
+Done when app-routing promises match what the implementation can actually enforce.
+
+Status: planned.
+
+### 1.3.3 - App Routing Enforcement V1
+
+- Implement the first supported per-application enforcement layer from the `1.3.2` decision.
+- Apply rules from the privileged service only.
+- Add transaction rollback, emergency restore, and support export evidence.
+- Add UI state for whole computer, selected apps only, and whole computer except selected apps.
+- Add tests for path validation, disabled apps, deleted executables, and failed apply/rollback.
+
+Done when supported app-routing modes are enforced, not just described.
+
+Status: planned.
+
+### 1.3.4 - Diagnostics And Support Final
+
+- Finalize log categories: desktop, service, engine, subscription, routing, protection, updater.
+- Add one-click redacted support export from the app.
+- Include package version, service status, engine inventory, subscription summary, route mode, and recent errors.
+- Keep secrets, tokens, URLs, keys, and raw configs redacted by default.
+- Add a compact health summary that support can read without parsing raw logs.
+
+Done when a support bundle can diagnose most failures without leaking private material.
+
+Status: planned.
+
+### 1.3.5 - Tray, Startup, And Link Ownership
+
+- Move startup and `samhain://` registration from ad hoc user integration into installer-owned registration where appropriate.
+- Keep tray actions fast: show, connect/disconnect, selected server, status, quit.
+- Add minimized-to-tray and background launch behavior to clean-machine evidence.
+- Make external subscription handoff reliable when the app is already running.
+
+Done when tray and link behavior survive install, repair, update, and uninstall.
+
+Status: planned.
+
+### 1.3.6 - Update And Rollback Hardening
+
+- Verify update manifest signatures or trusted hashes before applying updates.
+- Preserve previous working package for rollback.
+- Add downgrade protection unless explicit recovery mode is used.
+- Keep release evidence linked to archive hash, package hash, tag, commit, and signing state.
+- Add operator docs for stable, beta, rollback, and emergency restore.
+
+Done when updates are auditable and a bad update can be backed out cleanly.
+
+Status: planned.
+
+### 1.3.7 - Security Review And Abuse Resistance
+
+- Review IPC authorization, service command surface, file permissions, registry writes, update trust, logging redaction, and engine config handling.
+- Make service commands reject untrusted or malformed requests.
+- Check that no local user can hijack service-owned paths or engine binaries.
+- Add evidence for privilege boundaries and known limitations.
+- Keep public UI simple; keep dangerous controls behind advanced settings and service policy.
+
+Done when the package has a written security posture and release-blocking issues are either fixed or explicitly blocked.
+
+Status: planned.
+
+### 1.4.0 - Release-Ready Competitive Build
+
+- Ship the simple daily UX, real subscription workflow, real protocol runtime checks, privileged service path, protected connect/disconnect, app-routing decision, diagnostics, tray, startup, and update evidence.
+- Run Windows 10 and Windows 11 clean-machine tests for current-user fallback and machine install.
+- Run protocol matrix for VLESS TCP REALITY, Trojan, Shadowsocks, Hysteria2, TUIC, WireGuard, and AmneziaWG according to bundled runtime availability.
+- Run visual QA against the reference style without copying branding.
+- Publish package, archive, update manifest, checksums, signing/readiness evidence, clean-machine evidence, and release notes.
+
+Done when Samhain Security can be installed and used by normal Windows users with a simple flow, honest limitations, and no hidden privileged-network assumptions.
+
+Status: planned.
+
 ## Immediate Next Build Order
 
-1. `1.1.9`: installer-managed privileged service registration plan and dry-run operation surface.
+1. `1.2.0`: turn machine-scope dry-run into installer-owned service install, repair, status, and uninstall.
+2. `1.2.1`: service identity, recovery, and self-check evidence.
+3. `1.2.2`: privileged enforcement transaction planner.
+4. `1.2.3`: production engine bundle contract.
+5. `1.2.4`: runtime health and counters.
+6. `1.2.5`: subscription operations hardening.
+7. `1.3.0`: daily UX freeze.
+8. `1.3.1`: connection reliability pass.
+9. `1.3.2`: app-routing design gate.
+10. `1.3.3`: app-routing enforcement V1.
+11. `1.3.4`: diagnostics and support final.
+12. `1.3.5`: tray, startup, and link ownership.
+13. `1.3.6`: update and rollback hardening.
+14. `1.3.7`: security review and abuse resistance.
+15. `1.4.0`: release-ready competitive build.

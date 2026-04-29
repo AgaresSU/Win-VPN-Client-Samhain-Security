@@ -1,6 +1,8 @@
 param(
     [ValidateSet("Install", "Repair", "Uninstall", "Status")]
     [string]$Action = "Status",
+    [ValidateSet("CurrentUser", "Machine")]
+    [string]$Scope = "CurrentUser",
     [string]$PackageRoot = "",
     [string]$InstallRoot = "",
     [switch]$RemoveData,
@@ -12,11 +14,19 @@ $ErrorActionPreference = "Stop"
 $ProductName = "Samhain Security"
 $RunValueName = "Samhain Security"
 $TaskName = "Samhain Security Service"
+$ServiceName = "SamhainSecurityService"
+$ServiceDisplayName = "Samhain Security Service"
+$ServiceDescription = "Samhain Security privileged network service"
 $UrlScheme = "samhain"
 $DataRoot = Join-Path $env:APPDATA "SamhainSecurity"
 
 if ([string]::IsNullOrWhiteSpace($InstallRoot)) {
-    $InstallRoot = Join-Path $env:LOCALAPPDATA "SamhainSecurity"
+    if ($Scope -eq "Machine") {
+        $InstallRoot = Join-Path $env:ProgramFiles "SamhainSecurity"
+    }
+    else {
+        $InstallRoot = Join-Path $env:LOCALAPPDATA "SamhainSecurity"
+    }
 }
 
 if ([string]::IsNullOrWhiteSpace($PackageRoot)) {
@@ -101,6 +111,116 @@ function Stop-InstalledProcesses {
             }
         }
     }
+}
+
+function Test-IsAdministrator {
+    $identity = [Security.Principal.WindowsIdentity]::GetCurrent()
+    $principal = [Security.Principal.WindowsPrincipal]::new($identity)
+    return $principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
+}
+
+function Get-MachineServiceRecord {
+    try {
+        return Get-CimInstance -ClassName Win32_Service -Filter "Name='$ServiceName'" -ErrorAction Stop
+    }
+    catch {
+        return $null
+    }
+}
+
+function Get-MachineServicePlan {
+    param([string]$Operation)
+
+    $serviceExe = Join-Path $InstallRoot "service\samhain-service.exe"
+    switch ($Operation) {
+        "Install" {
+            return @(
+                "Verify package integrity and version metadata",
+                "Copy app, service, assets, docs, and tools to $InstallRoot",
+                "Register Windows service $ServiceName with command `"$serviceExe`" run",
+                "Set service start mode to Automatic",
+                "Set recovery policy to restart after failure",
+                "Start service and verify named-pipe status",
+                "Write install-state.json with scope=Machine"
+            )
+        }
+        "Repair" {
+            return @(
+                "Stop service $ServiceName if it is running",
+                "Refresh package files in $InstallRoot",
+                "Reapply service command, start mode, and recovery policy",
+                "Start service and verify named-pipe status",
+                "Write repair timestamp to install-state.json"
+            )
+        }
+        "Uninstall" {
+            $dataAction = if ($RemoveData) { "Remove service data root $DataRoot" } else { "Preserve service data root $DataRoot" }
+            return @(
+                "Stop service $ServiceName if it is running",
+                "Delete Windows service $ServiceName",
+                "Remove install root $InstallRoot",
+                $dataAction
+            )
+        }
+        default {
+            return @(
+                "Inspect service $ServiceName",
+                "Report install root, command path, start mode, status, and elevation"
+            )
+        }
+    }
+}
+
+function Assert-MachineOperationSupported {
+    param([string]$Operation)
+
+    if ($Operation -eq "Status") {
+        return
+    }
+
+    if (-not $DryRun) {
+        throw "Machine scope $Operation is currently dry-run only. Use -Scope Machine -DryRun until the signed installer enables write operations."
+    }
+}
+
+function Get-MachineStatus {
+    $serviceRecord = Get-MachineServiceRecord
+    $serviceExe = Join-Path $InstallRoot "service\samhain-service.exe"
+
+    [PSCustomObject]@{
+        product = $ProductName
+        scope = "Machine"
+        status = "dry-run-planned"
+        implemented = "dry-run"
+        installed = $null -ne $serviceRecord
+        serviceName = $ServiceName
+        serviceDisplayName = $ServiceDisplayName
+        serviceDescription = $ServiceDescription
+        serviceStatus = if ($serviceRecord) { [string]$serviceRecord.State } else { "missing" }
+        startMode = if ($serviceRecord) { [string]$serviceRecord.StartMode } else { "not-registered" }
+        executable = $serviceExe
+        registeredPath = if ($serviceRecord) { [string]$serviceRecord.PathName } else { "" }
+        installRoot = $InstallRoot
+        dataRoot = $DataRoot
+        administrator = Test-IsAdministrator
+        dryRun = [bool]$DryRun
+        plannedActions = Get-MachineServicePlan -Operation $Action
+    }
+}
+
+function Invoke-MachineOperationPlan {
+    param([string]$Operation)
+
+    Assert-MachineOperationSupported $Operation
+    if ($Operation -in @("Install", "Repair")) {
+        Test-PackageRoot
+    }
+
+    foreach ($step in (Get-MachineServicePlan -Operation $Operation)) {
+        Invoke-Operation "Machine scope: $step" {}
+    }
+
+    Get-MachineStatus
 }
 
 function Copy-PackageContent {
@@ -257,6 +377,7 @@ function Get-LocalStatus {
 
     [PSCustomObject]@{
         product = $ProductName
+        scope = "CurrentUser"
         installed = (Test-Path $appExe) -and (Test-Path $serviceExe)
         version = Get-InstalledVersion
         installRoot = $InstallRoot
@@ -266,6 +387,25 @@ function Get-LocalStatus {
         urlScheme = Test-Path "HKCU:\Software\Classes\$UrlScheme"
         dryRun = [bool]$DryRun
     }
+}
+
+if ($Scope -eq "Machine") {
+    switch ($Action) {
+        "Install" {
+            Invoke-MachineOperationPlan -Operation "Install" | ConvertTo-Json -Depth 5
+        }
+        "Repair" {
+            Invoke-MachineOperationPlan -Operation "Repair" | ConvertTo-Json -Depth 5
+        }
+        "Uninstall" {
+            Invoke-MachineOperationPlan -Operation "Uninstall" | ConvertTo-Json -Depth 5
+        }
+        "Status" {
+            Get-MachineStatus | ConvertTo-Json -Depth 5
+        }
+    }
+
+    exit 0
 }
 
 switch ($Action) {
