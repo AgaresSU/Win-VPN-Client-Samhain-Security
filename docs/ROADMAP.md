@@ -1,6 +1,6 @@
 # Roadmap
 
-Current version: `1.2.5`
+Current version: `1.3.0`
 
 This roadmap is the working contract for Samhain Security. Future implementation should follow this order unless a blocker is found and documented in the same commit.
 
@@ -564,7 +564,7 @@ Status: shipped in `v1.2.5` with deterministic subscription operation state, exa
 
 Done when the app feels simple enough for a non-technical user and stable enough for visual QA screenshots.
 
-Status: planned.
+Status: shipped in `v1.3.0` with a frozen simple daily surface, plain-language route chips, dark custom dialog/log buttons, quiet line icons for search and quick actions, a documented visual QA checklist, and advanced technical controls kept behind one deliberate expansion point.
 
 ### 1.3.1 - Connection Reliability Pass
 
@@ -661,12 +661,11 @@ Status: planned.
 
 ## Immediate Next Build Order
 
-1. `1.3.0`: daily UX freeze.
-2. `1.3.1`: connection reliability pass.
-3. `1.3.2`: app-routing design gate.
-4. `1.3.3`: app-routing enforcement V1.
-5. `1.3.4`: diagnostics and support final.
-6. `1.3.5`: tray, startup, and link ownership.
-7. `1.3.6`: update and rollback hardening.
-8. `1.3.7`: security review and abuse resistance.
-9. `1.4.0`: release-ready competitive build.
+1. `1.3.1`: connection reliability pass.
+2. `1.3.2`: app-routing design gate.
+3. `1.3.3`: app-routing enforcement V1.
+4. `1.3.4`: diagnostics and support final.
+5. `1.3.5`: tray, startup, and link ownership.
+6. `1.3.6`: update and rollback hardening.
+7. `1.3.7`: security review and abuse resistance.
+8. `1.4.0`: release-ready competitive build.

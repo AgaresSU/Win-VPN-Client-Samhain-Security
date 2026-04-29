@@ -1,6 +1,6 @@
 # Samhain Security Native
 
-Version: `1.2.5`
+Version: `1.3.0`
 
 Native Windows secure tunneling client prototype built from a clean base.
 
@@ -16,7 +16,7 @@ Native Windows secure tunneling client prototype built from a clean base.
 
 This release is the native foundation. It focuses on the product shell, simple daily UX, local models, persistence, and build/package flow.
 
-Implemented through `1.2.5`:
+Implemented through `1.3.0`:
 
 - Happ-inspired Qt/QML shell with servers, add, settings, statistics, logs, and about sections.
 - Compact subscription group and server rows without technical clutter.
@@ -63,6 +63,7 @@ Implemented through `1.2.5`:
 - Refined flag rendering, removed native navigation highlight bleed, and cleaned the power icon artifact.
 - Calmer right connection panel with real Proxy/TUN route buttons, a flatter power control, and honest `n/a` latency when the service cannot measure.
 - Dark-green connected state for the power glyph, status badge, and connection ring.
+- Daily UX freeze with plain-language route chips, dark custom dialog buttons, quiet server actions, a documented visual QA checklist, and technical operations kept under advanced settings.
 
 Not implemented yet:
 
@@ -87,7 +88,7 @@ Not implemented yet:
 The package is written to:
 
 ```text
-dist\SamhainSecurityNative-1.2.5-win-x64
+dist\SamhainSecurityNative-1.3.0-win-x64
 ```
 
 ## Local Operations
@@ -106,8 +107,8 @@ See `docs\LOCAL_OPERATIONS.md` and `docs\SIGNING.md` for install scope, storage,
 ## Package Checks
 
 ```powershell
-.\scripts\validate-package.ps1 -ExpectedVersion 1.2.5 -RunServiceStatus
-.\scripts\smoke-package.ps1 -ExpectedVersion 1.2.5
+.\scripts\validate-package.ps1 -ExpectedVersion 1.3.0 -RunServiceStatus
+.\scripts\smoke-package.ps1 -ExpectedVersion 1.3.0
 ```
 
 See `docs\BETA_CHECKLIST.md` for the manual Windows and protocol matrix.
@@ -115,10 +116,10 @@ See `docs\BETA_CHECKLIST.md` for the manual Windows and protocol matrix.
 ## Stable Checks
 
 ```powershell
-.\scripts\verify-update-manifest.ps1 -ExpectedVersion 1.2.5 -RequireStableChannel
-.\scripts\test-signing-readiness.ps1 -ExpectedVersion 1.2.5
-.\scripts\write-clean-machine-evidence.ps1 -ExpectedVersion 1.2.5 -SkipLaunch
-.\scripts\write-release-evidence.ps1 -ExpectedVersion 1.2.5
+.\scripts\verify-update-manifest.ps1 -ExpectedVersion 1.3.0 -RequireStableChannel
+.\scripts\test-signing-readiness.ps1 -ExpectedVersion 1.3.0
+.\scripts\write-clean-machine-evidence.ps1 -ExpectedVersion 1.3.0 -SkipLaunch
+.\scripts\write-release-evidence.ps1 -ExpectedVersion 1.3.0
 ```
 
 See `docs\STABLE_RELEASE.md` and `docs\CLEAN_MACHINE_EVIDENCE.md` for the stable release checklist and external test evidence flow.

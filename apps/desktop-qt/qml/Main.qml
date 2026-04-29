@@ -131,19 +131,9 @@ ApplicationWindow {
                     font.bold: true
                     Layout.fillWidth: true
                 }
-                Button {
-                    text: "×"
-                    width: 42
-                    height: 42
+                DialogIconButton {
+                    symbol: "×"
                     onClicked: addDialog.close()
-                    background: Rectangle { color: "transparent" }
-                    contentItem: Text {
-                        text: parent.text
-                        color: root.muted
-                        font.pixelSize: 30
-                        horizontalAlignment: Text.AlignHCenter
-                        verticalAlignment: Text.AlignVCenter
-                    }
                 }
             }
 
@@ -192,48 +182,28 @@ ApplicationWindow {
                 Layout.fillWidth: true
                 spacing: 12
                 Item { Layout.fillWidth: true }
-                Button {
+                DialogActionButton {
                     text: "Отмена"
                     Layout.preferredWidth: 118
-                    height: 46
                     onClicked: addDialog.close()
-                    background: Rectangle {
-                        color: parent.down ? "#2A2023" : "#181617"
-                        radius: 6
-                        border.color: "#30292C"
-                    }
-                    contentItem: Text { text: parent.text; color: root.muted; font.pixelSize: 16; horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter }
                 }
-                Button {
+                DialogActionButton {
                     text: "Из буфера"
                     Layout.preferredWidth: 126
-                    height: 46
                     onClicked: {
                         appController.pasteFromClipboard()
                         addDialog.close()
                     }
-                    background: Rectangle {
-                        color: parent.down ? "#2A2023" : "#181617"
-                        radius: 6
-                        border.color: parent.hovered ? "#4A3C41" : "#30292C"
-                    }
-                    contentItem: Text { text: parent.text; color: root.text; font.pixelSize: 16; horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter }
                 }
-                Button {
+                DialogActionButton {
                     text: "Добавить"
                     enabled: subscriptionUrlInput.text.trim().length > 0
                     Layout.preferredWidth: 126
-                    height: 46
+                    accentButton: true
                     onClicked: {
                         appController.addSubscription(subscriptionNameInput.text, subscriptionUrlInput.text)
                         addDialog.close()
                     }
-                    background: Rectangle {
-                        color: parent.enabled ? (parent.down ? "#8F2F36" : root.accent) : "#3B3034"
-                        radius: 6
-                        border.color: parent.enabled ? "#D15B63" : "#463B3F"
-                    }
-                    contentItem: Text { text: parent.text; color: parent.enabled ? "white" : root.muted; font.pixelSize: 16; font.bold: true; horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter }
                 }
             }
         }
@@ -251,9 +221,9 @@ ApplicationWindow {
         closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutside
 
         background: Rectangle {
-            color: "#262626"
-            radius: 18
-            border.color: "#34343A"
+            color: "#201C1E"
+            radius: 12
+            border.color: "#3E3337"
         }
 
         contentItem: ColumnLayout {
@@ -275,32 +245,27 @@ ApplicationWindow {
                 placeholderText: "Название подписки"
                 placeholderTextColor: "#77777F"
                 background: Rectangle {
-                    color: "#3A3A3A"
-                    radius: 8
-                    border.color: renameSubscriptionNameInput.activeFocus ? root.accent : "#4A4A4A"
+                    color: root.field
+                    radius: 6
+                    border.color: renameSubscriptionNameInput.activeFocus ? root.accent : "#463B3F"
                 }
             }
             RowLayout {
                 Layout.fillWidth: true
                 Item { Layout.fillWidth: true }
-                Button {
+                DialogActionButton {
                     text: "Отмена"
                     Layout.preferredWidth: 120
-                    height: 48
                     onClicked: renameDialog.close()
-                    background: Rectangle { color: "#333333"; radius: 8 }
-                    contentItem: Text { text: parent.text; color: root.text; horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter }
                 }
-                Button {
+                DialogActionButton {
                     text: "Сохранить"
                     Layout.preferredWidth: 132
-                    height: 48
+                    accentButton: true
                     onClicked: {
                         appController.renameSubscription(renameDialog.rowIndex, renameSubscriptionNameInput.text)
                         renameDialog.close()
                     }
-                    background: Rectangle { color: root.accent; radius: 8 }
-                    contentItem: Text { text: parent.text; color: "white"; font.bold: true; horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter }
                 }
             }
         }
@@ -328,9 +293,9 @@ ApplicationWindow {
         }
 
         background: Rectangle {
-            color: "#454442"
+            color: "#302D2B"
             radius: 6
-            border.color: "#585451"
+            border.color: "#514A47"
         }
 
         contentItem: ColumnLayout {
@@ -893,14 +858,14 @@ ApplicationWindow {
                         Layout.alignment: Qt.AlignHCenter
                         spacing: 8
                         PathChip {
-                            text: "Proxy"
-                            active: appController.routeModeIndex !== 0
-                            onClicked: appController.routeModeIndex = 1
+                            text: root.routeModeTitle()
+                            active: true
+                            onClicked: appController.openAdvancedSettings()
                         }
                         PathChip {
-                            text: "TUN"
-                            active: appController.routeModeIndex === 0
-                            onClicked: appController.routeModeIndex = 0
+                            text: appController.routeModeIndex === 0 ? "Маршрут" : appController.routeAppCountLabel
+                            active: appController.routeModeIndex !== 0
+                            onClicked: appRoutingDialog.open()
                         }
                     }
 
@@ -957,8 +922,8 @@ ApplicationWindow {
                         border.width: 1
                     }
                 }
-                ButtonIcon { label: "↻"; onClicked: appController.testAllPings() }
-                ButtonIcon { label: "⋯"; onClicked: addDialog.open() }
+                ButtonIcon { iconKind: "refresh"; onClicked: appController.testAllPings() }
+                ButtonIcon { iconKind: "more"; onClicked: addDialog.open() }
             }
 
             Rectangle {
@@ -1019,12 +984,12 @@ ApplicationWindow {
                                 }
                             }
                             ButtonIcon {
-                                label: "↻"
+                                iconKind: "refresh"
                                 onClicked: appController.refreshSubscription(index)
                             }
                             ButtonIcon {
                                 id: subscriptionActionsButton
-                                label: "⋯"
+                                iconKind: "more"
                                 onClicked: subscriptionActionsPopup.openFor(index, subscriptionActionsButton, name)
                             }
                         }
@@ -1083,12 +1048,12 @@ ApplicationWindow {
                 Layout.fillWidth: true
                 spacing: 16
                 QuickActionButton {
-                    iconText: "⧉"
+                    iconKind: "copy"
                     label: "Из буфера"
                     onClicked: appController.pasteFromClipboard()
                 }
                 QuickActionButton {
-                    iconText: "+"
+                    iconKind: "add"
                     label: "Добавить"
                     onClicked: addDialog.open()
                 }
@@ -1216,23 +1181,21 @@ ApplicationWindow {
                         elide: Text.ElideRight
                     }
                 }
-                Button {
+                QuietButton {
                     text: "Обновить"
+                    Layout.preferredWidth: 110
                     onClicked: appController.refreshServiceLogs()
-                    background: Rectangle { color: "#333333"; radius: 8 }
-                    contentItem: Text { text: parent.text; color: root.text; horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter }
                 }
-                Button {
+                QuietButton {
                     text: "Экспорт"
+                    Layout.preferredWidth: 104
+                    accentButton: true
                     onClicked: appController.exportSupportBundle()
-                    background: Rectangle { color: root.accent; radius: 8 }
-                    contentItem: Text { text: parent.text; color: "white"; horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter }
                 }
-                Button {
+                QuietButton {
                     text: "Очистить"
+                    Layout.preferredWidth: 104
                     onClicked: appController.clearLogs()
-                    background: Rectangle { color: "#333333"; radius: 8 }
-                    contentItem: Text { text: parent.text; color: root.text; horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter }
                 }
             }
             Item {
@@ -1279,7 +1242,7 @@ ApplicationWindow {
             spacing: 18
             PageTitle { text: "О программе" }
             MetricRow { title: "Программа"; value: "Samhain Security Native" }
-            MetricRow { title: "Версия"; value: "1.1.8" }
+            MetricRow { title: "Версия"; value: "1.3.0" }
             MetricRow { title: "Интерфейс"; value: "Qt 6 / QML" }
             MetricRow { title: "Ядро"; value: "Rust workspace" }
             MetricRow { title: "Статус"; value: appController.statusText }
@@ -1520,8 +1483,8 @@ ApplicationWindow {
         property string text: ""
         signal clicked()
         radius: 8
-        color: actionMouse.pressed ? "#64242A" : (actionMouse.containsMouse ? "#7A2A32" : "#6B242B")
-        border.color: actionMouse.containsMouse ? "#B54650" : "#8C333B"
+        color: actionMouse.pressed ? "#331B20" : (actionMouse.containsMouse ? "#452329" : "#3A1E23")
+        border.color: actionMouse.containsMouse ? "#8E3A43" : "#63313A"
         border.width: 1
         Text {
             anchors.centerIn: parent
@@ -1649,6 +1612,7 @@ ApplicationWindow {
 
     component ButtonIcon: Item {
         id: iconButton
+        property string iconKind: ""
         property string label: ""
         property bool danger: false
         signal clicked()
@@ -1667,13 +1631,12 @@ ApplicationWindow {
             border.width: 1
         }
 
-        Text {
+        LineIcon {
             anchors.centerIn: parent
-            text: iconButton.label
-            color: danger ? "#D4515A" : (iconMouse.containsMouse ? "#C9C1C5" : root.muted)
-            font.pixelSize: 24
-            horizontalAlignment: Text.AlignHCenter
-            verticalAlignment: Text.AlignVCenter
+            width: 24
+            height: 24
+            iconKind: iconButton.iconKind.length > 0 ? iconButton.iconKind : iconButton.label
+            iconColor: danger ? "#D4515A" : (iconMouse.containsMouse ? "#C9C1C5" : root.muted)
         }
 
         MouseArea {
@@ -1682,6 +1645,82 @@ ApplicationWindow {
             hoverEnabled: true
             cursorShape: Qt.PointingHandCursor
             onClicked: iconButton.clicked()
+        }
+    }
+
+    component LineIcon: Canvas {
+        id: lineIcon
+        property string iconKind: ""
+        property color iconColor: root.muted
+        implicitWidth: 24
+        implicitHeight: 24
+        antialiasing: true
+        onIconKindChanged: requestPaint()
+        onIconColorChanged: requestPaint()
+        onWidthChanged: requestPaint()
+        onHeightChanged: requestPaint()
+        onPaint: {
+            var ctx = getContext("2d")
+            var w = width
+            var h = height
+            var s = Math.min(w, h)
+            ctx.clearRect(0, 0, w, h)
+            ctx.save()
+            ctx.translate(w / 2, h / 2)
+            ctx.scale(s / 24, s / 24)
+            ctx.translate(-12, -12)
+            ctx.strokeStyle = iconColor
+            ctx.fillStyle = iconColor
+            ctx.lineWidth = 1.9
+            ctx.lineCap = "round"
+            ctx.lineJoin = "round"
+
+            function roundedRect(x, y, rw, rh, radius) {
+                ctx.beginPath()
+                ctx.moveTo(x + radius, y)
+                ctx.lineTo(x + rw - radius, y)
+                ctx.quadraticCurveTo(x + rw, y, x + rw, y + radius)
+                ctx.lineTo(x + rw, y + rh - radius)
+                ctx.quadraticCurveTo(x + rw, y + rh, x + rw - radius, y + rh)
+                ctx.lineTo(x + radius, y + rh)
+                ctx.quadraticCurveTo(x, y + rh, x, y + rh - radius)
+                ctx.lineTo(x, y + radius)
+                ctx.quadraticCurveTo(x, y, x + radius, y)
+            }
+
+            if (iconKind === "refresh" || iconKind === "↻") {
+                ctx.beginPath()
+                ctx.arc(12, 12, 7.2, Math.PI * 0.18, Math.PI * 1.58)
+                ctx.stroke()
+                ctx.beginPath()
+                ctx.moveTo(5.5, 5.5)
+                ctx.lineTo(5.5, 10.2)
+                ctx.lineTo(10.2, 10.2)
+                ctx.stroke()
+            } else if (iconKind === "more" || iconKind === "⋯") {
+                for (var i = 0; i < 3; ++i) {
+                    ctx.beginPath()
+                    ctx.arc(7 + i * 5, 12, 1.15, 0, Math.PI * 2)
+                    ctx.fill()
+                }
+            } else if (iconKind === "add" || iconKind === "+") {
+                ctx.beginPath()
+                ctx.moveTo(12, 5.5)
+                ctx.lineTo(12, 18.5)
+                ctx.moveTo(5.5, 12)
+                ctx.lineTo(18.5, 12)
+                ctx.stroke()
+            } else if (iconKind === "copy") {
+                roundedRect(7, 7, 10, 10, 1.5)
+                ctx.stroke()
+                roundedRect(4, 4, 10, 10, 1.5)
+                ctx.stroke()
+            } else {
+                ctx.beginPath()
+                ctx.arc(12, 12, 4, 0, Math.PI * 2)
+                ctx.stroke()
+            }
+            ctx.restore()
         }
     }
 
@@ -1703,7 +1742,7 @@ ApplicationWindow {
         Layout.fillWidth: true
         Layout.preferredHeight: 48
         radius: 4
-        color: popupActionMouse.pressed ? "#3D3938" : (popupActionMouse.containsMouse ? "#4A4644" : "transparent")
+        color: popupActionMouse.pressed ? "#272322" : (popupActionMouse.containsMouse ? "#3A3432" : "transparent")
 
         RowLayout {
             anchors.fill: parent
@@ -1759,7 +1798,7 @@ ApplicationWindow {
 
     component QuickActionButton: Rectangle {
         id: quickButton
-        property string iconText: ""
+        property string iconKind: ""
         property string label: ""
         signal clicked()
         Layout.fillWidth: true
@@ -1773,12 +1812,11 @@ ApplicationWindow {
             anchors.fill: parent
             spacing: 12
             Item { Layout.fillWidth: true }
-            Text {
-                text: quickButton.iconText
-                color: root.accent
-                font.pixelSize: 24
+            LineIcon {
+                iconKind: quickButton.iconKind
+                iconColor: root.accent
                 Layout.preferredWidth: 28
-                horizontalAlignment: Text.AlignHCenter
+                Layout.preferredHeight: 28
             }
             Text {
                 text: quickButton.label
@@ -2254,7 +2292,7 @@ ApplicationWindow {
                         onClicked: appController.restartEngine()
                     }
                     QuietButton {
-                        text: "Stop"
+                        text: "Стоп"
                         Layout.preferredWidth: 90
                         danger: true
                         onClicked: appController.stopEngine()
@@ -2274,7 +2312,7 @@ ApplicationWindow {
                         onClicked: appController.refreshProxyStatus()
                     }
                     QuietButton {
-                        text: "Restore"
+                        text: "Сброс"
                         Layout.preferredWidth: 118
                         danger: true
                         onClicked: appController.restoreProxyPolicy()
@@ -2285,7 +2323,7 @@ ApplicationWindow {
                         onClicked: appController.refreshTunStatus()
                     }
                     QuietButton {
-                        text: "Restore TUN"
+                        text: "Сброс TUN"
                         Layout.preferredWidth: 132
                         danger: true
                         onClicked: appController.restoreTunPolicy()
