@@ -112,6 +112,7 @@ class AppController final : public QObject {
     Q_PROPERTY(QString uploadSpeed READ uploadSpeed NOTIFY statsChanged)
     Q_PROPERTY(QString sessionTraffic READ sessionTraffic NOTIFY statsChanged)
     Q_PROPERTY(QString sessionTime READ sessionTime NOTIFY statsChanged)
+    Q_PROPERTY(QString trafficDetail READ trafficDetail NOTIFY statsChanged)
     Q_PROPERTY(QString engineStatus READ engineStatus NOTIFY engineChanged)
     Q_PROPERTY(QString engineDetail READ engineDetail NOTIFY engineChanged)
     Q_PROPERTY(QString engineConfigPreview READ engineConfigPreview NOTIFY engineChanged)
@@ -129,7 +130,10 @@ class AppController final : public QObject {
     Q_PROPERTY(bool minimizeToTray READ minimizeToTray NOTIFY desktopIntegrationChanged)
     Q_PROPERTY(bool autostartEnabled READ autostartEnabled NOTIFY desktopIntegrationChanged)
     Q_PROPERTY(QString desktopIntegrationStatus READ desktopIntegrationStatus NOTIFY desktopIntegrationChanged)
+    Q_PROPERTY(QString supportBundleStatus READ supportBundleStatus NOTIFY supportBundleChanged)
     Q_PROPERTY(QStringList logs READ logs NOTIFY logsChanged)
+    Q_PROPERTY(QStringList logCategories READ logCategories NOTIFY logsChanged)
+    Q_PROPERTY(int logCategoryIndex READ logCategoryIndex WRITE setLogCategoryIndex NOTIFY logsChanged)
 
 public:
     explicit AppController(QObject *parent = nullptr);
@@ -149,6 +153,7 @@ public:
     QString uploadSpeed() const;
     QString sessionTraffic() const;
     QString sessionTime() const;
+    QString trafficDetail() const;
     QString engineStatus() const;
     QString engineDetail() const;
     QString engineConfigPreview() const;
@@ -166,7 +171,10 @@ public:
     bool minimizeToTray() const;
     bool autostartEnabled() const;
     QString desktopIntegrationStatus() const;
+    QString supportBundleStatus() const;
     QStringList logs() const;
+    QStringList logCategories() const;
+    int logCategoryIndex() const;
 
     Q_INVOKABLE void navigate(const QString &page);
     Q_INVOKABLE void selectServer(int row);
@@ -181,6 +189,9 @@ public:
     Q_INVOKABLE void deleteSubscription(int row);
     Q_INVOKABLE void copySubscriptionDiagnostics(int row);
     Q_INVOKABLE void clearLogs();
+    Q_INVOKABLE void refreshTrafficStats();
+    Q_INVOKABLE void refreshServiceLogs();
+    Q_INVOKABLE void exportSupportBundle();
     Q_INVOKABLE void openAdvancedSettings();
     Q_INVOKABLE void refreshEngineStatus();
     Q_INVOKABLE void previewSelectedEngineConfig();
@@ -204,6 +215,7 @@ public:
 
 public slots:
     void setRouteModeIndex(int routeModeIndex);
+    void setLogCategoryIndex(int logCategoryIndex);
 
 signals:
     void pageChanged();
@@ -219,6 +231,7 @@ signals:
     void appRoutingChanged();
     void protectionChanged();
     void desktopIntegrationChanged();
+    void supportBundleChanged();
     void showMainWindowRequested();
     void hideMainWindowRequested();
     void logsChanged();
@@ -252,12 +265,16 @@ private:
     bool applyTunStatusEvent(const QJsonObject &event);
     bool applyAppRoutingPolicyEvent(const QJsonObject &event);
     bool applyProtectionPolicyEvent(const QJsonObject &event);
+    bool applyTrafficStatsEvent(const QJsonObject &event);
+    bool applyLogSnapshotEvent(const QJsonObject &event);
+    bool applySupportBundleEvent(const QJsonObject &event);
     void applyEngineStateObject(const QJsonObject &state);
     void applyEngineCatalogArray(const QJsonArray &catalog);
     void applyProxyStateObject(const QJsonObject &state);
     void applyTunStateObject(const QJsonObject &state);
     void applyAppRoutingPolicyObject(const QJsonObject &state);
     void applyProtectionPolicyObject(const QJsonObject &state);
+    void applyTrafficStatsObject(const QJsonObject &state);
     void syncAppRoutingPolicy();
     QJsonArray routeApplicationArray() const;
     QString engineStatusLabel(const QString &status) const;
@@ -267,6 +284,8 @@ private:
     QString protectionStatusLabel(const QString &status, bool supported, bool enforcing) const;
     QString pingLabelFromProbe(const QJsonObject &probe) const;
     QString fallbackPingLabel(const QString &serverId) const;
+    QString formatBytes(qint64 bytes) const;
+    QString formatRate(qint64 bytesPerSecond) const;
     void appendLog(const QString &message);
     void updateSelectedServerProperties();
     QString stateFilePath() const;
@@ -286,6 +305,7 @@ private:
     QString m_uploadSpeed = "0.0 KB/s";
     QString m_sessionTraffic = "↓ 0 B / ↑ 0 B";
     QString m_sessionTime = "00:00:00";
+    QString m_trafficDetail = "Статистика ожидает подключения";
     QString m_engineStatus = "Остановлен";
     QString m_engineDetail = "Движок ещё не запускался";
     QString m_engineConfigPreview = "Выберите сервер и нажмите подготовку конфигурации.";
@@ -302,7 +322,10 @@ private:
     bool m_minimizeToTray = true;
     bool m_autostartEnabled = false;
     QString m_desktopIntegrationStatus = "Трей готов";
+    QString m_supportBundleStatus = "Диагностика не экспортировалась";
     QStringList m_logs;
+    QStringList m_logCategories = {"Все"};
+    int m_logCategoryIndex = 0;
     QSystemTrayIcon *m_trayIcon = nullptr;
     QMenu *m_trayMenu = nullptr;
     QAction *m_trayShowAction = nullptr;
@@ -311,6 +334,4 @@ private:
     QTimer m_statsTimer;
     QTimer m_probeTimer;
     QDateTime m_connectedAt;
-    double m_downTotalMb = 0.0;
-    double m_upTotalMb = 0.0;
 };

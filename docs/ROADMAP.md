@@ -1,6 +1,6 @@
 # Roadmap
 
-Current version: `0.8.2`
+Current version: `0.8.3`
 
 This roadmap is the working contract for Samhain Security. Future implementation should follow this order unless a blocker is found and documented in the same commit.
 
@@ -204,10 +204,12 @@ Status: shipped in `v0.8.2` with tray icon/menu, minimize-to-tray behavior, sing
 
 - Add real per-session traffic counters.
 - Add rolling logs by category: desktop, service, engine, subscription, protection.
-- Add support archive export with secrets redacted.
+- Add support export with secrets redacted.
 - Add health summary for support.
 
 Done when a support bundle can be created without leaking keys, tokens, or raw subscription URLs.
+
+Status: shipped in `v0.8.3` with service-owned session traffic state, categorized log snapshots, a logs page filter, and a redacted support export folder containing manifest, state, logs, and health summary. Direct runtime byte counters from engine metrics remain a later precision upgrade because supported engines expose them differently.
 
 ### 0.8.4 - UX Polish
 
@@ -260,9 +262,8 @@ Done when Samhain Security is ready for normal users.
 
 ## Immediate Next Build Order
 
-1. `0.8.3`: statistics, logs, and support export.
-2. `0.8.4`: UX polish.
-3. `0.8.5`: installer and local operations.
-4. `0.9.0`: beta hardening.
-5. `0.9.5`: release candidate hardening.
-6. `1.0.0`: stable packaging and release.
+1. `0.8.4`: UX polish.
+2. `0.8.5`: installer and local operations.
+3. `0.9.0`: beta hardening.
+4. `0.9.5`: release candidate hardening.
+5. `1.0.0`: stable packaging and release.

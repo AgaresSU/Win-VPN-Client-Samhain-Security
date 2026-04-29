@@ -13,17 +13,17 @@ ApplicationWindow {
     title: "Samhain Security"
     color: "#111111"
 
-    readonly property color bg: "#111111"
-    readonly property color rail: "#171717"
-    readonly property color panel: "#202020"
-    readonly property color panelHot: "#303030"
-    readonly property color row: "#242424"
-    readonly property color rowSelected: "#484848"
+    readonly property color bg: "#101010"
+    readonly property color rail: "#171315"
+    readonly property color panel: "#201B1D"
+    readonly property color panelHot: "#2C2427"
+    readonly property color row: "#242123"
+    readonly property color rowSelected: "#453A3D"
     readonly property color text: "#F2F2F2"
     readonly property color muted: "#A8A8AE"
-    readonly property color line: "#3A3A3D"
-    readonly property color accent: "#756BFF"
-    readonly property color samhainRed: "#C9343D"
+    readonly property color line: "#3B3033"
+    readonly property color accent: "#D0434C"
+    readonly property color samhainRed: "#D0434C"
 
     Shortcut {
         sequences: [StandardKey.Paste]
@@ -491,14 +491,14 @@ ApplicationWindow {
             Rectangle {
                 Layout.fillWidth: true
                 Layout.fillHeight: true
-                color: "#191B22"
+                color: "#171416"
                 clip: true
 
                 Rectangle {
                     anchors.fill: parent
                     gradient: Gradient {
-                        GradientStop { position: 0.0; color: "#20232D" }
-                        GradientStop { position: 1.0; color: "#15171D" }
+                        GradientStop { position: 0.0; color: "#211A1D" }
+                        GradientStop { position: 1.0; color: "#121214" }
                     }
                 }
                 Rectangle {
@@ -508,7 +508,7 @@ ApplicationWindow {
                     y: parent.height * 0.35
                     rotation: 38
                     radius: 80
-                    color: "#11131A"
+                    color: "#151113"
                     opacity: 0.7
                 }
 
@@ -527,7 +527,7 @@ ApplicationWindow {
                             radius: 167
                             anchors.centerIn: parent
                             color: "transparent"
-                            border.color: "#35205F"
+                            border.color: "#4C1E25"
                             border.width: 2
                         }
                         Rectangle {
@@ -535,7 +535,7 @@ ApplicationWindow {
                             height: 238
                             radius: 119
                             anchors.centerIn: parent
-                            color: "#30364A"
+                            color: "#33262A"
                             opacity: 0.92
                         }
                         Rectangle {
@@ -543,8 +543,8 @@ ApplicationWindow {
                             height: 174
                             radius: 87
                             anchors.centerIn: parent
-                            color: "#1C202B"
-                            border.color: "#515A78"
+                            color: "#1C181B"
+                            border.color: "#6C3940"
                             border.width: 3
                         }
                         Button {
@@ -554,8 +554,8 @@ ApplicationWindow {
                             onClicked: appController.toggleConnection()
                             background: Rectangle {
                                 radius: 55
-                                color: appController.connected ? root.samhainRed : root.accent
-                                border.color: appController.connected ? "#F28B91" : "#9C95FF"
+                                color: appController.connected ? root.samhainRed : "#6A353B"
+                                border.color: appController.connected ? "#F08A91" : "#A74A52"
                                 border.width: 2
                             }
                             contentItem: Column {
@@ -624,7 +624,7 @@ ApplicationWindow {
                         Layout.fillWidth: true
                         Layout.preferredHeight: 92
                         color: "#1C1F28"
-                        border.color: "#2F3444"
+                        border.color: "#3A3034"
                         radius: 8
                         RowLayout {
                             anchors.fill: parent
@@ -899,6 +899,7 @@ ApplicationWindow {
             MetricRow { title: "Загрузка"; value: appController.downloadSpeed }
             MetricRow { title: "Выгрузка"; value: appController.uploadSpeed }
             MetricRow { title: "Трафик за сессию"; value: appController.sessionTraffic }
+            MetricRow { title: "Источник"; value: appController.trafficDetail }
             Item { Layout.fillHeight: true }
         }
     }
@@ -912,6 +913,37 @@ ApplicationWindow {
             RowLayout {
                 Layout.fillWidth: true
                 PageTitle { text: "Логи"; Layout.fillWidth: true }
+                ComboBox {
+                    Layout.preferredWidth: 150
+                    model: appController.logCategories
+                    currentIndex: appController.logCategoryIndex
+                    onActivated: appController.logCategoryIndex = currentIndex
+                    background: Rectangle {
+                        color: "#2C2427"
+                        radius: 8
+                        border.color: "#49383D"
+                    }
+                    contentItem: Text {
+                        text: parent.displayText
+                        color: root.text
+                        font.pixelSize: 15
+                        verticalAlignment: Text.AlignVCenter
+                        leftPadding: 12
+                        elide: Text.ElideRight
+                    }
+                }
+                Button {
+                    text: "Обновить"
+                    onClicked: appController.refreshServiceLogs()
+                    background: Rectangle { color: "#333333"; radius: 8 }
+                    contentItem: Text { text: parent.text; color: root.text; horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter }
+                }
+                Button {
+                    text: "Экспорт"
+                    onClicked: appController.exportSupportBundle()
+                    background: Rectangle { color: root.accent; radius: 8 }
+                    contentItem: Text { text: parent.text; color: "white"; horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter }
+                }
                 Button {
                     text: "Очистить"
                     onClicked: appController.clearLogs()
@@ -933,6 +965,13 @@ ApplicationWindow {
                     padding: 6
                 }
             }
+            Text {
+                text: appController.supportBundleStatus
+                color: root.muted
+                font.pixelSize: 14
+                elide: Text.ElideMiddle
+                Layout.fillWidth: true
+            }
         }
     }
 
@@ -944,7 +983,7 @@ ApplicationWindow {
             spacing: 18
             PageTitle { text: "О программе" }
                 MetricRow { title: "Программа"; value: "Samhain Security Native" }
-            MetricRow { title: "Версия"; value: "0.8.2" }
+            MetricRow { title: "Версия"; value: "0.8.3" }
             MetricRow { title: "Интерфейс"; value: "Qt 6 / QML" }
             MetricRow { title: "Ядро"; value: "Rust workspace" }
             MetricRow { title: "Статус"; value: appController.statusText }
@@ -1003,7 +1042,7 @@ ApplicationWindow {
         height: 36
         radius: 6
         color: root.accent
-        border.color: "#A19BFF"
+        border.color: "#F08A91"
         Text { anchors.centerIn: parent; text: parent.text; color: "white"; font.pixelSize: 18 }
     }
 

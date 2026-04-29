@@ -63,6 +63,11 @@ pub enum ClientCommand {
     GetProxyStatus,
     GetTunStatus,
     GetAppRoutingPolicy,
+    GetTrafficStats,
+    GetLogs {
+        category: Option<String>,
+    },
+    ExportSupportBundle,
     AddSubscription {
         name: String,
         url: String,
@@ -145,6 +150,9 @@ pub enum ServiceEvent {
     TunStatus { state: TunLifecycleState },
     AppRoutingPolicy { state: AppRoutingPolicyState },
     ProtectionPolicy { state: ProtectionPolicyState },
+    TrafficStats { state: TrafficStatsState },
+    LogSnapshot { snapshot: LogSnapshotState },
+    SupportBundle { state: SupportBundleState },
     PingResult(PingProbeResult),
     PingBatchResult { results: Vec<PingProbeResult> },
     PingProbesCanceled { canceled: usize },
@@ -396,6 +404,77 @@ pub struct PingProbeResult {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TrafficStatsState {
+    pub status: String,
+    pub started_at: Option<String>,
+    pub updated_at: String,
+    pub download_bytes: u64,
+    pub upload_bytes: u64,
+    pub download_bps: u64,
+    pub upload_bps: u64,
+    pub session_seconds: u64,
+    pub source: String,
+    pub message: String,
+}
+
+impl Default for TrafficStatsState {
+    fn default() -> Self {
+        Self {
+            status: "idle".to_string(),
+            started_at: None,
+            updated_at: "not collected".to_string(),
+            download_bytes: 0,
+            upload_bytes: 0,
+            download_bps: 0,
+            upload_bps: 0,
+            session_seconds: 0,
+            source: "service".to_string(),
+            message: "Traffic counters are idle.".to_string(),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct LogSnapshotState {
+    pub entries: Vec<EngineLogEntry>,
+    pub categories: Vec<String>,
+    pub exported_at: String,
+}
+
+impl Default for LogSnapshotState {
+    fn default() -> Self {
+        Self {
+            entries: Vec::new(),
+            categories: Vec::new(),
+            exported_at: "not collected".to_string(),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SupportBundleState {
+    pub status: String,
+    pub path: Option<String>,
+    pub created_at: Option<String>,
+    pub files: Vec<String>,
+    pub redacted: bool,
+    pub message: String,
+}
+
+impl Default for SupportBundleState {
+    fn default() -> Self {
+        Self {
+            status: "idle".to_string(),
+            path: None,
+            created_at: None,
+            files: Vec::new(),
+            redacted: true,
+            message: "Support bundle has not been created.".to_string(),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ServiceState {
     pub version: String,
     pub running: bool,
@@ -408,6 +487,7 @@ pub struct ServiceState {
     pub tun_state: TunLifecycleState,
     pub app_routing_policy: AppRoutingPolicyState,
     pub protection_policy: ProtectionPolicyState,
+    pub traffic_stats: TrafficStatsState,
     pub probe_queue_active: bool,
     pub probe_results: Vec<PingProbeResult>,
     pub subscriptions: Vec<Subscription>,
@@ -427,6 +507,7 @@ impl Default for ServiceState {
             tun_state: TunLifecycleState::default(),
             app_routing_policy: AppRoutingPolicyState::default(),
             protection_policy: ProtectionPolicyState::default(),
+            traffic_stats: TrafficStatsState::default(),
             probe_queue_active: false,
             probe_results: Vec::new(),
             subscriptions: Vec::new(),
@@ -493,5 +574,37 @@ mod tests {
         assert_eq!(decoded_response.request_id, "req-1");
         assert!(decoded_response.ok);
         assert!(matches!(decoded_response.event, ServiceEvent::Pong));
+    }
+
+    #[test]
+    fn round_trips_telemetry_events() {
+        let stats = TrafficStatsState {
+            status: "running".to_string(),
+            started_at: Some("Engine event: 1".to_string()),
+            updated_at: "Engine event: 2".to_string(),
+            download_bytes: 1024,
+            upload_bytes: 512,
+            download_bps: 64,
+            upload_bps: 32,
+            session_seconds: 7,
+            source: "service-session".to_string(),
+            message: "ok".to_string(),
+        };
+
+        let event = ServiceEvent::TrafficStats { state: stats };
+        let payload = encode_event(&event).expect("serialize event");
+        assert!(payload.contains("traffic-stats"));
+
+        let command = ClientCommand::GetLogs {
+            category: Some("manager".to_string()),
+        };
+        let payload = serde_json::to_string(&command).expect("serialize command");
+        let decoded: ClientCommand = decode_command(&payload).expect("decode command");
+        assert!(matches!(
+            decoded,
+            ClientCommand::GetLogs {
+                category: Some(category)
+            } if category == "manager"
+        ));
     }
 }

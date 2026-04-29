@@ -18,6 +18,7 @@ No ranking controls, no visible protocol editor, no technical filter blocks on t
 - Ping value in each row.
 - Big connection control.
 - Small speed and traffic summary.
+- Detailed logs and diagnostics stay off the main screen.
 
 ## Add Flow
 
@@ -44,3 +45,7 @@ Hidden in advanced settings:
 - WFP;
 - logs internals;
 - diagnostic export.
+
+## Diagnostics
+
+The logs page can refresh service logs, filter by category, and export a redacted support folder. The export action copies the folder path to the clipboard after creation.

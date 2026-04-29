@@ -13,7 +13,6 @@
 #include <QGuiApplication>
 #include <QJsonDocument>
 #include <QMenu>
-#include <QRandomGenerator>
 #include <QSettings>
 #include <QStandardPaths>
 #include <QSystemTrayIcon>
@@ -461,25 +460,7 @@ AppController::AppController(QObject *parent)
     m_autostartEnabled = startupShortcutEnabled();
     setupTray();
 
-    connect(&m_statsTimer, &QTimer::timeout, this, [this]() {
-        if (!m_connected) {
-            return;
-        }
-
-        const auto down = QRandomGenerator::global()->bounded(480, 4200) / 100.0;
-        const auto up = QRandomGenerator::global()->bounded(120, 1200) / 100.0;
-        m_downTotalMb += down / 8.0;
-        m_upTotalMb += up / 12.0;
-        m_downloadSpeed = QString::number(down, 'f', 1) + " MB/s";
-        m_uploadSpeed = QString::number(up, 'f', 1) + " MB/s";
-        m_sessionTraffic = QString("↓ %1 MB / ↑ %2 MB")
-            .arg(m_downTotalMb, 0, 'f', 1)
-            .arg(m_upTotalMb, 0, 'f', 1);
-
-        const auto seconds = m_connectedAt.secsTo(QDateTime::currentDateTime());
-        m_sessionTime = QTime(0, 0).addSecs(static_cast<int>(seconds)).toString("hh:mm:ss");
-        emit statsChanged();
-    });
+    connect(&m_statsTimer, &QTimer::timeout, this, &AppController::refreshTrafficStats);
     m_statsTimer.setInterval(1000);
 
     connect(&m_probeTimer, &QTimer::timeout, this, &AppController::testAllPings);
@@ -493,6 +474,11 @@ AppController::AppController(QObject *parent)
         appendLog("Сервис: состояние получено через IPC");
     }
     updateSelectedServerProperties();
+    refreshTrafficStats();
+    refreshServiceLogs();
+    if (m_connected) {
+        m_statsTimer.start();
+    }
     QTimer::singleShot(1200, this, &AppController::testAllPings);
     updateTrayState();
 }
@@ -570,6 +556,11 @@ QString AppController::sessionTraffic() const
 QString AppController::sessionTime() const
 {
     return m_sessionTime;
+}
+
+QString AppController::trafficDetail() const
+{
+    return m_trafficDetail;
 }
 
 QString AppController::engineStatus() const
@@ -669,9 +660,24 @@ QString AppController::desktopIntegrationStatus() const
     return m_desktopIntegrationStatus;
 }
 
+QString AppController::supportBundleStatus() const
+{
+    return m_supportBundleStatus;
+}
+
 QStringList AppController::logs() const
 {
     return m_logs;
+}
+
+QStringList AppController::logCategories() const
+{
+    return m_logCategories;
+}
+
+int AppController::logCategoryIndex() const
+{
+    return m_logCategoryIndex;
 }
 
 void AppController::navigate(const QString &page)
@@ -764,15 +770,13 @@ void AppController::toggleConnection()
     if (m_connected) {
         m_connectedAt = QDateTime::currentDateTime();
         m_statusText = "Подключён";
-        m_downTotalMb = 0.0;
-        m_upTotalMb = 0.0;
+        refreshTrafficStats();
         m_statsTimer.start();
         appendLog("Подключение: " + m_selectedServerName);
     } else {
         m_statusText = "Отключено";
-        m_downloadSpeed = "0.0 KB/s";
-        m_uploadSpeed = "0.0 KB/s";
         m_statsTimer.stop();
+        refreshTrafficStats();
         appendLog("Отключено");
         emit statsChanged();
     }
@@ -1088,6 +1092,77 @@ void AppController::clearLogs()
     emit logsChanged();
 }
 
+void AppController::refreshTrafficStats()
+{
+    QJsonObject command;
+    command["type"] = "get-traffic-stats";
+    const auto response = requestService(command, IpcRequestTimeoutMs);
+    if (response.isEmpty()) {
+        if (m_connected) {
+            const auto seconds = m_connectedAt.secsTo(QDateTime::currentDateTime());
+            m_sessionTime = QTime(0, 0).addSecs(static_cast<int>(seconds)).toString("hh:mm:ss");
+            m_trafficDetail = "Сервис статистики недоступен";
+        } else {
+            m_downloadSpeed = "0.0 KB/s";
+            m_uploadSpeed = "0.0 KB/s";
+            m_sessionTraffic = "↓ 0 B / ↑ 0 B";
+            m_sessionTime = "00:00:00";
+            m_trafficDetail = "Статистика ожидает подключения";
+        }
+        emit statsChanged();
+        return;
+    }
+
+    const auto document = QJsonDocument::fromJson(response.toUtf8());
+    const auto root = document.object();
+    const auto event = root.value("event").toObject();
+    if (!root.value("ok").toBool(false) || !applyTrafficStatsEvent(event)) {
+        m_trafficDetail = event.value("message").toString("Статистика не получена");
+    }
+    emit statsChanged();
+}
+
+void AppController::refreshServiceLogs()
+{
+    QJsonObject command;
+    command["type"] = "get-logs";
+    if (m_logCategoryIndex > 0 && m_logCategoryIndex < m_logCategories.size()) {
+        command["category"] = m_logCategories.at(m_logCategoryIndex);
+    }
+
+    const auto response = requestService(command, IpcRequestTimeoutMs);
+    if (response.isEmpty()) {
+        return;
+    }
+
+    const auto document = QJsonDocument::fromJson(response.toUtf8());
+    const auto root = document.object();
+    const auto event = root.value("event").toObject();
+    if (root.value("ok").toBool(false)) {
+        applyLogSnapshotEvent(event);
+    }
+}
+
+void AppController::exportSupportBundle()
+{
+    QJsonObject command;
+    command["type"] = "export-support-bundle";
+    const auto response = requestService(command, IpcEngineTimeoutMs);
+    if (response.isEmpty()) {
+        m_supportBundleStatus = "Сервис недоступен";
+        emit supportBundleChanged();
+        return;
+    }
+
+    const auto document = QJsonDocument::fromJson(response.toUtf8());
+    const auto root = document.object();
+    const auto event = root.value("event").toObject();
+    if (!root.value("ok").toBool(false) || !applySupportBundleEvent(event)) {
+        m_supportBundleStatus = event.value("message").toString("Экспорт не выполнен");
+    }
+    emit supportBundleChanged();
+}
+
 void AppController::openAdvancedSettings()
 {
     navigate("settings");
@@ -1209,6 +1284,7 @@ void AppController::stopEngine()
     refreshProtectionPolicy();
     m_connected = false;
     m_statsTimer.stop();
+    refreshTrafficStats();
     m_statusText = m_engineDetail;
     emit connectionChanged();
     emit statusChanged();
@@ -1395,6 +1471,7 @@ void AppController::emergencyRestore()
     applyServiceState(event);
     m_connected = false;
     m_statsTimer.stop();
+    refreshTrafficStats();
     m_statusText = "Всё восстановлено";
     appendLog("Аварийное восстановление: выполнено");
     emit connectionChanged();
@@ -1598,6 +1675,19 @@ void AppController::setRouteModeIndex(int routeModeIndex)
     appendLog("Режим маршрутизации изменён");
     emit routeModeChanged();
     emit appRoutingChanged();
+}
+
+void AppController::setLogCategoryIndex(int logCategoryIndex)
+{
+    const auto maxIndex = std::max(0, static_cast<int>(m_logCategories.size()) - 1);
+    const auto bounded = std::clamp(logCategoryIndex, 0, maxIndex);
+    if (m_logCategoryIndex == bounded) {
+        return;
+    }
+
+    m_logCategoryIndex = bounded;
+    emit logsChanged();
+    refreshServiceLogs();
 }
 
 void AppController::setupTray()
@@ -1865,6 +1955,7 @@ bool AppController::applyServiceState(const QJsonObject &state)
     applyTunStateObject(state.value("tun_state").toObject());
     applyAppRoutingPolicyObject(state.value("app_routing_policy").toObject());
     applyProtectionPolicyObject(state.value("protection_policy").toObject());
+    applyTrafficStatsObject(state.value("traffic_stats").toObject());
     m_connected = !state.value("connected_server_id").toString().isEmpty()
         && m_engineStatus == "Запущен";
     m_serverModel.setSubscriptions(items, state.value("selected_server_id").toString());
@@ -1882,6 +1973,7 @@ bool AppController::applyServiceState(const QJsonObject &state)
     emit tunChanged();
     emit appRoutingChanged();
     emit protectionChanged();
+    emit statsChanged();
     emit statusChanged();
     return true;
 }
@@ -2134,6 +2226,73 @@ bool AppController::applyProtectionPolicyEvent(const QJsonObject &event)
     return false;
 }
 
+bool AppController::applyTrafficStatsEvent(const QJsonObject &event)
+{
+    if (event.value("type").toString() == "traffic-stats") {
+        applyTrafficStatsObject(event.value("state").toObject());
+        return true;
+    }
+    return false;
+}
+
+bool AppController::applyLogSnapshotEvent(const QJsonObject &event)
+{
+    if (event.value("type").toString() != "log-snapshot") {
+        return false;
+    }
+
+    const auto snapshot = event.value("snapshot").toObject();
+    QStringList categories {"Все"};
+    for (const auto value : snapshot.value("categories").toArray()) {
+        const auto category = value.toString().trimmed();
+        if (!category.isEmpty() && !categories.contains(category, Qt::CaseInsensitive)) {
+            categories.push_back(category);
+        }
+    }
+    m_logCategories = categories;
+    if (m_logCategoryIndex >= m_logCategories.size()) {
+        m_logCategoryIndex = 0;
+    }
+
+    QStringList lines;
+    for (const auto value : snapshot.value("entries").toArray()) {
+        const auto entry = value.toObject();
+        const auto capturedAt = entry.value("captured_at").toString("service");
+        const auto level = entry.value("level").toString("info");
+        const auto stream = entry.value("stream").toString("service");
+        const auto message = entry.value("message").toString();
+        if (!message.isEmpty()) {
+            lines.prepend(QString("[%1] %2/%3: %4").arg(capturedAt, level, stream, message));
+        }
+    }
+
+    if (!lines.isEmpty()) {
+        m_logs = lines;
+    }
+    emit logsChanged();
+    return true;
+}
+
+bool AppController::applySupportBundleEvent(const QJsonObject &event)
+{
+    if (event.value("type").toString() != "support-bundle") {
+        return false;
+    }
+
+    const auto state = event.value("state").toObject();
+    const auto status = state.value("status").toString("unknown");
+    const auto path = state.value("path").toString();
+    const auto message = state.value("message").toString();
+    if (status == "created" && !path.isEmpty()) {
+        m_supportBundleStatus = "Готово: " + path;
+        QGuiApplication::clipboard()->setText(path);
+        appendLog("Диагностика: пакет создан и путь скопирован");
+    } else {
+        m_supportBundleStatus = message.isEmpty() ? "Экспорт не выполнен" : message;
+    }
+    return true;
+}
+
 void AppController::applyEngineStateObject(const QJsonObject &state)
 {
     const auto status = state.value("status").toString("stopped");
@@ -2274,6 +2433,30 @@ void AppController::applyProtectionPolicyObject(const QJsonObject &state)
         detail.push_back(message);
     }
     m_protectionDetail = detail.join(" · ");
+}
+
+void AppController::applyTrafficStatsObject(const QJsonObject &state)
+{
+    const auto status = state.value("status").toString("idle");
+    const auto downloadBps = static_cast<qint64>(state.value("download_bps").toDouble(0));
+    const auto uploadBps = static_cast<qint64>(state.value("upload_bps").toDouble(0));
+    const auto downloadBytes = static_cast<qint64>(state.value("download_bytes").toDouble(0));
+    const auto uploadBytes = static_cast<qint64>(state.value("upload_bytes").toDouble(0));
+    const auto seconds = static_cast<int>(state.value("session_seconds").toDouble(0));
+    const auto source = state.value("source").toString("service");
+    const auto message = state.value("message").toString();
+
+    m_downloadSpeed = formatRate(downloadBps);
+    m_uploadSpeed = formatRate(uploadBps);
+    m_sessionTraffic = QString("↓ %1 / ↑ %2").arg(formatBytes(downloadBytes), formatBytes(uploadBytes));
+    m_sessionTime = QTime(0, 0).addSecs(std::max(0, seconds)).toString("hh:mm:ss");
+    if (status == "running") {
+        m_trafficDetail = "Источник: " + source;
+    } else if (!message.isEmpty()) {
+        m_trafficDetail = message;
+    } else {
+        m_trafficDetail = "Статистика ожидает подключения";
+    }
 }
 
 void AppController::syncAppRoutingPolicy()
@@ -2471,6 +2654,26 @@ QString AppController::fallbackPingLabel(const QString &serverId) const
     return QString::number(45 + checksum % 380) + "ms";
 }
 
+QString AppController::formatBytes(qint64 bytes) const
+{
+    const auto value = static_cast<double>(std::max<qint64>(0, bytes));
+    if (value >= 1024.0 * 1024.0 * 1024.0) {
+        return QString::number(value / (1024.0 * 1024.0 * 1024.0), 'f', 2) + " GB";
+    }
+    if (value >= 1024.0 * 1024.0) {
+        return QString::number(value / (1024.0 * 1024.0), 'f', 1) + " MB";
+    }
+    if (value >= 1024.0) {
+        return QString::number(value / 1024.0, 'f', 1) + " KB";
+    }
+    return QString::number(static_cast<qint64>(value)) + " B";
+}
+
+QString AppController::formatRate(qint64 bytesPerSecond) const
+{
+    return formatBytes(bytesPerSecond) + "/s";
+}
+
 SubscriptionItem AppController::buildLocalSubscription(
     const QString &id,
     const QString &name,
@@ -2536,7 +2739,11 @@ QVector<ServerItem> AppController::buildServersForUrl(const QString &url) const
 
 void AppController::appendLog(const QString &message)
 {
-    m_logs.prepend(QDateTime::currentDateTime().toString("[dd.MM HH:mm:ss] ") + message);
+    const auto line = QDateTime::currentDateTime().toString("[dd.MM HH:mm:ss] ") + message;
+    if (!m_logs.isEmpty() && m_logs.first() == line) {
+        return;
+    }
+    m_logs.prepend(line);
     while (m_logs.size() > 200) {
         m_logs.removeLast();
     }
