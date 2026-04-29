@@ -1,6 +1,6 @@
 # Samhain Security Native
 
-Version: `0.8.1`
+Version: `0.8.2`
 
 Native Windows secure tunneling client prototype built from a clean base.
 
@@ -38,6 +38,7 @@ Implemented in `0.7.0`:
 - WireGuard and AmneziaWG adapter path: `.conf` generation, secret-redacted preview, required field validation, adapter lifecycle commands, dry-run diagnostics, and stop rollback.
 - App routing policy foundation: selected/excluded app list, service-owned policy state, UI editor, IPC commands, validation, rollback, and clear limited-support status for transparent per-app routing.
 - Protection layer foundation: service-owned kill switch/DNS/IPv6/watchdog policy state, emergency restore IPC, rollback on stop/crash, scoped firewall command planning, and explicit enforcement gating for privileged service runs.
+- Desktop integration: tray status/menu, minimize-to-tray behavior, single-instance handoff, Windows startup toggle, and `samhain://` import handler registration.
 - Package script for a local Windows distributable.
 
 Not implemented yet:
@@ -45,7 +46,7 @@ Not implemented yet:
 - Real service installation.
 - Production protocol runtime bundle.
 - Production WFP app-routing enforcement layer.
-- Full privileged firewall/WFP enforcement enabled by installer-managed service identity.
+- Installer-managed service identity and full privileged enforcement.
 - Code signing and online updater.
 
 ## Build
@@ -63,5 +64,5 @@ Not implemented yet:
 The package is written to:
 
 ```text
-dist\SamhainSecurityNative-0.8.1-win-x64
+dist\SamhainSecurityNative-0.8.2-win-x64
 ```

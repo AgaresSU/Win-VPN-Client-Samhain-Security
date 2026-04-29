@@ -3,16 +3,23 @@
 #include <algorithm>
 #include <numeric>
 
+#include <QAction>
+#include <QApplication>
 #include <QClipboard>
+#include <QCoreApplication>
 #include <QDir>
 #include <QFile>
 #include <QFileInfo>
 #include <QGuiApplication>
 #include <QJsonDocument>
+#include <QMenu>
 #include <QRandomGenerator>
+#include <QSettings>
 #include <QStandardPaths>
+#include <QSystemTrayIcon>
 #include <QTime>
 #include <QUrl>
+#include <QUrlQuery>
 
 #ifdef Q_OS_WIN
 #ifndef NOMINMAX
@@ -26,6 +33,59 @@ constexpr int IpcProtocolVersion = 1;
 constexpr int IpcRequestTimeoutMs = 350;
 constexpr int IpcEngineTimeoutMs = 1500;
 constexpr auto IpcPipeName = L"\\\\.\\pipe\\SamhainSecurity.Native.Ipc";
+constexpr auto AutostartRegistryPath = "HKEY_CURRENT_USER\\Software\\Microsoft\\Windows\\CurrentVersion\\Run";
+constexpr auto AutostartRegistryName = "Samhain Security";
+
+QString quotedExecutablePath()
+{
+    return "\"" + QCoreApplication::applicationFilePath().replace('/', '\\') + "\"";
+}
+
+QString startupCommand()
+{
+    return quotedExecutablePath() + " --background";
+}
+
+#ifdef Q_OS_WIN
+QByteArray utf16Bytes(const QString &value)
+{
+    const auto wide = value.toStdWString();
+    return QByteArray(
+        reinterpret_cast<const char *>(wide.c_str()),
+        static_cast<int>((wide.size() + 1) * sizeof(wchar_t)));
+}
+
+bool writeRegistryString(HKEY root, const QString &subKey, const QString &name, const QString &value)
+{
+    HKEY key = nullptr;
+    const auto subKeyBytes = utf16Bytes(subKey);
+    const auto status = RegCreateKeyExW(
+        root,
+        reinterpret_cast<LPCWSTR>(subKeyBytes.constData()),
+        0,
+        nullptr,
+        0,
+        KEY_SET_VALUE,
+        nullptr,
+        &key,
+        nullptr);
+    if (status != ERROR_SUCCESS) {
+        return false;
+    }
+
+    const auto valueBytes = utf16Bytes(value);
+    const QByteArray nameBytes = name.isNull() ? QByteArray() : utf16Bytes(name);
+    const auto result = RegSetValueExW(
+        key,
+        name.isNull() ? nullptr : reinterpret_cast<LPCWSTR>(nameBytes.constData()),
+        0,
+        REG_SZ,
+        reinterpret_cast<const BYTE *>(valueBytes.constData()),
+        static_cast<DWORD>(valueBytes.size()));
+    RegCloseKey(key);
+    return result == ERROR_SUCCESS;
+}
+#endif
 }
 
 ServerListModel::ServerListModel(QObject *parent)
@@ -398,6 +458,9 @@ void ServerListModel::clearSelection()
 AppController::AppController(QObject *parent)
     : QObject(parent)
 {
+    m_autostartEnabled = startupShortcutEnabled();
+    setupTray();
+
     connect(&m_statsTimer, &QTimer::timeout, this, [this]() {
         if (!m_connected) {
             return;
@@ -431,6 +494,7 @@ AppController::AppController(QObject *parent)
     }
     updateSelectedServerProperties();
     QTimer::singleShot(1200, this, &AppController::testAllPings);
+    updateTrayState();
 }
 
 QAbstractListModel *AppController::serverModel()
@@ -590,6 +654,21 @@ QString AppController::protectionDetail() const
     return m_protectionDetail;
 }
 
+bool AppController::minimizeToTray() const
+{
+    return m_minimizeToTray;
+}
+
+bool AppController::autostartEnabled() const
+{
+    return m_autostartEnabled;
+}
+
+QString AppController::desktopIntegrationStatus() const
+{
+    return m_desktopIntegrationStatus;
+}
+
 QStringList AppController::logs() const
 {
     return m_logs;
@@ -704,6 +783,7 @@ void AppController::toggleConnection()
     emit tunChanged();
     emit appRoutingChanged();
     emit protectionChanged();
+    updateTrayState();
 }
 
 void AppController::testPing()
@@ -1321,6 +1401,99 @@ void AppController::emergencyRestore()
     emit statusChanged();
 }
 
+void AppController::notifyMinimizedToTray()
+{
+    if (m_trayIcon && m_trayIcon->isVisible()) {
+        m_trayIcon->showMessage(
+            "Samhain Security",
+            "Приложение продолжает работать в трее.",
+            QSystemTrayIcon::Information,
+            1800);
+    }
+    appendLog("Окно свернуто в трей");
+}
+
+void AppController::setAutostartEnabled(bool enabled)
+{
+#ifdef Q_OS_WIN
+    QSettings settings(AutostartRegistryPath, QSettings::NativeFormat);
+    if (enabled) {
+        settings.setValue(AutostartRegistryName, startupCommand());
+    } else {
+        settings.remove(AutostartRegistryName);
+    }
+    settings.sync();
+    m_autostartEnabled = startupShortcutEnabled();
+    setDesktopIntegrationStatus(m_autostartEnabled ? "Автозапуск включён" : "Автозапуск выключен");
+#else
+    Q_UNUSED(enabled)
+    setDesktopIntegrationStatus("Автозапуск пока доступен только на Windows");
+#endif
+    emit desktopIntegrationChanged();
+}
+
+void AppController::registerLinkHandler()
+{
+#ifdef Q_OS_WIN
+    const auto command = quotedExecutablePath() + " \"%1\"";
+    const auto ok = writeRegistryString(HKEY_CURRENT_USER, "Software\\Classes\\samhain", QString(), "URL:Samhain Security")
+        && writeRegistryString(HKEY_CURRENT_USER, "Software\\Classes\\samhain", "URL Protocol", "")
+        && writeRegistryString(HKEY_CURRENT_USER, "Software\\Classes\\samhain\\DefaultIcon", QString(), QCoreApplication::applicationFilePath())
+        && writeRegistryString(HKEY_CURRENT_USER, "Software\\Classes\\samhain\\shell\\open\\command", QString(), command);
+    setDesktopIntegrationStatus(ok ? "URL-схема samhain:// зарегистрирована" : "Не удалось зарегистрировать URL-схему");
+#else
+    setDesktopIntegrationStatus("URL-схема пока регистрируется только на Windows");
+#endif
+    emit desktopIntegrationChanged();
+}
+
+void AppController::handleExternalActivation(const QStringList &arguments)
+{
+    if (arguments.isEmpty()) {
+        return;
+    }
+
+    auto imported = false;
+    auto autostart = false;
+    for (int index = 0; index < arguments.size(); ++index) {
+        const auto argument = arguments.at(index).trimmed();
+        const auto next = index + 1 < arguments.size() ? arguments.at(index + 1).trimmed() : QString();
+        if (argument == "--show") {
+            emit showMainWindowRequested();
+            continue;
+        }
+        if (argument == "--background") {
+            emit hideMainWindowRequested();
+            continue;
+        }
+        if (argument == "--autostart") {
+            autostart = true;
+            continue;
+        }
+        if (argument == "--import" && !next.isEmpty()) {
+            imported = importActivationUrl(next) || imported;
+            ++index;
+            continue;
+        }
+        const auto lower = argument.toLower();
+        if (lower.contains("autostart=1")) {
+            autostart = true;
+        }
+        if (looksLikeImportSource(argument)) {
+            imported = importActivationUrl(argument) || imported;
+        }
+    }
+
+    if (imported) {
+        emit showMainWindowRequested();
+        setDesktopIntegrationStatus("Ссылка принята");
+    }
+    if (autostart && !m_connected) {
+        QTimer::singleShot(400, this, &AppController::toggleConnection);
+    }
+    updateTrayState();
+}
+
 void AppController::refreshProxyStatus()
 {
     QJsonObject command;
@@ -1425,6 +1598,112 @@ void AppController::setRouteModeIndex(int routeModeIndex)
     appendLog("Режим маршрутизации изменён");
     emit routeModeChanged();
     emit appRoutingChanged();
+}
+
+void AppController::setupTray()
+{
+    if (!QSystemTrayIcon::isSystemTrayAvailable()) {
+        m_desktopIntegrationStatus = "Трей недоступен в текущей сессии";
+        return;
+    }
+
+    m_trayMenu = new QMenu();
+    m_trayShowAction = m_trayMenu->addAction("Открыть Samhain Security");
+    connect(m_trayShowAction, &QAction::triggered, this, &AppController::showMainWindowRequested);
+
+    m_trayConnectAction = m_trayMenu->addAction("Подключить");
+    connect(m_trayConnectAction, &QAction::triggered, this, &AppController::toggleConnection);
+
+    auto *pingAction = m_trayMenu->addAction("Тест пинга");
+    connect(pingAction, &QAction::triggered, this, &AppController::testPing);
+
+    auto *restoreAction = m_trayMenu->addAction("Восстановить всё");
+    connect(restoreAction, &QAction::triggered, this, &AppController::emergencyRestore);
+
+    m_trayMenu->addSeparator();
+    m_trayQuitAction = m_trayMenu->addAction("Выход");
+    connect(m_trayQuitAction, &QAction::triggered, this, [this]() {
+        m_minimizeToTray = false;
+        QApplication::quit();
+    });
+
+    m_trayIcon = new QSystemTrayIcon(QIcon(":/qt/qml/SamhainSecurityNative/resources/tray-icon.png"), this);
+    m_trayIcon->setContextMenu(m_trayMenu);
+    connect(m_trayIcon, &QSystemTrayIcon::activated, this, [this](QSystemTrayIcon::ActivationReason reason) {
+        if (reason == QSystemTrayIcon::Trigger || reason == QSystemTrayIcon::DoubleClick) {
+            emit showMainWindowRequested();
+        }
+    });
+    m_trayIcon->show();
+    m_desktopIntegrationStatus = "Трей активен";
+}
+
+void AppController::updateTrayState()
+{
+    if (!m_trayIcon) {
+        return;
+    }
+
+    m_trayIcon->setToolTip(QString("Samhain Security\n%1").arg(m_statusText));
+    if (m_trayConnectAction) {
+        m_trayConnectAction->setText(m_connected ? "Отключить" : "Подключить");
+    }
+}
+
+bool AppController::importActivationUrl(const QString &source)
+{
+    auto name = QString("Samhain Security");
+    auto importUrl = source.trimmed();
+    const auto parsed = QUrl(importUrl);
+    if (parsed.scheme() == "samhain") {
+        const QUrlQuery query(parsed);
+        importUrl = query.queryItemValue("url").trimmed();
+        name = query.queryItemValue("name").trimmed();
+        if (name.isEmpty()) {
+            name = "Samhain Security";
+        }
+    }
+
+    if (!looksLikeImportSource(importUrl) || importUrl.startsWith("samhain://", Qt::CaseInsensitive)) {
+        return false;
+    }
+
+    addSubscription(name, importUrl);
+    appendLog("Ссылка обработана через запуск приложения");
+    return true;
+}
+
+bool AppController::looksLikeImportSource(const QString &text) const
+{
+    const auto lower = text.trimmed().toLower();
+    return lower.startsWith("samhain://")
+        || lower.startsWith("http://")
+        || lower.startsWith("https://")
+        || lower.startsWith("vless://")
+        || lower.startsWith("trojan://")
+        || lower.startsWith("ss://")
+        || lower.startsWith("hysteria2://")
+        || lower.startsWith("hy2://")
+        || lower.startsWith("tuic://")
+        || lower.startsWith("wg://")
+        || lower.startsWith("awg://");
+}
+
+bool AppController::startupShortcutEnabled() const
+{
+#ifdef Q_OS_WIN
+    QSettings settings(AutostartRegistryPath, QSettings::NativeFormat);
+    return !settings.value(AutostartRegistryName).toString().trimmed().isEmpty();
+#else
+    return false;
+#endif
+}
+
+void AppController::setDesktopIntegrationStatus(const QString &message)
+{
+    m_desktopIntegrationStatus = message;
+    appendLog("Интеграция: " + message);
+    emit desktopIntegrationChanged();
 }
 
 void AppController::loadState()
@@ -1594,6 +1873,7 @@ bool AppController::applyServiceState(const QJsonObject &state)
         m_subscriptionMeta = subscription->meta;
     }
     m_statusText = "Готово";
+    updateTrayState();
     emit subscriptionChanged();
     emit routeModeChanged();
     emit connectionChanged();

@@ -1,6 +1,6 @@
 # Roadmap
 
-Current version: `0.8.1`
+Current version: `0.8.2`
 
 This roadmap is the working contract for Samhain Security. Future implementation should follow this order unless a blocker is found and documented in the same commit.
 
@@ -198,6 +198,8 @@ Status: shipped in `v0.8.1` with service-owned protection settings/state, kill s
 
 Done when links can open Samhain Security directly and tray operation is reliable.
 
+Status: shipped in `v0.8.2` with tray icon/menu, minimize-to-tray behavior, single-instance activation handoff, Windows startup toggle, and `samhain://` import handler registration. Full installer ownership of protocol registration remains in the installer milestone.
+
 ### 0.8.3 - Statistics, Logs, And Support Export
 
 - Add real per-session traffic counters.
@@ -258,10 +260,9 @@ Done when Samhain Security is ready for normal users.
 
 ## Immediate Next Build Order
 
-1. `0.8.2`: tray, autostart, and link handling.
-2. `0.8.3`: statistics, logs, and support export.
-3. `0.8.4`: UX polish.
-4. `0.8.5`: installer and local operations.
-5. `0.9.0`: beta hardening.
-6. `0.9.5`: release candidate hardening.
-7. `1.0.0`: stable packaging and release.
+1. `0.8.3`: statistics, logs, and support export.
+2. `0.8.4`: UX polish.
+3. `0.8.5`: installer and local operations.
+4. `0.9.0`: beta hardening.
+5. `0.9.5`: release candidate hardening.
+6. `1.0.0`: stable packaging and release.

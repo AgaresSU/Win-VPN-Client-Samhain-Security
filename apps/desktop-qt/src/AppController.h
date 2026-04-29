@@ -5,8 +5,13 @@
 #include <QJsonArray>
 #include <QJsonObject>
 #include <QObject>
+#include <QStringList>
 #include <QTimer>
 #include <QVector>
+
+class QAction;
+class QMenu;
+class QSystemTrayIcon;
 
 struct ServerItem {
     QString id;
@@ -121,6 +126,9 @@ class AppController final : public QObject {
     Q_PROPERTY(QStringList routeApplications READ routeApplications NOTIFY appRoutingChanged)
     Q_PROPERTY(QString protectionStatus READ protectionStatus NOTIFY protectionChanged)
     Q_PROPERTY(QString protectionDetail READ protectionDetail NOTIFY protectionChanged)
+    Q_PROPERTY(bool minimizeToTray READ minimizeToTray NOTIFY desktopIntegrationChanged)
+    Q_PROPERTY(bool autostartEnabled READ autostartEnabled NOTIFY desktopIntegrationChanged)
+    Q_PROPERTY(QString desktopIntegrationStatus READ desktopIntegrationStatus NOTIFY desktopIntegrationChanged)
     Q_PROPERTY(QStringList logs READ logs NOTIFY logsChanged)
 
 public:
@@ -155,6 +163,9 @@ public:
     QStringList routeApplications() const;
     QString protectionStatus() const;
     QString protectionDetail() const;
+    bool minimizeToTray() const;
+    bool autostartEnabled() const;
+    QString desktopIntegrationStatus() const;
     QStringList logs() const;
 
     Q_INVOKABLE void navigate(const QString &page);
@@ -186,6 +197,10 @@ public:
     Q_INVOKABLE void refreshProtectionPolicy();
     Q_INVOKABLE void restoreProtectionPolicy();
     Q_INVOKABLE void emergencyRestore();
+    Q_INVOKABLE void notifyMinimizedToTray();
+    Q_INVOKABLE void setAutostartEnabled(bool enabled);
+    Q_INVOKABLE void registerLinkHandler();
+    Q_INVOKABLE void handleExternalActivation(const QStringList &arguments);
 
 public slots:
     void setRouteModeIndex(int routeModeIndex);
@@ -203,9 +218,18 @@ signals:
     void tunChanged();
     void appRoutingChanged();
     void protectionChanged();
+    void desktopIntegrationChanged();
+    void showMainWindowRequested();
+    void hideMainWindowRequested();
     void logsChanged();
 
 private:
+    void setupTray();
+    void updateTrayState();
+    bool importActivationUrl(const QString &source);
+    bool looksLikeImportSource(const QString &text) const;
+    bool startupShortcutEnabled() const;
+    void setDesktopIntegrationStatus(const QString &message);
     void loadState();
     bool loadStateFromService();
     bool applyServiceState(const QJsonObject &state);
@@ -275,7 +299,15 @@ private:
     QString m_routePolicyDetail = "Режим всего компьютера не требует списка приложений.";
     QString m_protectionStatus = "Готова";
     QString m_protectionDetail = "Kill switch, DNS guard, IPv6 policy и watchdog будут применены сервисом.";
+    bool m_minimizeToTray = true;
+    bool m_autostartEnabled = false;
+    QString m_desktopIntegrationStatus = "Трей готов";
     QStringList m_logs;
+    QSystemTrayIcon *m_trayIcon = nullptr;
+    QMenu *m_trayMenu = nullptr;
+    QAction *m_trayShowAction = nullptr;
+    QAction *m_trayConnectAction = nullptr;
+    QAction *m_trayQuitAction = nullptr;
     QTimer m_statsTimer;
     QTimer m_probeTimer;
     QDateTime m_connectedAt;

@@ -30,6 +30,26 @@ ApplicationWindow {
         onActivated: appController.pasteFromClipboard()
     }
 
+    Connections {
+        target: appController
+        function onShowMainWindowRequested() {
+            root.show()
+            root.raise()
+            root.requestActivate()
+        }
+        function onHideMainWindowRequested() {
+            root.hide()
+        }
+    }
+
+    onClosing: function(close) {
+        if (appController.minimizeToTray) {
+            close.accepted = false
+            root.hide()
+            appController.notifyMinimizedToTray()
+        }
+    }
+
     Dialog {
         id: addDialog
         modal: true
@@ -842,6 +862,27 @@ ApplicationWindow {
                         contentItem: Text { text: parent.text; color: root.text; horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter }
                     }
                 }
+                SettingsCard {
+                    title: "Интеграция"
+                    Text {
+                        text: appController.desktopIntegrationStatus
+                        color: root.muted
+                        font.pixelSize: 16
+                        elide: Text.ElideRight
+                        Layout.fillWidth: true
+                    }
+                    Switch {
+                        checked: appController.autostartEnabled
+                        onToggled: appController.setAutostartEnabled(checked)
+                    }
+                    Button {
+                        text: "Ссылки"
+                        Layout.preferredWidth: 104
+                        onClicked: appController.registerLinkHandler()
+                        background: Rectangle { color: "#333333"; radius: 8 }
+                        contentItem: Text { text: parent.text; color: root.text; horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter }
+                    }
+                }
                 AdvancedSettingsBox {}
             }
         }
@@ -903,7 +944,7 @@ ApplicationWindow {
             spacing: 18
             PageTitle { text: "О программе" }
                 MetricRow { title: "Программа"; value: "Samhain Security Native" }
-            MetricRow { title: "Версия"; value: "0.8.1" }
+            MetricRow { title: "Версия"; value: "0.8.2" }
             MetricRow { title: "Интерфейс"; value: "Qt 6 / QML" }
             MetricRow { title: "Ядро"; value: "Rust workspace" }
             MetricRow { title: "Статус"; value: appController.statusText }

@@ -1,12 +1,12 @@
 cmake_minimum_required(VERSION 3.24)
 
-project(SamhainSecurityNativeDesktop VERSION 0.8.1 LANGUAGES CXX)
+project(SamhainSecurityNativeDesktop VERSION 0.8.2 LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_AUTOMOC ON)
 
-find_package(Qt6 REQUIRED COMPONENTS Quick QuickControls2 Svg)
+find_package(Qt6 REQUIRED COMPONENTS Network Quick QuickControls2 Svg Widgets)
 
 qt_standard_project_setup(REQUIRES 6.10)
 
@@ -31,7 +31,9 @@ target_link_libraries(SamhainSecurityNative
     PRIVATE
         Qt6::Quick
         Qt6::QuickControls2
+        Qt6::Network
         Qt6::Svg
+        Qt6::Widgets
 )
 
 set_target_properties(SamhainSecurityNative PROPERTIES
