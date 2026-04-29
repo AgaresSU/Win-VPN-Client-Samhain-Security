@@ -1,6 +1,6 @@
 # Stable Release Gates
 
-Version: `1.3.7`
+Version: `1.4.0`
 
 The stable package uses the `stable` update channel, SHA256 package integrity, extracted-package validation, packaged smoke checks, and a release evidence JSON file.
 
@@ -12,30 +12,37 @@ Run before tagging:
 cargo test --workspace
 .\scripts\build.ps1
 .\scripts\package.ps1
-.\scripts\validate-package.ps1 -ExpectedVersion 1.3.7 -RunServiceStatus
-.\scripts\verify-update-manifest.ps1 -ExpectedVersion 1.3.7 -RequireStableChannel
-.\scripts\verify-update-manifest.ps1 -ExpectedVersion 1.3.7 -RequireStableChannel -InstalledVersion 9.9.9 -AllowDowngradeRecovery
-.\scripts\test-signing-readiness.ps1 -ExpectedVersion 1.3.7
-.\scripts\write-clean-machine-evidence.ps1 -ExpectedVersion 1.3.7 -SkipLaunch
-.\scripts\smoke-package.ps1 -ExpectedVersion 1.3.7
+.\scripts\validate-package.ps1 -ExpectedVersion 1.4.0 -RunServiceStatus
+.\scripts\verify-update-manifest.ps1 -ExpectedVersion 1.4.0 -RequireStableChannel
+.\scripts\verify-update-manifest.ps1 -ExpectedVersion 1.4.0 -RequireStableChannel -InstalledVersion 9.9.9 -AllowDowngradeRecovery
+.\scripts\test-signing-readiness.ps1 -ExpectedVersion 1.4.0
+.\scripts\write-clean-machine-evidence.ps1 -ExpectedVersion 1.4.0 -SkipLaunch
+.\scripts\write-release-notes.ps1 -ExpectedVersion 1.4.0
+.\scripts\smoke-package.ps1 -ExpectedVersion 1.4.0
 ```
 
 After the release commit is tagged, generate release evidence:
 
 ```powershell
-.\scripts\write-release-evidence.ps1 -ExpectedVersion 1.3.7 -Tag v1.3.7
+.\scripts\write-release-evidence.ps1 -ExpectedVersion 1.4.0 -Tag v1.4.0
 ```
 
 The evidence file is written next to the package as:
 
 ```text
-dist\SamhainSecurityNative-1.3.7-win-x64.release-evidence.json
+dist\SamhainSecurityNative-1.4.0-win-x64.release-evidence.json
 ```
 
 Clean-machine evidence is written next to the package as:
 
 ```text
-dist\SamhainSecurityNative-1.3.7-win-x64.clean-machine-evidence.json
+dist\SamhainSecurityNative-1.4.0-win-x64.clean-machine-evidence.json
+```
+
+Generated release notes are written next to the package as:
+
+```text
+dist\SamhainSecurityNative-1.4.0-win-x64.release-notes.md
 ```
 
 ## Evidence Contents
@@ -54,13 +61,15 @@ dist\SamhainSecurityNative-1.3.7-win-x64.clean-machine-evidence.json
 - rollback policy and previous-package preservation evidence;
 - signing readiness result;
 - clean-machine evidence result;
+- generated release notes result;
+- protocol matrix and visual QA document paths;
 - service protection transaction status and before/after snapshots;
 - packaged smoke result;
 - signing status.
 
 ## Signing Status
 
-The `1.3.7` package is stable-channel and integrity-verified, but it remains marked as `unsigned-dev` until a production certificate is available. The package and update manifests keep that status explicit so operator tooling does not mistake it for a signed public installer.
+The `1.4.0` package is stable-channel and integrity-verified, but it remains marked as `unsigned-dev` until a production certificate is available. The package and update manifests keep that status explicit so operator tooling does not mistake it for a signed public installer.
 
 ## Update And Rollback Policy
 

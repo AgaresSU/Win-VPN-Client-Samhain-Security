@@ -1,5 +1,5 @@
 param(
-    [string]$Version = "1.3.7",
+    [string]$Version = "1.4.0",
     [string]$Configuration = "Release"
 )
 
@@ -150,6 +150,7 @@ Copy-Item -LiteralPath (Join-Path $RepoRoot "scripts\validate-package.ps1") -Des
 Copy-Item -LiteralPath (Join-Path $RepoRoot "scripts\smoke-package.ps1") -Destination $ToolsOut -Force
 Copy-Item -LiteralPath (Join-Path $RepoRoot "scripts\verify-update-manifest.ps1") -Destination $ToolsOut -Force
 Copy-Item -LiteralPath (Join-Path $RepoRoot "scripts\write-release-evidence.ps1") -Destination $ToolsOut -Force
+Copy-Item -LiteralPath (Join-Path $RepoRoot "scripts\write-release-notes.ps1") -Destination $ToolsOut -Force
 Copy-Item -LiteralPath (Join-Path $RepoRoot "scripts\test-signing-readiness.ps1") -Destination $ToolsOut -Force
 Copy-Item -LiteralPath (Join-Path $RepoRoot "scripts\write-clean-machine-evidence.ps1") -Destination $ToolsOut -Force
 Copy-Item -LiteralPath (Join-Path $RepoRoot "assets") -Destination $PackageRoot -Recurse -Force
@@ -260,6 +261,7 @@ $manifest = [PSCustomObject]@{
         smokeScript = "tools\smoke-package.ps1"
         updateManifestVerifier = "tools\verify-update-manifest.ps1"
         releaseEvidenceScript = "tools\write-release-evidence.ps1"
+        releaseNotesScript = "tools\write-release-notes.ps1"
         signingReadinessScript = "tools\test-signing-readiness.ps1"
         cleanMachineEvidenceScript = "tools\write-clean-machine-evidence.ps1"
         serviceSelfCheckCommand = "service\samhain-service.exe self-check"
@@ -275,8 +277,42 @@ $manifest = [PSCustomObject]@{
             "tools\smoke-package.ps1",
             "tools\verify-update-manifest.ps1",
             "tools\write-release-evidence.ps1",
+            "tools\write-release-notes.ps1",
             "tools\test-signing-readiness.ps1",
             "tools\write-clean-machine-evidence.ps1"
+        )
+    }
+    releaseReadiness = [PSCustomObject]@{
+        status = "release-ready-dev-signed"
+        dailyUx = [PSCustomObject]@{
+            simpleMainFlow = $true
+            advancedSettingsHidden = $true
+            subscriptionPasteFlow = $true
+            groupedServers = $true
+        }
+        routing = [PSCustomObject]@{
+            wholeComputer = "release-supported"
+            selectedAppsOnly = "release-supported-proxy-aware"
+            exceptSelectedApps = "blocked-until-signed-wfp-layer"
+        }
+        docs = [PSCustomObject]@{
+            stableRelease = "docs\STABLE_RELEASE.md"
+            releaseNotes = "docs\RELEASE_NOTES_1.4.0.md"
+            protocolMatrix = "docs\PROTOCOL_MATRIX.md"
+            visualQa = "docs\VISUAL_QA.md"
+            securityPosture = "docs\SECURITY_POSTURE.md"
+        }
+        evidence = [PSCustomObject]@{
+            releaseEvidence = "SamhainSecurityNative-$Version-win-x64.release-evidence.json"
+            cleanMachineEvidence = "SamhainSecurityNative-$Version-win-x64.clean-machine-evidence.json"
+            generatedReleaseNotes = "SamhainSecurityNative-$Version-win-x64.release-notes.md"
+            updateManifest = "SamhainSecurityNative-$Version-win-x64.update-manifest.json"
+        }
+        knownLimits = @(
+            "production-signing-certificate-pending",
+            "production-runtime-binaries-must-be-supplied-and-validated",
+            "transparent-except-selected-app-routing-blocked-until-signed-wfp-layer",
+            "machine-scope-writes-require-elevated-installer"
         )
     }
     updates = [PSCustomObject]@{
@@ -308,6 +344,7 @@ $checksumTargets = @(
     "tools\smoke-package.ps1",
     "tools\verify-update-manifest.ps1",
     "tools\write-release-evidence.ps1",
+    "tools\write-release-notes.ps1",
     "tools\test-signing-readiness.ps1",
     "tools\write-clean-machine-evidence.ps1",
     "release-manifest.json",
@@ -391,6 +428,7 @@ $updateManifest = [PSCustomObject]@{
         smokeScript = "tools\smoke-package.ps1"
         updateManifestVerifier = "tools\verify-update-manifest.ps1"
         releaseEvidenceScript = "tools\write-release-evidence.ps1"
+        releaseNotesScript = "tools\write-release-notes.ps1"
         signingReadinessScript = "tools\test-signing-readiness.ps1"
         cleanMachineEvidenceScript = "tools\write-clean-machine-evidence.ps1"
         serviceSelfCheckCommand = "service\samhain-service.exe self-check"
@@ -400,6 +438,18 @@ $updateManifest = [PSCustomObject]@{
         subscriptionOperationsEvidence = "service.subscription_operations"
         signingStatus = "unsigned-dev"
         expectedPublisher = "Samhain Security"
+    }
+    releaseReadiness = [PSCustomObject]@{
+        status = "release-ready-dev-signed"
+        releaseNotes = "SamhainSecurityNative-$Version-win-x64.release-notes.md"
+        protocolMatrix = "docs\PROTOCOL_MATRIX.md"
+        visualQa = "docs\VISUAL_QA.md"
+        knownLimits = @(
+            "production-signing-certificate-pending",
+            "production-runtime-binaries-must-be-supplied-and-validated",
+            "transparent-except-selected-app-routing-blocked-until-signed-wfp-layer",
+            "machine-scope-writes-require-elevated-installer"
+        )
     }
     createdAtUtc = (Get-Date).ToUniversalTime().ToString("O")
 }

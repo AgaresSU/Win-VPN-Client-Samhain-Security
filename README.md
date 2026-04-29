@@ -1,6 +1,6 @@
 # Samhain Security Native
 
-Version: `1.3.7`
+Version: `1.4.0`
 
 Native Windows secure tunneling client prototype built from a clean base.
 
@@ -16,7 +16,7 @@ Native Windows secure tunneling client prototype built from a clean base.
 
 This release is the native foundation. It focuses on the product shell, simple daily UX, local models, persistence, and build/package flow.
 
-Implemented through `1.3.7`:
+Implemented through `1.4.0`:
 
 - Happ-inspired Qt/QML shell with servers, add, settings, statistics, logs, and about sections.
 - Compact subscription group and server rows without technical clutter.
@@ -49,6 +49,7 @@ Implemented through `1.3.7`:
 - Diagnostics final: support bundle now includes a compact health summary, recent-error report, app-routing evidence, service self-check, inventory, audit tail, and stable log categories without leaking tokens or raw configs.
 - Update and rollback hardening: stable manifests now declare trusted SHA256 policy, downgrade protection, explicit recovery override, previous-package preservation, and local rollback evidence.
 - Security hardening: IPC requests now have bounded payloads and validated IDs, dangerous command inputs are rejected, engine runtime discovery is bundled-only by default, and self-check reports security boundaries.
+- Release-ready package contract: release manifests now declare daily UX readiness, route-mode support levels, evidence locations, known limits, protocol matrix docs, visual QA docs, and generated release notes.
 - UX polish: dark red graphite theme pass, responsive compact navigation, bundled app icon in the shell, and empty states for quiet screens.
 - Package script for a local Windows distributable.
 - Local operations script for current-user install, repair, uninstall, status, migration backup, and package integrity files.
@@ -95,7 +96,7 @@ Not implemented yet:
 The package is written to:
 
 ```text
-dist\SamhainSecurityNative-1.3.7-win-x64
+dist\SamhainSecurityNative-1.4.0-win-x64
 ```
 
 ## Local Operations
@@ -115,8 +116,8 @@ See `docs\LOCAL_OPERATIONS.md` and `docs\SIGNING.md` for install scope, storage,
 ## Package Checks
 
 ```powershell
-.\scripts\validate-package.ps1 -ExpectedVersion 1.3.7 -RunServiceStatus
-.\scripts\smoke-package.ps1 -ExpectedVersion 1.3.7
+.\scripts\validate-package.ps1 -ExpectedVersion 1.4.0 -RunServiceStatus
+.\scripts\smoke-package.ps1 -ExpectedVersion 1.4.0
 ```
 
 See `docs\BETA_CHECKLIST.md` for the manual Windows and protocol matrix.
@@ -124,11 +125,12 @@ See `docs\BETA_CHECKLIST.md` for the manual Windows and protocol matrix.
 ## Stable Checks
 
 ```powershell
-.\scripts\verify-update-manifest.ps1 -ExpectedVersion 1.3.7 -RequireStableChannel
-.\scripts\verify-update-manifest.ps1 -ExpectedVersion 1.3.7 -RequireStableChannel -InstalledVersion 9.9.9 -AllowDowngradeRecovery
-.\scripts\test-signing-readiness.ps1 -ExpectedVersion 1.3.7
-.\scripts\write-clean-machine-evidence.ps1 -ExpectedVersion 1.3.7 -SkipLaunch
-.\scripts\write-release-evidence.ps1 -ExpectedVersion 1.3.7
+.\scripts\verify-update-manifest.ps1 -ExpectedVersion 1.4.0 -RequireStableChannel
+.\scripts\verify-update-manifest.ps1 -ExpectedVersion 1.4.0 -RequireStableChannel -InstalledVersion 9.9.9 -AllowDowngradeRecovery
+.\scripts\test-signing-readiness.ps1 -ExpectedVersion 1.4.0
+.\scripts\write-clean-machine-evidence.ps1 -ExpectedVersion 1.4.0 -SkipLaunch
+.\scripts\write-release-notes.ps1 -ExpectedVersion 1.4.0
+.\scripts\write-release-evidence.ps1 -ExpectedVersion 1.4.0
 ```
 
-See `docs\STABLE_RELEASE.md` and `docs\CLEAN_MACHINE_EVIDENCE.md` for the stable release checklist and external test evidence flow.
+See `docs\STABLE_RELEASE.md`, `docs\CLEAN_MACHINE_EVIDENCE.md`, `docs\PROTOCOL_MATRIX.md`, and `docs\VISUAL_QA.md` for the stable release checklist, protocol coverage, visual checks, and external test evidence flow.

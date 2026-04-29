@@ -1,6 +1,6 @@
 # Roadmap
 
-Current version: `1.3.7`
+Current version: `1.4.0`
 
 This roadmap is the working contract for Samhain Security. Future implementation should follow this order unless a blocker is found and documented in the same commit.
 
@@ -657,8 +657,8 @@ Status: shipped in `v1.3.7` with bounded IPC payload/request validation, command
 
 Done when Samhain Security can be installed and used by normal Windows users with a simple flow, honest limitations, and no hidden privileged-network assumptions.
 
-Status: planned.
+Status: shipped in `v1.4.0` with a release-ready package contract, generated release notes, packaged protocol and visual QA matrices, stable/update manifest readiness fields, clean-machine evidence hooks, signing/readiness gates, and honest limits for production signing, runtime bundles, elevated machine install, and transparent except-selected app routing.
 
 ## Immediate Next Build Order
 
-1. `1.4.0`: release-ready competitive build.
+1. `1.4.x`: installer signing, production runtime bundle validation, and public updater rollout.

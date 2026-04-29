@@ -105,6 +105,10 @@ Add-Check "manifest:runtime-source" ($manifest.install.runtimeContract.availabil
 Add-Check "manifest:engine-inventory" ($manifest.verification.engineInventory -eq "engine-inventory.json") ([string]$manifest.verification.engineInventory)
 Add-Check "manifest:runtime-health" ($manifest.verification.runtimeHealthEvidence -eq "service.runtime_health") ([string]$manifest.verification.runtimeHealthEvidence)
 Add-Check "manifest:subscription-operations" ($manifest.verification.subscriptionOperationsEvidence -eq "service.subscription_operations") ([string]$manifest.verification.subscriptionOperationsEvidence)
+Add-Check "manifest:release-notes-script" ($manifest.verification.releaseNotesScript -eq "tools\write-release-notes.ps1") ([string]$manifest.verification.releaseNotesScript)
+Add-Check "manifest:release-readiness-status" ($manifest.releaseReadiness.status -eq "release-ready-dev-signed") ([string]$manifest.releaseReadiness.status)
+Add-Check "manifest:release-readiness-protocol-doc" ($manifest.releaseReadiness.protocolMatrix -eq "docs\PROTOCOL_MATRIX.md") ([string]$manifest.releaseReadiness.protocolMatrix)
+Add-Check "manifest:release-readiness-visual-doc" ($manifest.releaseReadiness.visualQa -eq "docs\VISUAL_QA.md") ([string]$manifest.releaseReadiness.visualQa)
 
 $policy = $manifest.updatePolicy
 Add-Check "manifest:update-policy" ($null -ne $policy) "present=$($null -ne $policy)"

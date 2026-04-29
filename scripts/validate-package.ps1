@@ -62,6 +62,7 @@ $requiredPaths = @(
     "tools\smoke-package.ps1",
     "tools\verify-update-manifest.ps1",
     "tools\write-release-evidence.ps1",
+    "tools\write-release-notes.ps1",
     "tools\test-signing-readiness.ps1",
     "tools\write-clean-machine-evidence.ps1",
     "assets",
@@ -130,8 +131,17 @@ if (Test-Path $manifestPath) {
         Add-Check "manifest:smoke" ($manifest.quality.smokeScript -eq "tools\smoke-package.ps1") ([string]$manifest.quality.smokeScript)
         Add-Check "manifest:update-verifier" ($manifest.quality.updateManifestVerifier -eq "tools\verify-update-manifest.ps1") ([string]$manifest.quality.updateManifestVerifier)
         Add-Check "manifest:release-evidence" ($manifest.quality.releaseEvidenceScript -eq "tools\write-release-evidence.ps1") ([string]$manifest.quality.releaseEvidenceScript)
+        Add-Check "manifest:release-notes" ($manifest.quality.releaseNotesScript -eq "tools\write-release-notes.ps1") ([string]$manifest.quality.releaseNotesScript)
         Add-Check "manifest:signing-readiness" ($manifest.quality.signingReadinessScript -eq "tools\test-signing-readiness.ps1") ([string]$manifest.quality.signingReadinessScript)
         Add-Check "manifest:clean-machine-evidence" ($manifest.quality.cleanMachineEvidenceScript -eq "tools\write-clean-machine-evidence.ps1") ([string]$manifest.quality.cleanMachineEvidenceScript)
+        Add-Check "manifest:release-notes-gate" ($manifest.quality.gates -contains "tools\write-release-notes.ps1") "gates=$($manifest.quality.gates -join ',')"
+        Add-Check "manifest:release-readiness-status" ($manifest.releaseReadiness.status -eq "release-ready-dev-signed") ([string]$manifest.releaseReadiness.status)
+        Add-Check "manifest:release-readiness-daily-flow" ([bool]$manifest.releaseReadiness.dailyUx.simpleMainFlow) ([string]$manifest.releaseReadiness.dailyUx.simpleMainFlow)
+        Add-Check "manifest:release-readiness-advanced-hidden" ([bool]$manifest.releaseReadiness.dailyUx.advancedSettingsHidden) ([string]$manifest.releaseReadiness.dailyUx.advancedSettingsHidden)
+        Add-Check "manifest:release-readiness-selected-apps" ($manifest.releaseReadiness.routing.selectedAppsOnly -eq "release-supported-proxy-aware") ([string]$manifest.releaseReadiness.routing.selectedAppsOnly)
+        Add-Check "manifest:release-readiness-except-selected" ($manifest.releaseReadiness.routing.exceptSelectedApps -eq "blocked-until-signed-wfp-layer") ([string]$manifest.releaseReadiness.routing.exceptSelectedApps)
+        Add-Check "manifest:release-readiness-protocol-doc" ($manifest.releaseReadiness.docs.protocolMatrix -eq "docs\PROTOCOL_MATRIX.md") ([string]$manifest.releaseReadiness.docs.protocolMatrix)
+        Add-Check "manifest:release-readiness-visual-doc" ($manifest.releaseReadiness.docs.visualQa -eq "docs\VISUAL_QA.md") ([string]$manifest.releaseReadiness.docs.visualQa)
         Add-Check "manifest:signing" ($manifest.signing.digestAlgorithm -eq "SHA256") ([string]$manifest.signing.digestAlgorithm)
         Add-Check "manifest:update-policy-hash" ($manifest.updates.policy.trustedHashAlgorithm -eq "SHA256") ([string]$manifest.updates.policy.trustedHashAlgorithm)
         Add-Check "manifest:update-policy-downgrade" ([bool]$manifest.updates.policy.downgradeProtection) ([string]$manifest.updates.policy.downgradeProtection)
@@ -173,7 +183,7 @@ if (Test-Path $engineInventoryPath) {
 $checksumPath = Join-Path $PackageRoot "checksums.txt"
 if (Test-Path $checksumPath) {
     $checksumLines = Get-Content -LiteralPath $checksumPath | Where-Object { -not [string]::IsNullOrWhiteSpace($_) }
-    Add-Check "checksums:present" ($checksumLines.Count -ge 12) "entries=$($checksumLines.Count)"
+    Add-Check "checksums:present" ($checksumLines.Count -ge 13) "entries=$($checksumLines.Count)"
 
     foreach ($line in $checksumLines) {
         if ($line -notmatch '^(?<hash>[a-fA-F0-9]{64})\s+(?<relative>.+)$') {

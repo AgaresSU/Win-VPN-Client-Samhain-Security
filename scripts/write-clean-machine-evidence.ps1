@@ -173,6 +173,7 @@ $toolsRoot = Join-Path $PackageRoot "tools"
 $validateScript = Join-Path $toolsRoot "validate-package.ps1"
 $verifyScript = Join-Path $toolsRoot "verify-update-manifest.ps1"
 $signingScript = Join-Path $toolsRoot "test-signing-readiness.ps1"
+$releaseNotesScript = Join-Path $toolsRoot "write-release-notes.ps1"
 $localOpsScript = Join-Path $toolsRoot "local-ops.ps1"
 $serviceExe = Join-Path $PackageRoot "service\samhain-service.exe"
 $appExe = Join-Path $PackageRoot "app\SamhainSecurityNative.exe"
@@ -225,6 +226,11 @@ else {
 }
 
 Invoke-ScriptStep -Name "signing-readiness" -ScriptPath $signingScript -Parameters @{
+    PackageRoot = $PackageRoot
+    ExpectedVersion = $ExpectedVersion
+    Json = $true
+}
+Invoke-ScriptStep -Name "release-notes" -ScriptPath $releaseNotesScript -Parameters @{
     PackageRoot = $PackageRoot
     ExpectedVersion = $ExpectedVersion
     Json = $true

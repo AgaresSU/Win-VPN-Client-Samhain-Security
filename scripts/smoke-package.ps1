@@ -147,6 +147,7 @@ $validateScript = Join-Path $toolsRoot "validate-package.ps1"
 $updateVerifierScript = Join-Path $toolsRoot "verify-update-manifest.ps1"
 $signingScript = Join-Path $toolsRoot "test-signing-readiness.ps1"
 $cleanMachineScript = Join-Path $toolsRoot "write-clean-machine-evidence.ps1"
+$releaseNotesScript = Join-Path $toolsRoot "write-release-notes.ps1"
 $localOpsScript = Join-Path $toolsRoot "local-ops.ps1"
 $serviceExe = Join-Path $PackageRoot "service\samhain-service.exe"
 $appExe = Join-Path $PackageRoot "app\SamhainSecurityNative.exe"
@@ -190,6 +191,11 @@ Invoke-ScriptStep -Name "clean-machine-evidence" -ScriptPath $cleanMachineScript
     ExpectedVersion = $ExpectedVersion
     MatrixCase = "package-smoke-local"
     SkipLaunch = $true
+    Json = $true
+}
+Invoke-ScriptStep -Name "release-notes" -ScriptPath $releaseNotesScript -Parameters @{
+    PackageRoot = $PackageRoot
+    ExpectedVersion = $ExpectedVersion
     Json = $true
 }
 Invoke-ScriptStep -Name "local-ops:status" -ScriptPath $localOpsScript -Parameters @{

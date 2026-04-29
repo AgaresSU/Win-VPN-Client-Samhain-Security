@@ -107,9 +107,11 @@ $verifyScript = Join-Path $toolsRoot "verify-update-manifest.ps1"
 $smokeScript = Join-Path $toolsRoot "smoke-package.ps1"
 $signingScript = Join-Path $toolsRoot "test-signing-readiness.ps1"
 $cleanMachineScript = Join-Path $toolsRoot "write-clean-machine-evidence.ps1"
+$releaseNotesScript = Join-Path $toolsRoot "write-release-notes.ps1"
 $archivePath = "$PackageRoot.zip"
 $updateManifestPath = "$PackageRoot.update-manifest.json"
 $evidencePath = "$PackageRoot.release-evidence.json"
+$releaseNotesPath = "$PackageRoot.release-notes.md"
 $gates = New-Object System.Collections.Generic.List[object]
 $warnings = New-Object System.Collections.Generic.List[string]
 $failed = $false
@@ -169,6 +171,12 @@ Invoke-GateScript -Name "clean-machine-evidence" -ScriptPath $cleanMachineScript
     SkipLaunch = $true
     Json = $true
 }
+Invoke-GateScript -Name "release-notes" -ScriptPath $releaseNotesScript -Parameters @{
+    PackageRoot = $PackageRoot
+    ExpectedVersion = $ExpectedVersion
+    OutputPath = $releaseNotesPath
+    Json = $true
+}
 
 $archive = $null
 $archiveHash = ""
@@ -199,6 +207,7 @@ $evidence = [PSCustomObject]@{
     packageRoot = $PackageRoot
     archivePath = $archivePath
     updateManifestPath = $updateManifestPath
+    releaseNotesPath = $releaseNotesPath
     archive = [PSCustomObject]@{
         fileName = if ($archive) { $archive.Name } else { "" }
         sizeBytes = if ($archive) { $archive.Length } else { 0 }
@@ -214,6 +223,10 @@ $evidence = [PSCustomObject]@{
 }
 
 $evidence | ConvertTo-Json -Depth 7 | Set-Content -LiteralPath $evidencePath -Encoding UTF8
+
+if (Test-Path $releaseNotesScript) {
+    & $releaseNotesScript -PackageRoot $PackageRoot -ExpectedVersion $ExpectedVersion -OutputPath $releaseNotesPath | Out-Null
+}
 
 if ($Json) {
     $evidence | ConvertTo-Json -Depth 7
