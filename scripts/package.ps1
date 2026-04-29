@@ -1,5 +1,5 @@
 param(
-    [string]$Version = "1.0.0",
+    [string]$Version = "1.0.1",
     [string]$Configuration = "Release"
 )
 
@@ -62,6 +62,8 @@ Copy-Item -LiteralPath (Join-Path $RepoRoot "scripts\validate-package.ps1") -Des
 Copy-Item -LiteralPath (Join-Path $RepoRoot "scripts\smoke-package.ps1") -Destination $ToolsOut -Force
 Copy-Item -LiteralPath (Join-Path $RepoRoot "scripts\verify-update-manifest.ps1") -Destination $ToolsOut -Force
 Copy-Item -LiteralPath (Join-Path $RepoRoot "scripts\write-release-evidence.ps1") -Destination $ToolsOut -Force
+Copy-Item -LiteralPath (Join-Path $RepoRoot "scripts\test-signing-readiness.ps1") -Destination $ToolsOut -Force
+Copy-Item -LiteralPath (Join-Path $RepoRoot "scripts\write-clean-machine-evidence.ps1") -Destination $ToolsOut -Force
 Copy-Item -LiteralPath (Join-Path $RepoRoot "assets") -Destination $PackageRoot -Recurse -Force
 if (Test-Path (Join-Path $RepoRoot "engines")) {
     Copy-Item -Path (Join-Path $RepoRoot "engines\*") -Destination $EnginesOut -Recurse -Force
@@ -95,6 +97,8 @@ $manifest = [PSCustomObject]@{
         smokeScript = "tools\smoke-package.ps1"
         updateManifestVerifier = "tools\verify-update-manifest.ps1"
         releaseEvidenceScript = "tools\write-release-evidence.ps1"
+        signingReadinessScript = "tools\test-signing-readiness.ps1"
+        cleanMachineEvidenceScript = "tools\write-clean-machine-evidence.ps1"
         gates = @(
             "cargo test --workspace",
             "scripts\build.ps1",
@@ -102,7 +106,9 @@ $manifest = [PSCustomObject]@{
             "tools\validate-package.ps1",
             "tools\smoke-package.ps1",
             "tools\verify-update-manifest.ps1",
-            "tools\write-release-evidence.ps1"
+            "tools\write-release-evidence.ps1",
+            "tools\test-signing-readiness.ps1",
+            "tools\write-clean-machine-evidence.ps1"
         )
     }
     updates = [PSCustomObject]@{
@@ -122,6 +128,8 @@ $checksumTargets = @(
     "tools\smoke-package.ps1",
     "tools\verify-update-manifest.ps1",
     "tools\write-release-evidence.ps1",
+    "tools\test-signing-readiness.ps1",
+    "tools\write-clean-machine-evidence.ps1",
     "release-manifest.json",
     "README.md",
     "VERSION"
@@ -160,6 +168,8 @@ $updateManifest = [PSCustomObject]@{
         smokeScript = "tools\smoke-package.ps1"
         updateManifestVerifier = "tools\verify-update-manifest.ps1"
         releaseEvidenceScript = "tools\write-release-evidence.ps1"
+        signingReadinessScript = "tools\test-signing-readiness.ps1"
+        cleanMachineEvidenceScript = "tools\write-clean-machine-evidence.ps1"
         signingStatus = "unsigned-dev"
         expectedPublisher = "Samhain Security"
     }

@@ -105,6 +105,8 @@ $toolsRoot = Join-Path $PackageRoot "tools"
 $validateScript = Join-Path $toolsRoot "validate-package.ps1"
 $verifyScript = Join-Path $toolsRoot "verify-update-manifest.ps1"
 $smokeScript = Join-Path $toolsRoot "smoke-package.ps1"
+$signingScript = Join-Path $toolsRoot "test-signing-readiness.ps1"
+$cleanMachineScript = Join-Path $toolsRoot "write-clean-machine-evidence.ps1"
 $archivePath = "$PackageRoot.zip"
 $updateManifestPath = "$PackageRoot.update-manifest.json"
 $evidencePath = "$PackageRoot.release-evidence.json"
@@ -150,6 +152,19 @@ else {
         SkipLaunch = $true
         Json = $true
     }
+}
+
+Invoke-GateScript -Name "signing-readiness" -ScriptPath $signingScript -Parameters @{
+    PackageRoot = $PackageRoot
+    ExpectedVersion = $ExpectedVersion
+    Json = $true
+}
+Invoke-GateScript -Name "clean-machine-evidence" -ScriptPath $cleanMachineScript -Parameters @{
+    PackageRoot = $PackageRoot
+    ExpectedVersion = $ExpectedVersion
+    MatrixCase = "release-evidence-local"
+    SkipLaunch = $true
+    Json = $true
 }
 
 $archive = $null

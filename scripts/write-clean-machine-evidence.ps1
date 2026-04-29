@@ -1,6 +1,8 @@
 param(
     [string]$PackageRoot = "",
     [string]$ExpectedVersion = "",
+    [string]$MatrixCase = "local-dev",
+    [string]$Operator = $env:USERNAME,
     [switch]$SkipLaunch,
     [switch]$Json
 )
@@ -32,13 +34,31 @@ function Resolve-PackageRoot {
     return [System.IO.Path]::GetFullPath($latest.FullName)
 }
 
-$PackageRoot = Resolve-PackageRoot $PackageRoot
-if ([string]::IsNullOrWhiteSpace($ExpectedVersion)) {
-    $ExpectedVersion = (Get-Content -LiteralPath (Join-Path $PackageRoot "VERSION") -Raw).Trim()
-}
+function Get-HostFacts {
+    $osCaption = [System.Environment]::OSVersion.VersionString
+    $osBuild = [System.Environment]::OSVersion.Version.ToString()
 
-$steps = New-Object System.Collections.Generic.List[object]
-$failed = $false
+    try {
+        $os = Get-CimInstance -ClassName Win32_OperatingSystem -ErrorAction Stop
+        $osCaption = [string]$os.Caption
+        $osBuild = [string]$os.BuildNumber
+    }
+    catch {
+    }
+
+    $identity = [Security.Principal.WindowsIdentity]::GetCurrent()
+    $principal = [Security.Principal.WindowsPrincipal]::new($identity)
+
+    [PSCustomObject]@{
+        machineName = $env:COMPUTERNAME
+        userName = $env:USERNAME
+        operator = $Operator
+        osCaption = $osCaption
+        osBuild = $osBuild
+        isAdministrator = $principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
+        processArchitecture = [System.Runtime.InteropServices.RuntimeInformation]::ProcessArchitecture.ToString()
+    }
+}
 
 function Add-Step {
     param(
@@ -73,22 +93,30 @@ function Invoke-ScriptStep {
     $output = & $ScriptPath @Parameters *>&1
     $exitCode = $LASTEXITCODE
     $detail = ($output | Out-String).Trim()
-    if ($detail.Length -gt 500) {
-        $detail = $detail.Substring(0, 500)
+    if ($detail.Length -gt 700) {
+        $detail = $detail.Substring(0, 700)
     }
+
     Add-Step $Name ($exitCode -eq 0) "exit=$exitCode $detail"
+}
+
+$PackageRoot = Resolve-PackageRoot $PackageRoot
+if ([string]::IsNullOrWhiteSpace($ExpectedVersion)) {
+    $ExpectedVersion = (Get-Content -LiteralPath (Join-Path $PackageRoot "VERSION") -Raw).Trim()
 }
 
 $toolsRoot = Join-Path $PackageRoot "tools"
 $validateScript = Join-Path $toolsRoot "validate-package.ps1"
-$updateVerifierScript = Join-Path $toolsRoot "verify-update-manifest.ps1"
+$verifyScript = Join-Path $toolsRoot "verify-update-manifest.ps1"
 $signingScript = Join-Path $toolsRoot "test-signing-readiness.ps1"
-$cleanMachineScript = Join-Path $toolsRoot "write-clean-machine-evidence.ps1"
 $localOpsScript = Join-Path $toolsRoot "local-ops.ps1"
 $serviceExe = Join-Path $PackageRoot "service\samhain-service.exe"
 $appExe = Join-Path $PackageRoot "app\SamhainSecurityNative.exe"
 $updateManifestPath = "$PackageRoot.update-manifest.json"
 $archivePath = "$PackageRoot.zip"
+$evidencePath = "$PackageRoot.clean-machine-evidence.json"
+$steps = New-Object System.Collections.Generic.List[object]
+$failed = $false
 
 Invoke-ScriptStep -Name "validate-package" -ScriptPath $validateScript -Parameters @{
     PackageRoot = $PackageRoot
@@ -96,22 +124,23 @@ Invoke-ScriptStep -Name "validate-package" -ScriptPath $validateScript -Paramete
     RunServiceStatus = $true
     Json = $true
 }
-Invoke-ScriptStep -Name "update-manifest" -ScriptPath $updateVerifierScript -Parameters @{
-    ManifestPath = $updateManifestPath
-    ArchivePath = $archivePath
-    ExpectedVersion = $ExpectedVersion
-    Json = $true
+
+if ((Test-Path $updateManifestPath) -and (Test-Path $archivePath)) {
+    Invoke-ScriptStep -Name "update-manifest" -ScriptPath $verifyScript -Parameters @{
+        ManifestPath = $updateManifestPath
+        ArchivePath = $archivePath
+        ExpectedVersion = $ExpectedVersion
+        RequireStableChannel = $true
+        Json = $true
+    }
 }
+else {
+    Add-Step "update-manifest" $true "skipped: sibling archive or manifest not present"
+}
+
 Invoke-ScriptStep -Name "signing-readiness" -ScriptPath $signingScript -Parameters @{
     PackageRoot = $PackageRoot
     ExpectedVersion = $ExpectedVersion
-    Json = $true
-}
-Invoke-ScriptStep -Name "clean-machine-evidence" -ScriptPath $cleanMachineScript -Parameters @{
-    PackageRoot = $PackageRoot
-    ExpectedVersion = $ExpectedVersion
-    MatrixCase = "package-smoke-local"
-    SkipLaunch = $true
     Json = $true
 }
 Invoke-ScriptStep -Name "local-ops:status" -ScriptPath $localOpsScript -Parameters @{
@@ -145,7 +174,10 @@ else {
     }
 }
 
-if (-not $SkipLaunch) {
+if ($SkipLaunch) {
+    Add-Step "desktop:launch" $true "skipped"
+}
+else {
     $process = $null
     try {
         if (-not (Test-Path $appExe)) {
@@ -183,34 +215,28 @@ if (-not $SkipLaunch) {
             catch {
             }
         }
-
-        Get-Process -Name SamhainSecurityNative -ErrorAction SilentlyContinue | ForEach-Object {
-            $path = $_.Path
-            if ($path -and [System.IO.Path]::GetFullPath($path).StartsWith($PackageRoot, [System.StringComparison]::OrdinalIgnoreCase)) {
-                Stop-Process -Id $_.Id -Force -ErrorAction SilentlyContinue
-            }
-        }
     }
 }
 
-$summary = [PSCustomObject]@{
+$evidence = [PSCustomObject]@{
     ok = -not $failed
+    product = "Samhain Security Native"
+    version = $ExpectedVersion
+    matrixCase = $MatrixCase
+    generatedAtUtc = (Get-Date).ToUniversalTime().ToString("O")
+    host = Get-HostFacts
     packageRoot = $PackageRoot
-    expectedVersion = $ExpectedVersion
     steps = $steps
 }
 
+$evidence | ConvertTo-Json -Depth 7 | Set-Content -LiteralPath $evidencePath -Encoding UTF8
+
 if ($Json) {
-    $summary | ConvertTo-Json -Depth 6
+    $evidence | ConvertTo-Json -Depth 7
 }
 else {
     $steps | Format-Table -AutoSize
-    if ($failed) {
-        Write-Host "Package smoke failed: $PackageRoot"
-    }
-    else {
-        Write-Host "Package smoke passed: $PackageRoot"
-    }
+    Write-Host "Clean-machine evidence: $evidencePath"
 }
 
 if ($failed) {

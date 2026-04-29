@@ -1,6 +1,6 @@
 # Signing And Integrity
 
-Version: `1.0.0`
+Version: `1.0.1`
 
 Current status: `unsigned-dev`.
 
@@ -21,6 +21,8 @@ The package is prepared for a future signing pipeline but is not production-sign
 - `tools\smoke-package.ps1`
 - `tools\verify-update-manifest.ps1`
 - `tools\write-release-evidence.ps1`
+- `tools\test-signing-readiness.ps1`
+- `tools\write-clean-machine-evidence.ps1`
 - `release-manifest.json`
 - `README.md`
 - `VERSION`

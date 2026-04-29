@@ -1,6 +1,6 @@
 # Samhain Security Native
 
-Version: `1.0.0`
+Version: `1.0.1`
 
 Native Windows secure tunneling client prototype built from a clean base.
 
@@ -16,7 +16,7 @@ Native Windows secure tunneling client prototype built from a clean base.
 
 This release is the native foundation. It focuses on the product shell, simple daily UX, local models, persistence, and build/package flow.
 
-Implemented through `1.0.0`:
+Implemented through `1.0.1`:
 
 - Happ-inspired Qt/QML shell with servers, add, settings, statistics, logs, and about sections.
 - Compact subscription group and server rows without technical clutter.
@@ -45,6 +45,7 @@ Implemented through `1.0.0`:
 - Local operations script for current-user install, repair, uninstall, status, migration backup, and package integrity files.
 - Beta hardening scripts for package validation, SHA256 verification, operation dry-runs, service status, and packaged desktop smoke launch.
 - Stable update manifest, archive hash/size verification, extracted-package validation, release evidence output, and packaged gate tooling.
+- Packaged signing readiness checks and clean-machine evidence generation for installer preparation.
 
 Not implemented yet:
 
@@ -69,7 +70,7 @@ Not implemented yet:
 The package is written to:
 
 ```text
-dist\SamhainSecurityNative-1.0.0-win-x64
+dist\SamhainSecurityNative-1.0.1-win-x64
 ```
 
 ## Local Operations
@@ -88,8 +89,8 @@ See `docs\LOCAL_OPERATIONS.md` and `docs\SIGNING.md` for install scope, storage,
 ## Package Checks
 
 ```powershell
-.\scripts\validate-package.ps1 -ExpectedVersion 1.0.0 -RunServiceStatus
-.\scripts\smoke-package.ps1 -ExpectedVersion 1.0.0
+.\scripts\validate-package.ps1 -ExpectedVersion 1.0.1 -RunServiceStatus
+.\scripts\smoke-package.ps1 -ExpectedVersion 1.0.1
 ```
 
 See `docs\BETA_CHECKLIST.md` for the manual Windows and protocol matrix.
@@ -97,8 +98,10 @@ See `docs\BETA_CHECKLIST.md` for the manual Windows and protocol matrix.
 ## Stable Checks
 
 ```powershell
-.\scripts\verify-update-manifest.ps1 -ExpectedVersion 1.0.0 -RequireStableChannel
-.\scripts\write-release-evidence.ps1 -ExpectedVersion 1.0.0
+.\scripts\verify-update-manifest.ps1 -ExpectedVersion 1.0.1 -RequireStableChannel
+.\scripts\test-signing-readiness.ps1 -ExpectedVersion 1.0.1
+.\scripts\write-clean-machine-evidence.ps1 -ExpectedVersion 1.0.1 -SkipLaunch
+.\scripts\write-release-evidence.ps1 -ExpectedVersion 1.0.1
 ```
 
-See `docs\STABLE_RELEASE.md` for the stable release checklist.
+See `docs\STABLE_RELEASE.md` and `docs\CLEAN_MACHINE_EVIDENCE.md` for the stable release checklist and external test evidence flow.

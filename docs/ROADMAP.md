@@ -1,6 +1,6 @@
 # Roadmap
 
-Current version: `1.0.0`
+Current version: `1.0.1`
 
 This roadmap is the working contract for Samhain Security. Future implementation should follow this order unless a blocker is found and documented in the same commit.
 
@@ -24,6 +24,8 @@ Each release commit should pass:
 - `.\scripts\validate-package.ps1 -RunServiceStatus`
 - `.\scripts\verify-update-manifest.ps1 -RequireStableChannel` for stable tags
 - `.\scripts\write-release-evidence.ps1` for stable tags
+- `.\scripts\test-signing-readiness.ps1`
+- `.\scripts\write-clean-machine-evidence.ps1`
 - `.\scripts\smoke-package.ps1`
 - packaged app smoke launch
 - `samhain-service.exe status`
@@ -274,6 +276,17 @@ Done when Samhain Security is ready for normal users.
 
 Status: shipped in `v1.0.0` with stable-channel package manifests, update-manifest verification, packaged release-evidence tooling, checksum publication, package smoke gates, and a documented unsigned-dev signing status. Production certificate signing and a privileged installer remain tracked as post-1.0 hardening items rather than hidden assumptions.
 
+### 1.0.1 - Maintenance Readiness
+
+- Add signing readiness inventory for package binaries.
+- Add clean-machine evidence generation for operator test runs.
+- Package the new readiness tools and cover them with checksums.
+- Keep the desktop UX unchanged.
+
+Done when a release package can report current signing state and generate machine-specific install-readiness evidence without performing a real install.
+
+Status: shipped in `v1.0.1` with packaged signing readiness checks, clean-machine evidence generation, manifest wiring, checksum coverage, and stable release documentation updates.
+
 ## Immediate Next Build Order
 
-1. `1.0.1`: maintenance patch train, focusing on signed installer preparation and clean-machine evidence.
+1. `1.0.2`: installer manifest draft, signed-binary handoff fields, and external matrix tracking.
