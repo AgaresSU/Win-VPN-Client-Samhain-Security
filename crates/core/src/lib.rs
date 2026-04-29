@@ -308,7 +308,11 @@ fn parse_awg_json_item(item: &serde_json::Value, index: usize) -> Option<Server>
     let endpoint_host = endpoint
         .as_deref()
         .and_then(|value| value.rsplit_once(':').map(|(host, _)| host.to_string()))
-        .or_else(|| item.get("host").and_then(|value| value.as_str()).map(str::to_string))
+        .or_else(|| {
+            item.get("host")
+                .and_then(|value| value.as_str())
+                .map(str::to_string)
+        })
         .unwrap_or_default();
     let endpoint_port = endpoint
         .as_deref()
@@ -434,9 +438,8 @@ mod tests {
 
     #[test]
     fn parses_base64_subscription_payload() {
-        let payload = STANDARD.encode(
-            "trojan://pass@de.example:443#DE\nhysteria2://pass@se.example:443#SE",
-        );
+        let payload =
+            STANDARD.encode("trojan://pass@de.example:443#DE\nhysteria2://pass@se.example:443#SE");
         let report = parse_subscription_payload(&payload);
 
         assert_eq!(report.servers.len(), 2);
@@ -448,8 +451,18 @@ mod tests {
     fn sample_subscription_contains_mixed_protocols() {
         let subscription = sample_subscription();
 
-        assert!(subscription.servers.iter().any(|s| s.protocol == Protocol::VlessReality));
-        assert!(subscription.servers.iter().any(|s| s.protocol == Protocol::AmneziaWg));
+        assert!(
+            subscription
+                .servers
+                .iter()
+                .any(|s| s.protocol == Protocol::VlessReality)
+        );
+        assert!(
+            subscription
+                .servers
+                .iter()
+                .any(|s| s.protocol == Protocol::AmneziaWg)
+        );
     }
 
     #[test]

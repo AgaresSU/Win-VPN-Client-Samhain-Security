@@ -2723,6 +2723,7 @@ void AppController::applyProtectionPolicyObject(const QJsonObject &state)
     const auto message = state.value("message").toString();
     const auto settings = state.value("settings").toObject();
     const auto ruleNames = state.value("rule_names").toArray();
+    const auto transaction = state.value("transaction").toObject();
     const auto attempts = state.value("restart_attempts").toInt(0);
 
     m_protectionStatus = protectionStatusLabel(status, supported, enforcing);
@@ -2736,6 +2737,13 @@ void AppController::applyProtectionPolicyObject(const QJsonObject &state)
     }
     if (!ruleNames.isEmpty()) {
         detail.push_back(QString("Rules: %1").arg(ruleNames.size()));
+    }
+    if (!transaction.isEmpty()) {
+        const auto transactionStatus = transaction.value("status").toString();
+        const auto steps = transaction.value("steps").toArray();
+        if (!transactionStatus.isEmpty() && transactionStatus != "none") {
+            detail.push_back(QString("Tx: %1/%2").arg(transactionStatus, QString::number(steps.size())));
+        }
     }
     if (!message.isEmpty()) {
         detail.push_back(message);

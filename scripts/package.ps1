@@ -1,5 +1,5 @@
 param(
-    [string]$Version = "1.2.1",
+    [string]$Version = "1.2.2",
     [string]$Configuration = "Release"
 )
 
@@ -100,6 +100,13 @@ $manifest = [PSCustomObject]@{
             recoveryOwner = "service"
             audit = "redacted-rotated"
         }
+        enforcementTransaction = [PSCustomObject]@{
+            owner = "service"
+            model = "typed-apply-rollback"
+            scope = @("DNSGuard", "IPv6Policy", "KillSwitchPlan", "EmergencyRestore")
+            transactionIds = $true
+            beforeAfterSnapshots = $true
+        }
     }
     signing = [PSCustomObject]@{
         status = "unsigned-dev"
@@ -115,6 +122,7 @@ $manifest = [PSCustomObject]@{
         signingReadinessScript = "tools\test-signing-readiness.ps1"
         cleanMachineEvidenceScript = "tools\write-clean-machine-evidence.ps1"
         serviceSelfCheckCommand = "service\samhain-service.exe self-check"
+        enforcementTransactionEvidence = "service.protection_policy.transaction"
         gates = @(
             "cargo test --workspace",
             "scripts\build.ps1",
@@ -185,6 +193,11 @@ $updateManifest = [PSCustomObject]@{
             dryRunRequired = $false
             requiresElevation = $true
         }
+        enforcementTransaction = [PSCustomObject]@{
+            owner = "service"
+            model = "typed-apply-rollback"
+            beforeAfterSnapshots = $true
+        }
     }
     verification = [PSCustomObject]@{
         packageValidationScript = "tools\validate-package.ps1"
@@ -194,6 +207,7 @@ $updateManifest = [PSCustomObject]@{
         signingReadinessScript = "tools\test-signing-readiness.ps1"
         cleanMachineEvidenceScript = "tools\write-clean-machine-evidence.ps1"
         serviceSelfCheckCommand = "service\samhain-service.exe self-check"
+        enforcementTransactionEvidence = "service.protection_policy.transaction"
         signingStatus = "unsigned-dev"
         expectedPublisher = "Samhain Security"
     }

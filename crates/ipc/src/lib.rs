@@ -432,6 +432,8 @@ pub struct ProtectionPolicyState {
     pub supported: bool,
     pub enforcing: bool,
     pub rule_names: Vec<String>,
+    #[serde(default)]
+    pub transaction: ProtectionTransactionState,
     pub applied_at: Option<String>,
     pub restored_at: Option<String>,
     pub next_retry_at: Option<String>,
@@ -447,11 +449,58 @@ impl Default for ProtectionPolicyState {
             supported: true,
             enforcing: false,
             rule_names: Vec::new(),
+            transaction: ProtectionTransactionState::default(),
             applied_at: None,
             restored_at: None,
             next_retry_at: None,
             restart_attempts: 0,
             message: "Protection policy is inactive.".to_string(),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ProtectionTransactionStep {
+    pub id: String,
+    pub action: String,
+    pub target: String,
+    pub command: Vec<String>,
+    pub rollback_command: Vec<String>,
+    pub status: String,
+    pub evidence: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ProtectionTransactionState {
+    pub id: String,
+    pub kind: String,
+    pub status: String,
+    pub dry_run: bool,
+    pub applied: bool,
+    pub rollback_available: bool,
+    pub before_snapshot: Vec<String>,
+    pub after_snapshot: Vec<String>,
+    pub applied_at: Option<String>,
+    pub rolled_back_at: Option<String>,
+    pub steps: Vec<ProtectionTransactionStep>,
+    pub message: String,
+}
+
+impl Default for ProtectionTransactionState {
+    fn default() -> Self {
+        Self {
+            id: "none".to_string(),
+            kind: "protection".to_string(),
+            status: "none".to_string(),
+            dry_run: false,
+            applied: false,
+            rollback_available: false,
+            before_snapshot: Vec::new(),
+            after_snapshot: Vec::new(),
+            applied_at: None,
+            rolled_back_at: None,
+            steps: Vec::new(),
+            message: "No protection transaction has been prepared.".to_string(),
         }
     }
 }

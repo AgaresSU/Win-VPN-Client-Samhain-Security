@@ -6,11 +6,11 @@ use samhain_core::{
 use samhain_ipc::{
     AppRoutingPolicyState, ClientCommand, EngineCatalogEntry, EngineConfigPreview, EngineKind,
     EngineLifecycleState, EngineLogEntry, IPC_PROTOCOL_VERSION, Ipv6Policy, LogSnapshotState,
-    PingProbeResult, ProtectionPolicyState, ProtectionSettings, ProxyLifecycleState,
-    RecoveryPolicyState, RequestEnvelope, ResponseEnvelope, RouteApplication, ServiceAuditEvent,
-    ServiceCheckItem, ServiceEvent, ServiceReadinessState, ServiceSelfCheckState, ServiceState,
-    SupportBundleState, TrafficStatsState, TunLifecycleState, decode_request, encode_event,
-    encode_response,
+    PingProbeResult, ProtectionPolicyState, ProtectionSettings, ProtectionTransactionState,
+    ProtectionTransactionStep, ProxyLifecycleState, RecoveryPolicyState, RequestEnvelope,
+    ResponseEnvelope, RouteApplication, ServiceAuditEvent, ServiceCheckItem, ServiceEvent,
+    ServiceReadinessState, ServiceSelfCheckState, ServiceState, SupportBundleState,
+    TrafficStatsState, TunLifecycleState, decode_request, encode_event, encode_response,
 };
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeSet;
@@ -601,9 +601,10 @@ impl ServiceStore {
         let app_routing_policy = self
             .engine_manager
             .app_routing_snapshot(self.state.route_mode, self.public_route_applications());
-        let protection_policy = self
-            .engine_manager
-            .protection_snapshot(self.state.protection_settings.clone());
+        let protection_policy = self.engine_manager.protection_snapshot(
+            self.state.protection_settings.clone(),
+            self.state.route_mode,
+        );
         let service_readiness = service_readiness_state();
         let service_self_check = service_self_check_state(&self.path);
         let recovery_policy = service_self_check.recovery_policy.clone();
@@ -737,8 +738,10 @@ impl ServiceStore {
     }
 
     fn protection_policy(&mut self) -> ProtectionPolicyState {
-        self.engine_manager
-            .protection_snapshot(self.state.protection_settings.clone())
+        self.engine_manager.protection_snapshot(
+            self.state.protection_settings.clone(),
+            self.state.route_mode,
+        )
     }
 
     fn service_self_check(&mut self) -> ServiceSelfCheckState {
@@ -911,12 +914,7 @@ impl ServiceStore {
         let state = self
             .engine_manager
             .apply_protection_policy(settings, self.state.route_mode);
-        self.append_audit_event(
-            "protection",
-            "set-policy",
-            &state.status,
-            &state.message,
-        );
+        self.append_audit_event("protection", "set-policy", &state.status, &state.message);
         self.save()?;
         Ok(state)
     }
@@ -1970,6 +1968,8 @@ impl AppRoutingManager {
 struct ProtectionFirewallCommand {
     name: String,
     args: Vec<String>,
+    rollback_args: Vec<String>,
+    evidence: Vec<String>,
 }
 
 #[derive(Debug)]
@@ -1984,7 +1984,11 @@ impl ProtectionManager {
         }
     }
 
-    fn snapshot(&self, settings: ProtectionSettings) -> ProtectionPolicyState {
+    fn snapshot(
+        &self,
+        settings: ProtectionSettings,
+        route_mode: RouteMode,
+    ) -> ProtectionPolicyState {
         let mut state = self.state.clone();
         state.settings = settings;
         if matches!(state.status.as_str(), "inactive" | "restored")
@@ -1994,6 +1998,15 @@ impl ProtectionManager {
             state.supported = !state.settings.kill_switch_enabled || protection_enforce();
             state.enforcing = false;
             state.rule_names = protection_rule_names(&state.settings);
+            state.transaction = protection_transaction_plan(
+                &state.settings,
+                route_mode,
+                "planned",
+                false,
+                false,
+                false,
+                "Protection transaction is planned but not applied.",
+            );
             state.message = if state.supported {
                 "Защита готова к применению при подключении.".to_string()
             } else {
@@ -2019,6 +2032,7 @@ impl ProtectionManager {
                 supported: true,
                 enforcing: false,
                 rule_names: Vec::new(),
+                transaction: ProtectionTransactionState::default(),
                 applied_at: None,
                 restored_at: None,
                 next_retry_at: None,
@@ -2029,12 +2043,22 @@ impl ProtectionManager {
         }
 
         if protection_dry_run() {
+            let transaction = protection_transaction_plan(
+                &settings,
+                route_mode,
+                "dry-run",
+                true,
+                false,
+                false,
+                "Protection transaction validated in dry-run; no system changes were written.",
+            );
             self.state = ProtectionPolicyState {
                 status: "dry-run".to_string(),
                 settings,
                 supported: true,
                 enforcing: false,
-                rule_names,
+                rule_names: transaction_rule_names(&transaction).unwrap_or(rule_names),
+                transaction,
                 applied_at: Some(now_engine_label()),
                 restored_at: None,
                 next_retry_at: None,
@@ -2046,14 +2070,27 @@ impl ProtectionManager {
 
         let enforce = protection_enforce();
         if enforce {
-            let commands = protection_firewall_commands(&settings);
+            let transaction_id = protection_transaction_id("protection");
+            let commands = protection_firewall_commands_for(&settings, &transaction_id);
             if let Err(error) = protection_firewall::apply(&commands) {
+                let transaction = protection_transaction_from_commands(
+                    transaction_id,
+                    &settings,
+                    route_mode,
+                    "error",
+                    false,
+                    false,
+                    true,
+                    &format!("Protection transaction failed: {error}"),
+                    command_step_status(&commands, "error"),
+                );
                 self.state = ProtectionPolicyState {
                     status: "error".to_string(),
                     settings,
                     supported: false,
                     enforcing: false,
-                    rule_names,
+                    rule_names: transaction_rule_names(&transaction).unwrap_or(rule_names),
+                    transaction,
                     applied_at: None,
                     restored_at: None,
                     next_retry_at: None,
@@ -2062,28 +2099,64 @@ impl ProtectionManager {
                 };
                 return self.state.clone();
             }
+
+            let transaction = protection_transaction_from_commands(
+                transaction_id,
+                &settings,
+                route_mode,
+                "applied",
+                false,
+                true,
+                true,
+                "Protection transaction applied; rollback commands are recorded.",
+                command_step_status(&commands, "applied"),
+            );
+            let full_support = !settings.kill_switch_enabled;
+            self.state = ProtectionPolicyState {
+                status: "active".to_string(),
+                settings,
+                supported: full_support,
+                enforcing: true,
+                rule_names: transaction_rule_names(&transaction).unwrap_or(rule_names),
+                transaction,
+                applied_at: Some(now_engine_label()),
+                restored_at: None,
+                next_retry_at: None,
+                restart_attempts: 0,
+                message: protection_message(route_mode, false, true),
+            };
+            return self.state.clone();
         }
 
-        let full_support = enforce && !settings.kill_switch_enabled;
+        let transaction = protection_transaction_plan(
+            &settings,
+            route_mode,
+            "planned",
+            false,
+            false,
+            false,
+            "Protection transaction is armed but gated by service policy.",
+        );
         self.state = ProtectionPolicyState {
-            status: if enforce { "active" } else { "armed" }.to_string(),
+            status: "armed".to_string(),
             settings,
-            supported: full_support,
-            enforcing: enforce,
+            supported: false,
+            enforcing: false,
             rule_names,
+            transaction,
             applied_at: Some(now_engine_label()),
             restored_at: None,
             next_retry_at: None,
             restart_attempts: 0,
-            message: protection_message(route_mode, false, enforce),
+            message: protection_message(route_mode, false, false),
         };
         self.state.clone()
     }
 
     fn restore(&mut self) -> ProtectionPolicyState {
-        let rule_names = self.state.rule_names.clone();
-        let restore_result = if self.state.enforcing {
-            protection_firewall::restore(&rule_names)
+        let had_applied_transaction = self.state.enforcing && self.state.transaction.applied;
+        let restore_result = if had_applied_transaction {
+            protection_firewall::rollback(&self.state.transaction.steps)
         } else {
             Ok(())
         };
@@ -2098,10 +2171,37 @@ impl ProtectionManager {
         self.state.restored_at = Some(now_engine_label());
         self.state.next_retry_at = None;
         self.state.restart_attempts = 0;
+        self.state.transaction.status = if !had_applied_transaction {
+            "not-applied".to_string()
+        } else if restore_result.is_ok() {
+            "rolled-back".to_string()
+        } else {
+            "rollback-error".to_string()
+        };
+        self.state.transaction.applied = false;
+        self.state.transaction.rollback_available =
+            had_applied_transaction && !restore_result.is_ok();
+        self.state.transaction.rolled_back_at = had_applied_transaction
+            .then(|| self.state.restored_at.clone())
+            .flatten();
+        self.state.transaction.after_snapshot =
+            protection_snapshot_lines(&self.state.settings, RouteMode::WholeComputer, "rollback");
+        if had_applied_transaction {
+            for step in &mut self.state.transaction.steps {
+                if !step.rollback_command.is_empty() {
+                    step.status = if restore_result.is_ok() {
+                        "rolled-back".to_string()
+                    } else {
+                        "rollback-error".to_string()
+                    };
+                }
+            }
+        }
         self.state.message = match restore_result {
             Ok(()) => "Защитная политика восстановлена.".to_string(),
             Err(error) => format!("Восстановление защиты требует внимания: {error}"),
         };
+        self.state.transaction.message = self.state.message.clone();
         self.state.clone()
     }
 
@@ -2380,9 +2480,13 @@ impl EngineManager {
         self.app_routing.snapshot(route_mode, applications)
     }
 
-    fn protection_snapshot(&mut self, settings: ProtectionSettings) -> ProtectionPolicyState {
+    fn protection_snapshot(
+        &mut self,
+        settings: ProtectionSettings,
+        route_mode: RouteMode,
+    ) -> ProtectionPolicyState {
         self.reap_finished_process();
-        self.protection.snapshot(settings)
+        self.protection.snapshot(settings, route_mode)
     }
 
     fn traffic_snapshot(&mut self) -> TrafficStatsState {
@@ -3532,7 +3636,11 @@ fn service_self_check_state(storage_path: &Path) -> ServiceSelfCheckState {
         check_item(
             "storage",
             storage_parent.is_dir(),
-            if storage_parent.is_dir() { "ready" } else { "pending" },
+            if storage_parent.is_dir() {
+                "ready"
+            } else {
+                "pending"
+            },
             &format!("path={}", storage_path.display()),
         ),
         check_item(
@@ -3739,54 +3847,244 @@ fn protection_rule_names(settings: &ProtectionSettings) -> Vec<String> {
     names
 }
 
+#[cfg(test)]
 fn protection_firewall_commands(settings: &ProtectionSettings) -> Vec<ProtectionFirewallCommand> {
+    protection_firewall_commands_for(settings, "planned")
+}
+
+fn protection_firewall_commands_for(
+    settings: &ProtectionSettings,
+    transaction_id: &str,
+) -> Vec<ProtectionFirewallCommand> {
     let mut commands = Vec::new();
     if settings.dns_leak_protection_enabled {
+        let name = protection_transaction_rule_name("DNS Guard UDP", transaction_id);
         commands.push(ProtectionFirewallCommand {
-            name: "Samhain Security DNS Guard UDP".to_string(),
+            name: name.clone(),
             args: vec![
                 "advfirewall".to_string(),
                 "firewall".to_string(),
                 "add".to_string(),
                 "rule".to_string(),
-                "name=Samhain Security DNS Guard UDP".to_string(),
+                format!("name={name}"),
                 "dir=out".to_string(),
                 "action=block".to_string(),
                 "protocol=UDP".to_string(),
                 "remoteport=53".to_string(),
             ],
+            rollback_args: protection_delete_rule_args(&name),
+            evidence: vec![
+                "capability=dns-guard".to_string(),
+                "protocol=UDP".to_string(),
+                "remoteport=53".to_string(),
+            ],
         });
+        let name = protection_transaction_rule_name("DNS Guard TCP", transaction_id);
         commands.push(ProtectionFirewallCommand {
-            name: "Samhain Security DNS Guard TCP".to_string(),
+            name: name.clone(),
             args: vec![
                 "advfirewall".to_string(),
                 "firewall".to_string(),
                 "add".to_string(),
                 "rule".to_string(),
-                "name=Samhain Security DNS Guard TCP".to_string(),
+                format!("name={name}"),
                 "dir=out".to_string(),
                 "action=block".to_string(),
+                "protocol=TCP".to_string(),
+                "remoteport=53".to_string(),
+            ],
+            rollback_args: protection_delete_rule_args(&name),
+            evidence: vec![
+                "capability=dns-guard".to_string(),
                 "protocol=TCP".to_string(),
                 "remoteport=53".to_string(),
             ],
         });
     }
     if settings.ipv6_policy == Ipv6Policy::Block {
+        let name = protection_transaction_rule_name("IPv6 Guard", transaction_id);
         commands.push(ProtectionFirewallCommand {
-            name: "Samhain Security IPv6 Guard".to_string(),
+            name: name.clone(),
             args: vec![
                 "advfirewall".to_string(),
                 "firewall".to_string(),
                 "add".to_string(),
                 "rule".to_string(),
-                "name=Samhain Security IPv6 Guard".to_string(),
+                format!("name={name}"),
                 "dir=out".to_string(),
                 "action=block".to_string(),
+                "remoteip=::/0".to_string(),
+            ],
+            rollback_args: protection_delete_rule_args(&name),
+            evidence: vec![
+                "capability=ipv6-policy".to_string(),
                 "remoteip=::/0".to_string(),
             ],
         });
     }
     commands
+}
+
+fn protection_transaction_id(prefix: &str) -> String {
+    let millis = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|value| value.as_millis())
+        .unwrap_or_default();
+    format!("{prefix}-{millis}")
+}
+
+fn protection_transaction_rule_name(capability: &str, transaction_id: &str) -> String {
+    format!("Samhain Security {capability} [{transaction_id}]")
+}
+
+fn protection_delete_rule_args(name: &str) -> Vec<String> {
+    vec![
+        "advfirewall".to_string(),
+        "firewall".to_string(),
+        "delete".to_string(),
+        "rule".to_string(),
+        format!("name={name}"),
+    ]
+}
+
+fn protection_transaction_plan(
+    settings: &ProtectionSettings,
+    route_mode: RouteMode,
+    status: &str,
+    dry_run: bool,
+    applied: bool,
+    rollback_available: bool,
+    message: &str,
+) -> ProtectionTransactionState {
+    let transaction_id = protection_transaction_id("protection");
+    protection_transaction_from_commands(
+        transaction_id,
+        settings,
+        route_mode,
+        status,
+        dry_run,
+        applied,
+        rollback_available,
+        message,
+        status.to_string(),
+    )
+}
+
+fn protection_transaction_from_commands(
+    transaction_id: String,
+    settings: &ProtectionSettings,
+    route_mode: RouteMode,
+    status: &str,
+    dry_run: bool,
+    applied: bool,
+    rollback_available: bool,
+    message: &str,
+    step_status: String,
+) -> ProtectionTransactionState {
+    let commands = protection_firewall_commands_for(settings, &transaction_id);
+    ProtectionTransactionState {
+        id: transaction_id.clone(),
+        kind: "protection-firewall".to_string(),
+        status: status.to_string(),
+        dry_run,
+        applied,
+        rollback_available,
+        before_snapshot: protection_snapshot_lines(settings, route_mode, "before"),
+        after_snapshot: protection_snapshot_lines(settings, route_mode, status),
+        applied_at: applied.then(now_engine_label),
+        rolled_back_at: None,
+        steps: protection_transaction_steps(settings, &commands, &transaction_id, &step_status),
+        message: message.to_string(),
+    }
+}
+
+fn protection_transaction_steps(
+    settings: &ProtectionSettings,
+    commands: &[ProtectionFirewallCommand],
+    transaction_id: &str,
+    status: &str,
+) -> Vec<ProtectionTransactionStep> {
+    let mut steps = commands
+        .iter()
+        .enumerate()
+        .map(|(index, command)| ProtectionTransactionStep {
+            id: format!("{transaction_id}-{}", index + 1),
+            action: "apply-firewall-rule".to_string(),
+            target: command.name.clone(),
+            command: command.args.clone(),
+            rollback_command: command.rollback_args.clone(),
+            status: status.to_string(),
+            evidence: command.evidence.clone(),
+        })
+        .collect::<Vec<_>>();
+
+    if settings.kill_switch_enabled {
+        steps.insert(
+            0,
+            ProtectionTransactionStep {
+                id: format!("{transaction_id}-kill-switch"),
+                action: "plan-kill-switch".to_string(),
+                target: "Samhain Security Kill Switch Guard".to_string(),
+                command: Vec::new(),
+                rollback_command: Vec::new(),
+                status: "pending-wfp".to_string(),
+                evidence: vec![
+                    "capability=kill-switch".to_string(),
+                    "wfp_layer=required".to_string(),
+                    "broad_allow_rules=false".to_string(),
+                ],
+            },
+        );
+    }
+
+    steps.push(ProtectionTransactionStep {
+        id: format!("{transaction_id}-emergency-restore"),
+        action: "record-emergency-restore".to_string(),
+        target: "service-owned-restore".to_string(),
+        command: Vec::new(),
+        rollback_command: Vec::new(),
+        status: "available".to_string(),
+        evidence: vec![
+            "owner=service".to_string(),
+            format!("transaction_id={transaction_id}"),
+        ],
+    });
+
+    steps
+}
+
+fn transaction_rule_names(transaction: &ProtectionTransactionState) -> Option<Vec<String>> {
+    let names = transaction
+        .steps
+        .iter()
+        .filter(|step| !step.rollback_command.is_empty())
+        .map(|step| step.target.clone())
+        .collect::<Vec<_>>();
+    (!names.is_empty()).then_some(names)
+}
+
+fn command_step_status(_commands: &[ProtectionFirewallCommand], status: &str) -> String {
+    status.to_string()
+}
+
+fn protection_snapshot_lines(
+    settings: &ProtectionSettings,
+    route_mode: RouteMode,
+    phase: &str,
+) -> Vec<String> {
+    vec![
+        format!("phase={phase}"),
+        format!("route_mode={route_mode:?}"),
+        format!("kill_switch={}", settings.kill_switch_enabled),
+        format!("dns_guard={}", settings.dns_leak_protection_enabled),
+        format!("ipv6_policy={:?}", settings.ipv6_policy),
+        format!("reconnect={}", settings.reconnect_enabled),
+        format!(
+            "privileged_allowed={}",
+            privileged_policy_allows_network_actions()
+        ),
+        "broad_allow_rules=false".to_string(),
+    ]
 }
 
 fn protection_message(route_mode: RouteMode, dry_run: bool, enforce: bool) -> String {
@@ -4174,12 +4472,9 @@ mod protection_firewall {
     use super::*;
 
     pub fn apply(commands: &[ProtectionFirewallCommand]) -> Result<()> {
-        restore(
-            &commands
-                .iter()
-                .map(|command| command.name.clone())
-                .collect::<Vec<_>>(),
-        )?;
+        for command in commands {
+            let _ = run_netsh(&command.rollback_args);
+        }
         for command in commands {
             run_netsh(&command.args)
                 .with_context(|| format!("Could not apply firewall rule {}", command.name))?;
@@ -4187,16 +4482,11 @@ mod protection_firewall {
         Ok(())
     }
 
-    pub fn restore(rule_names: &[String]) -> Result<()> {
-        for name in rule_names {
-            let args = vec![
-                "advfirewall".to_string(),
-                "firewall".to_string(),
-                "delete".to_string(),
-                "rule".to_string(),
-                format!("name={name}"),
-            ];
-            let _ = run_netsh(&args);
+    pub fn rollback(steps: &[ProtectionTransactionStep]) -> Result<()> {
+        for step in steps.iter().rev() {
+            if !step.rollback_command.is_empty() {
+                let _ = run_netsh(&step.rollback_command);
+            }
         }
         Ok(())
     }
@@ -4240,7 +4530,7 @@ mod protection_firewall {
         Ok(())
     }
 
-    pub fn restore(_rule_names: &[String]) -> Result<()> {
+    pub fn rollback(_steps: &[ProtectionTransactionStep]) -> Result<()> {
         Ok(())
     }
 }
@@ -4928,19 +5218,17 @@ mod tests {
     fn service_self_check_reports_gated_capabilities() {
         let state = service_self_check_state(&storage_path());
 
-        assert!(matches!(state.status.as_str(), "gated" | "partial" | "ready"));
+        assert!(matches!(
+            state.status.as_str(),
+            "gated" | "partial" | "ready"
+        ));
         assert!(
             state
                 .checks
                 .iter()
                 .any(|check| check.name == "named-pipe" && check.ok)
         );
-        assert!(
-            state
-                .checks
-                .iter()
-                .any(|check| check.name == "firewall")
-        );
+        assert!(state.checks.iter().any(|check| check.name == "firewall"));
         assert_eq!(state.recovery_policy.owner, "service");
         assert!(state.audit_log_path.is_some());
     }
@@ -4958,7 +5246,10 @@ mod tests {
         }
 
         assert_eq!(store.state.audit_events.len(), AUDIT_EVENT_LIMIT);
-        assert_eq!(store.state.audit_events.first().map(|event| event.id), Some(6));
+        assert_eq!(
+            store.state.audit_events.first().map(|event| event.id),
+            Some(6)
+        );
         assert!(
             store
                 .state
@@ -4987,6 +5278,23 @@ mod tests {
                 .rule_names
                 .iter()
                 .any(|name| name.contains("Kill Switch"))
+        );
+        assert_eq!(state.transaction.status, "planned");
+        assert!(!state.transaction.applied);
+        assert!(!state.transaction.rollback_available);
+        assert!(
+            state
+                .transaction
+                .steps
+                .iter()
+                .any(|step| step.action == "plan-kill-switch" && step.status == "pending-wfp")
+        );
+        assert!(
+            state
+                .transaction
+                .steps
+                .iter()
+                .any(|step| !step.command.is_empty() && !step.rollback_command.is_empty())
         );
 
         let restored = manager.restore();
@@ -5019,10 +5327,69 @@ mod tests {
                 .any(|arg| arg == "remoteip=::/0")
         );
         assert!(
+            commands
+                .iter()
+                .all(|command| command.name.starts_with("Samhain Security "))
+        );
+        assert!(
+            commands
+                .iter()
+                .all(|command| command.rollback_args.iter().any(|arg| arg == "delete"))
+        );
+        assert!(
             !commands
                 .iter()
                 .flat_map(|command| command.args.iter())
                 .any(|arg| arg == "action=allow")
+        );
+    }
+
+    #[test]
+    fn protection_transaction_records_evidence_and_snapshots() {
+        let settings = ProtectionSettings {
+            kill_switch_enabled: true,
+            dns_leak_protection_enabled: true,
+            ipv6_policy: Ipv6Policy::Block,
+            reconnect_enabled: true,
+            backoff_seconds: 2,
+        };
+
+        let transaction = protection_transaction_plan(
+            &settings,
+            RouteMode::WholeComputer,
+            "dry-run",
+            true,
+            false,
+            false,
+            "validated",
+        );
+
+        assert_eq!(transaction.status, "dry-run");
+        assert!(transaction.dry_run);
+        assert!(!transaction.before_snapshot.is_empty());
+        assert!(!transaction.after_snapshot.is_empty());
+        assert!(
+            transaction
+                .steps
+                .iter()
+                .any(|step| step.action == "plan-kill-switch")
+        );
+        assert!(transaction.steps.iter().any(|step| {
+            step.evidence
+                .iter()
+                .any(|item| item == "broad_allow_rules=false")
+        }));
+        assert!(
+            transaction
+                .steps
+                .iter()
+                .any(|step| step.rollback_command.iter().any(|arg| arg == "delete"))
+        );
+        assert!(
+            transaction
+                .steps
+                .iter()
+                .any(|step| step.action == "record-emergency-restore")
         );
     }
 

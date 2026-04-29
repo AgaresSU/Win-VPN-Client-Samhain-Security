@@ -1,6 +1,6 @@
 # Roadmap
 
-Current version: `1.2.1`
+Current version: `1.2.2`
 
 This roadmap is the working contract for Samhain Security. Future implementation should follow this order unless a blocker is found and documented in the same commit.
 
@@ -517,7 +517,7 @@ Status: shipped in `v1.2.1` with service identity/signing gates for privileged n
 
 Done when privileged protection can be applied and rolled back from one auditable transaction.
 
-Status: planned.
+Status: shipped in `v1.2.2` with typed protection apply/rollback transactions, transaction-scoped firewall rule names, dry-run/apply evidence for DNS guard, IPv6 policy, kill-switch planning, service-owned emergency restore evidence, and clean-machine transaction snapshots.
 
 ### 1.2.3 - Production Engine Bundle Contract
 
@@ -661,16 +661,15 @@ Status: planned.
 
 ## Immediate Next Build Order
 
-1. `1.2.2`: privileged enforcement transaction planner.
-2. `1.2.3`: production engine bundle contract.
-3. `1.2.4`: runtime health and counters.
-4. `1.2.5`: subscription operations hardening.
-5. `1.3.0`: daily UX freeze.
-6. `1.3.1`: connection reliability pass.
-7. `1.3.2`: app-routing design gate.
-8. `1.3.3`: app-routing enforcement V1.
-9. `1.3.4`: diagnostics and support final.
-10. `1.3.5`: tray, startup, and link ownership.
-11. `1.3.6`: update and rollback hardening.
-12. `1.3.7`: security review and abuse resistance.
-13. `1.4.0`: release-ready competitive build.
+1. `1.2.3`: production engine bundle contract.
+2. `1.2.4`: runtime health and counters.
+3. `1.2.5`: subscription operations hardening.
+4. `1.3.0`: daily UX freeze.
+5. `1.3.1`: connection reliability pass.
+6. `1.3.2`: app-routing design gate.
+7. `1.3.3`: app-routing enforcement V1.
+8. `1.3.4`: diagnostics and support final.
+9. `1.3.5`: tray, startup, and link ownership.
+10. `1.3.6`: update and rollback hardening.
+11. `1.3.7`: security review and abuse resistance.
+12. `1.4.0`: release-ready competitive build.

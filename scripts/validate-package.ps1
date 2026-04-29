@@ -103,6 +103,8 @@ if (Test-Path $manifestPath) {
         Add-Check "manifest:privileged-service-elevation" ([bool]$manifest.operations.privilegedService.requiresElevation) ([string]$manifest.operations.privilegedService.requiresElevation)
         Add-Check "manifest:privileged-service-dry-run" (-not [bool]$manifest.operations.privilegedService.dryRunRequired) ([string]$manifest.operations.privilegedService.dryRunRequired)
         Add-Check "manifest:service-self-check" ($manifest.operations.serviceSelfCheck.command -eq "service\samhain-service.exe self-check") ([string]$manifest.operations.serviceSelfCheck.command)
+        Add-Check "manifest:enforcement-transaction" ($manifest.operations.enforcementTransaction.model -eq "typed-apply-rollback") ([string]$manifest.operations.enforcementTransaction.model)
+        Add-Check "manifest:enforcement-snapshots" ([bool]$manifest.operations.enforcementTransaction.beforeAfterSnapshots) ([string]$manifest.operations.enforcementTransaction.beforeAfterSnapshots)
         Add-Check "manifest:smoke" ($manifest.quality.smokeScript -eq "tools\smoke-package.ps1") ([string]$manifest.quality.smokeScript)
         Add-Check "manifest:update-verifier" ($manifest.quality.updateManifestVerifier -eq "tools\verify-update-manifest.ps1") ([string]$manifest.quality.updateManifestVerifier)
         Add-Check "manifest:release-evidence" ($manifest.quality.releaseEvidenceScript -eq "tools\write-release-evidence.ps1") ([string]$manifest.quality.releaseEvidenceScript)
@@ -166,6 +168,14 @@ if ($RunServiceStatus) {
             }
             Add-Check "service:recovery-policy" (($null -ne $serviceState.recovery_policy) -and ($serviceState.recovery_policy.owner -eq "service")) "owner=$($serviceState.recovery_policy.owner)"
             Add-Check "service:audit-events" ($null -ne $serviceState.audit_events) "count=$($serviceState.audit_events.Count)"
+            $transaction = $serviceState.protection_policy.transaction
+            Add-Check "service:protection-transaction" ($null -ne $transaction) "status=$($transaction.status)"
+            if ($null -ne $transaction) {
+                $rollbackSteps = @($transaction.steps | Where-Object { ($null -ne $_.rollback_command) -and ($_.rollback_command.Count -gt 0) })
+                Add-Check "service:protection-transaction-id" (-not [string]::IsNullOrWhiteSpace($transaction.id)) ([string]$transaction.id)
+                Add-Check "service:protection-transaction-steps" (($transaction.steps.Count -gt 0) -and ($rollbackSteps.Count -gt 0)) "steps=$($transaction.steps.Count) rollback=$($rollbackSteps.Count)"
+                Add-Check "service:protection-transaction-snapshots" (($transaction.before_snapshot.Count -gt 0) -and ($transaction.after_snapshot.Count -gt 0)) "before=$($transaction.before_snapshot.Count) after=$($transaction.after_snapshot.Count)"
+            }
         }
         catch {
             Add-Check "service:status-json" $false $_.Exception.Message
