@@ -1,6 +1,6 @@
 # Samhain Security Native
 
-Version: `1.0.5`
+Version: `1.0.6`
 
 Native Windows secure tunneling client prototype built from a clean base.
 
@@ -16,7 +16,7 @@ Native Windows secure tunneling client prototype built from a clean base.
 
 This release is the native foundation. It focuses on the product shell, simple daily UX, local models, persistence, and build/package flow.
 
-Implemented through `1.0.5`:
+Implemented through `1.0.6`:
 
 - Happ-inspired Qt/QML shell with servers, add, settings, statistics, logs, and about sections.
 - Compact subscription group and server rows without technical clutter.
@@ -50,6 +50,7 @@ Implemented through `1.0.5`:
 - Compact subscription rows with secondary actions moved into a quiet menu and a cleaner add-subscription dialog.
 - Simplified settings with daily controls up front and technical service actions grouped under advanced settings.
 - Visual polish for navigation buttons, the connection power control, dark Windows title bar, and rendered country badges.
+- Refined flag rendering, removed native navigation highlight bleed, and cleaned the power icon artifact.
 
 Not implemented yet:
 
@@ -74,7 +75,7 @@ Not implemented yet:
 The package is written to:
 
 ```text
-dist\SamhainSecurityNative-1.0.5-win-x64
+dist\SamhainSecurityNative-1.0.6-win-x64
 ```
 
 ## Local Operations
@@ -93,8 +94,8 @@ See `docs\LOCAL_OPERATIONS.md` and `docs\SIGNING.md` for install scope, storage,
 ## Package Checks
 
 ```powershell
-.\scripts\validate-package.ps1 -ExpectedVersion 1.0.5 -RunServiceStatus
-.\scripts\smoke-package.ps1 -ExpectedVersion 1.0.5
+.\scripts\validate-package.ps1 -ExpectedVersion 1.0.6 -RunServiceStatus
+.\scripts\smoke-package.ps1 -ExpectedVersion 1.0.6
 ```
 
 See `docs\BETA_CHECKLIST.md` for the manual Windows and protocol matrix.
@@ -102,10 +103,10 @@ See `docs\BETA_CHECKLIST.md` for the manual Windows and protocol matrix.
 ## Stable Checks
 
 ```powershell
-.\scripts\verify-update-manifest.ps1 -ExpectedVersion 1.0.5 -RequireStableChannel
-.\scripts\test-signing-readiness.ps1 -ExpectedVersion 1.0.5
-.\scripts\write-clean-machine-evidence.ps1 -ExpectedVersion 1.0.5 -SkipLaunch
-.\scripts\write-release-evidence.ps1 -ExpectedVersion 1.0.5
+.\scripts\verify-update-manifest.ps1 -ExpectedVersion 1.0.6 -RequireStableChannel
+.\scripts\test-signing-readiness.ps1 -ExpectedVersion 1.0.6
+.\scripts\write-clean-machine-evidence.ps1 -ExpectedVersion 1.0.6 -SkipLaunch
+.\scripts\write-release-evidence.ps1 -ExpectedVersion 1.0.6
 ```
 
 See `docs\STABLE_RELEASE.md` and `docs\CLEAN_MACHINE_EVIDENCE.md` for the stable release checklist and external test evidence flow.

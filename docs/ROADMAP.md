@@ -1,6 +1,6 @@
 # Roadmap
 
-Current version: `1.0.5`
+Current version: `1.0.6`
 
 This roadmap is the working contract for Samhain Security. Future implementation should follow this order unless a blocker is found and documented in the same commit.
 
@@ -332,6 +332,17 @@ Done when the five visual issues from the review screenshots are fixed in the pa
 
 Status: shipped in `v1.0.5` with prettier navigation, a custom translucent power button, a dark title bar, and QML-rendered country badges.
 
+### 1.0.6 - Visual Cleanup Pass
+
+- Replace circular country badges with oval flag badges.
+- Remove left-side red strips where they read as visual noise.
+- Remove native-button hover and focus glow from navigation.
+- Redraw the power icon without masking artifacts.
+
+Done when the review screenshots no longer show circular flag outlines, blue navigation glow, red side strips, or the power glyph artifact.
+
+Status: shipped in `v1.0.6` with Canvas-rendered oval flags, custom navigation hit states, a cleaned power glyph, and quieter selected rows.
+
 ## Immediate Next Build Order
 
-1. `1.0.6`: app list dialog polish and clearer per-application routing state.
+1. `1.0.7`: app list dialog polish and clearer per-application routing state.

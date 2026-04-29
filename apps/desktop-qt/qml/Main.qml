@@ -775,16 +775,6 @@ ApplicationWindow {
                         border.width: 1
                         radius: isSubscription ? 7 : 0
 
-                        Rectangle {
-                            visible: selected && !isSubscription
-                            width: 4
-                            height: parent.height - 16
-                            color: root.accent
-                            anchors.left: parent.left
-                            anchors.verticalCenter: parent.verticalCenter
-                            radius: 2
-                        }
-
                         MouseArea {
                             anchors.fill: parent
                             onClicked: appController.selectServer(index)
@@ -1126,7 +1116,7 @@ ApplicationWindow {
             spacing: 18
             PageTitle { text: "О программе" }
             MetricRow { title: "Программа"; value: "Samhain Security Native" }
-            MetricRow { title: "Версия"; value: "1.0.5" }
+            MetricRow { title: "Версия"; value: "1.0.6" }
             MetricRow { title: "Интерфейс"; value: "Qt 6 / QML" }
             MetricRow { title: "Ядро"; value: "Rust workspace" }
             MetricRow { title: "Статус"; value: appController.statusText }
@@ -1134,32 +1124,23 @@ ApplicationWindow {
         }
     }
 
-    component NavButton: Button {
+    component NavButton: Rectangle {
         id: navButton
         property string iconText: ""
         property string label: ""
         property bool active: false
+        signal clicked()
         Layout.fillWidth: true
         Layout.preferredHeight: root.compact ? 58 : 64
         Layout.leftMargin: root.compact ? 6 : 8
         Layout.rightMargin: root.compact ? 6 : 10
-        leftPadding: 0
-        rightPadding: 0
-        background: Rectangle {
-            color: active ? "#090708" : (navButton.hovered ? "#1D1719" : "transparent")
-            radius: 9
-            border.color: active ? "#21191C" : (navButton.hovered ? "#31262A" : "transparent")
-            Rectangle {
-                visible: active
-                width: 5
-                height: parent.height - 18
-                anchors.left: parent.left
-                anchors.verticalCenter: parent.verticalCenter
-                color: root.accent
-                radius: 3
-            }
-        }
-        contentItem: RowLayout {
+        color: active ? "#0B0809" : (navMouse.containsMouse ? "#1B1517" : "transparent")
+        radius: 10
+        border.color: active ? "#35272B" : (navMouse.containsMouse ? "#31262A" : "transparent")
+        border.width: 1
+
+        RowLayout {
+            anchors.fill: parent
             spacing: root.compact ? 0 : 16
             anchors.leftMargin: root.compact ? 17 : 18
             anchors.rightMargin: root.compact ? 17 : 14
@@ -1167,7 +1148,7 @@ ApplicationWindow {
                 Layout.preferredWidth: 42
                 Layout.preferredHeight: 42
                 radius: 12
-                color: navButton.active ? "#171113" : "#120F10"
+                color: navButton.active ? "#1C1114" : "#120F10"
                 border.color: navButton.active ? root.accent : "#30272A"
                 Text {
                     anchors.centerIn: parent
@@ -1187,6 +1168,14 @@ ApplicationWindow {
                 Layout.fillWidth: true
                 elide: Text.ElideRight
             }
+        }
+
+        MouseArea {
+            id: navMouse
+            anchors.fill: parent
+            hoverEnabled: true
+            cursorShape: Qt.PointingHandCursor
+            onClicked: navButton.clicked()
         }
     }
 
@@ -1209,28 +1198,29 @@ ApplicationWindow {
             border.color: connected ? "#B83A43" : "#4A3036"
             border.width: 1
         }
-        Rectangle {
-            anchors.horizontalCenter: parent.horizontalCenter
-            y: parent.height * 0.24
-            width: 6
-            height: parent.height * 0.26
-            radius: 3
-            color: "#FFFFFF"
-        }
-        Rectangle {
-            anchors.centerIn: parent
-            width: parent.width * 0.38
-            height: width
-            radius: width / 2
-            color: "transparent"
-            border.color: "#FFFFFF"
-            border.width: 5
-            Rectangle {
-                anchors.horizontalCenter: parent.horizontalCenter
-                y: -2
-                width: parent.width * 0.28
-                height: parent.height * 0.34
-                color: powerButton.connected ? Qt.rgba(0.72, 0.16, 0.22, 0.34) : Qt.rgba(0.28, 0.12, 0.16, 0.34)
+        Canvas {
+            id: powerCanvas
+            anchors.fill: parent
+            antialiasing: true
+            onPaint: {
+                var ctx = getContext("2d")
+                var w = width
+                var h = height
+                var cx = w / 2
+                var cy = h / 2 - h * 0.04
+                var r = Math.min(w, h) * 0.21
+                ctx.clearRect(0, 0, w, h)
+                ctx.lineCap = "round"
+                ctx.lineJoin = "round"
+                ctx.strokeStyle = "#FFFFFF"
+                ctx.lineWidth = Math.max(5, w * 0.055)
+                ctx.beginPath()
+                ctx.arc(cx, cy, r, Math.PI * 1.75, Math.PI * 3.25, false)
+                ctx.stroke()
+                ctx.beginPath()
+                ctx.moveTo(cx, cy - r * 1.24)
+                ctx.lineTo(cx, cy - r * 0.16)
+                ctx.stroke()
             }
         }
         Text {
@@ -1254,9 +1244,10 @@ ApplicationWindow {
         property string value: ""
         property int size: 34
         readonly property string countryCode: normalizedCountry(value)
-        implicitWidth: size
+        onValueChanged: flagCanvas.requestPaint()
+        implicitWidth: Math.round(size * 1.42)
         implicitHeight: size
-        Layout.preferredWidth: size
+        Layout.preferredWidth: Math.round(size * 1.42)
         Layout.preferredHeight: size
 
         function normalizedCountry(raw) {
@@ -1269,64 +1260,90 @@ ApplicationWindow {
             return ""
         }
 
-        Rectangle {
-            id: flagCircle
+        Canvas {
+            id: flagCanvas
             anchors.fill: parent
-            radius: width / 2
-            clip: true
-            color: flagBadge.countryCode === "" ? "#211C1E" : "#0E1C46"
+            antialiasing: true
+            onPaint: {
+                var ctx = getContext("2d")
+                var w = width
+                var h = height
+                var code = flagBadge.countryCode
+                var r = h / 2
 
-            Rectangle { visible: flagBadge.countryCode === "GB"; anchors.fill: parent; color: "#183A78" }
-            Rectangle { visible: flagBadge.countryCode === "GB"; anchors.centerIn: parent; width: parent.width; height: parent.height * 0.24; color: "#FFFFFF" }
-            Rectangle { visible: flagBadge.countryCode === "GB"; anchors.centerIn: parent; width: parent.width * 0.24; height: parent.height; color: "#FFFFFF" }
-            Rectangle { visible: flagBadge.countryCode === "GB"; anchors.centerIn: parent; width: parent.width; height: parent.height * 0.12; color: "#C8102E" }
-            Rectangle { visible: flagBadge.countryCode === "GB"; anchors.centerIn: parent; width: parent.width * 0.12; height: parent.height; color: "#C8102E" }
-
-            Rectangle { visible: flagBadge.countryCode === "NL"; anchors.left: parent.left; anchors.right: parent.right; anchors.top: parent.top; height: parent.height / 3; color: "#AE1C28" }
-            Rectangle { visible: flagBadge.countryCode === "NL"; anchors.left: parent.left; anchors.right: parent.right; anchors.verticalCenter: parent.verticalCenter; height: parent.height / 3; color: "#FFFFFF" }
-            Rectangle { visible: flagBadge.countryCode === "NL"; anchors.left: parent.left; anchors.right: parent.right; anchors.bottom: parent.bottom; height: parent.height / 3; color: "#21468B" }
-
-            Rectangle { visible: flagBadge.countryCode === "DE"; anchors.left: parent.left; anchors.right: parent.right; anchors.top: parent.top; height: parent.height / 3; color: "#000000" }
-            Rectangle { visible: flagBadge.countryCode === "DE"; anchors.left: parent.left; anchors.right: parent.right; anchors.verticalCenter: parent.verticalCenter; height: parent.height / 3; color: "#DD0000" }
-            Rectangle { visible: flagBadge.countryCode === "DE"; anchors.left: parent.left; anchors.right: parent.right; anchors.bottom: parent.bottom; height: parent.height / 3; color: "#FFCE00" }
-
-            Rectangle { visible: flagBadge.countryCode === "SE"; anchors.fill: parent; color: "#006AA7" }
-            Rectangle { visible: flagBadge.countryCode === "SE"; x: parent.width * 0.32; width: parent.width * 0.18; anchors.top: parent.top; anchors.bottom: parent.bottom; color: "#FECC00" }
-            Rectangle { visible: flagBadge.countryCode === "SE"; y: parent.height * 0.41; height: parent.height * 0.18; anchors.left: parent.left; anchors.right: parent.right; color: "#FECC00" }
-
-            Repeater {
-                model: flagBadge.countryCode === "US" ? 7 : 0
-                Rectangle {
-                    x: 0
-                    y: index * flagCircle.height / 7
-                    width: flagCircle.width
-                    height: flagCircle.height / 7
-                    color: index % 2 === 0 ? "#B22234" : "#FFFFFF"
+                function roundedClip() {
+                    ctx.beginPath()
+                    ctx.moveTo(r, 0)
+                    ctx.lineTo(w - r, 0)
+                    ctx.quadraticCurveTo(w, 0, w, r)
+                    ctx.lineTo(w, h - r)
+                    ctx.quadraticCurveTo(w, h, w - r, h)
+                    ctx.lineTo(r, h)
+                    ctx.quadraticCurveTo(0, h, 0, h - r)
+                    ctx.lineTo(0, r)
+                    ctx.quadraticCurveTo(0, 0, r, 0)
+                    ctx.closePath()
                 }
-            }
-            Rectangle {
-                visible: flagBadge.countryCode === "US"
-                x: 0
-                y: 0
-                width: parent.width * 0.54
-                height: parent.height * 0.52
-                color: "#3C3B6E"
-            }
+                function fill(color, x, y, ww, hh) {
+                    ctx.fillStyle = color
+                    ctx.fillRect(x, y, ww, hh)
+                }
 
-            Text {
-                visible: flagBadge.countryCode === ""
-                anchors.centerIn: parent
-                text: "•"
-                color: root.muted
-                font.pixelSize: parent.width * 0.52
+                ctx.clearRect(0, 0, w, h)
+                ctx.save()
+                roundedClip()
+                ctx.clip()
+                fill("#211C1E", 0, 0, w, h)
+
+                if (code === "GB") {
+                    fill("#183A78", 0, 0, w, h)
+                    ctx.strokeStyle = "#FFFFFF"
+                    ctx.lineWidth = h * 0.18
+                    ctx.beginPath()
+                    ctx.moveTo(0, 0); ctx.lineTo(w, h)
+                    ctx.moveTo(w, 0); ctx.lineTo(0, h)
+                    ctx.stroke()
+                    ctx.strokeStyle = "#C8102E"
+                    ctx.lineWidth = h * 0.08
+                    ctx.beginPath()
+                    ctx.moveTo(0, 0); ctx.lineTo(w, h)
+                    ctx.moveTo(w, 0); ctx.lineTo(0, h)
+                    ctx.stroke()
+                    fill("#FFFFFF", 0, h * 0.39, w, h * 0.22)
+                    fill("#FFFFFF", w * 0.40, 0, w * 0.20, h)
+                    fill("#C8102E", 0, h * 0.44, w, h * 0.12)
+                    fill("#C8102E", w * 0.44, 0, w * 0.12, h)
+                } else if (code === "NL") {
+                    fill("#AE1C28", 0, 0, w, h / 3)
+                    fill("#FFFFFF", 0, h / 3, w, h / 3)
+                    fill("#21468B", 0, h * 2 / 3, w, h / 3)
+                } else if (code === "DE") {
+                    fill("#000000", 0, 0, w, h / 3)
+                    fill("#DD0000", 0, h / 3, w, h / 3)
+                    fill("#FFCE00", 0, h * 2 / 3, w, h / 3)
+                } else if (code === "SE") {
+                    fill("#006AA7", 0, 0, w, h)
+                    fill("#FECC00", w * 0.32, 0, w * 0.16, h)
+                    fill("#FECC00", 0, h * 0.40, w, h * 0.20)
+                } else if (code === "US") {
+                    for (var i = 0; i < 7; i++) {
+                        fill(i % 2 === 0 ? "#B22234" : "#FFFFFF", 0, i * h / 7, w, h / 7)
+                    }
+                    fill("#3C3B6E", 0, 0, w * 0.54, h * 0.54)
+                }
+                ctx.restore()
+                ctx.strokeStyle = "#31272B"
+                ctx.lineWidth = 1
+                roundedClip()
+                ctx.stroke()
             }
         }
-        Rectangle {
-            anchors.fill: parent
-            radius: width / 2
-            color: "transparent"
-            border.color: "#31272B"
-            border.width: 1
+        Text {
+            visible: flagBadge.countryCode === ""
+            anchors.centerIn: parent
+            text: "•"
+            color: root.muted
+            font.pixelSize: parent.height * 0.52
         }
     }
 
