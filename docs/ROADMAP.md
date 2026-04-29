@@ -1,6 +1,6 @@
 # Roadmap
 
-Current version: `1.3.3`
+Current version: `1.3.4`
 
 This roadmap is the working contract for Samhain Security. Future implementation should follow this order unless a blocker is found and documented in the same commit.
 
@@ -610,7 +610,7 @@ Status: shipped in `v1.3.3` with selected-apps-only enforced through the release
 
 Done when a support bundle can diagnose most failures without leaking private material.
 
-Status: planned.
+Status: shipped in `v1.3.4` with stable log categories, redacted `diagnostics-summary.json`, redacted `recent-errors.json`, service status, engine inventory, subscription counts, route-mode state, app-routing/protection transaction summaries, audit tail, and desktop copy/status feedback for the generated support bundle.
 
 ### 1.3.5 - Tray, Startup, And Link Ownership
 
@@ -661,8 +661,7 @@ Status: planned.
 
 ## Immediate Next Build Order
 
-1. `1.3.4`: diagnostics and support final.
-2. `1.3.5`: tray, startup, and link ownership.
-3. `1.3.6`: update and rollback hardening.
-4. `1.3.7`: security review and abuse resistance.
-5. `1.4.0`: release-ready competitive build.
+1. `1.3.5`: tray, startup, and link ownership.
+2. `1.3.6`: update and rollback hardening.
+3. `1.3.7`: security review and abuse resistance.
+4. `1.4.0`: release-ready competitive build.

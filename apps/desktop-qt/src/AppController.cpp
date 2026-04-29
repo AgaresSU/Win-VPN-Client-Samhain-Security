@@ -2656,10 +2656,14 @@ bool AppController::applySupportBundleEvent(const QJsonObject &event)
     const auto status = state.value("status").toString("unknown");
     const auto path = state.value("path").toString();
     const auto message = state.value("message").toString();
+    const auto files = state.value("files").toArray();
     if (status == "created" && !path.isEmpty()) {
-        m_supportBundleStatus = "Готово: " + path;
+        const auto fileCount = files.size();
+        m_supportBundleStatus = fileCount > 0
+                                    ? QString("Готово: %1 (%2 файлов)").arg(path).arg(fileCount)
+                                    : "Готово: " + path;
         QGuiApplication::clipboard()->setText(path);
-        appendLog("Диагностика: пакет создан и путь скопирован");
+        appendLog("Диагностика: пакет создан, сводка и путь скопированы");
     } else {
         m_supportBundleStatus = message.isEmpty() ? "Экспорт не выполнен" : message;
     }

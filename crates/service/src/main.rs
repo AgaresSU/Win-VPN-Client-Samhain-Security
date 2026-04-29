@@ -42,6 +42,19 @@ const SERVICE_SIGNED_ENV: &str = "SAMHAIN_SERVICE_SIGNED";
 const AUDIT_EVENT_LIMIT: usize = 120;
 const MAX_RECONNECT_ATTEMPTS: u8 = 3;
 const RECONNECT_BACKOFF_BASE_MS: u64 = 250;
+const DEFAULT_LOG_CATEGORIES: &[&str] = &[
+    "manager",
+    "subscription",
+    "routing",
+    "updater",
+    "protection",
+    "adapter",
+    "proxy",
+    "tun",
+    "support",
+    "stdout",
+    "stderr",
+];
 
 fn main() -> Result<()> {
     let mut args = std::env::args().skip(1);
@@ -804,21 +817,28 @@ impl ServiceStore {
 
         let state = self.service_state(true);
         let logs = self.log_snapshot(None);
+        let diagnostics_summary = build_diagnostics_summary(&state, &logs, &created_at);
+        let recent_errors = build_recent_error_report(&state, &logs);
+        let file_names = vec![
+            "manifest.json",
+            "diagnostics-summary.json",
+            "recent-errors.json",
+            "state.json",
+            "logs.json",
+            "engine-inventory.json",
+            "app-routing.json",
+            "service-self-check.json",
+            "service-audit.json",
+            "health.txt",
+        ];
         let manifest = serde_json::json!({
             "product": "Samhain Security",
             "version": env!("CARGO_PKG_VERSION"),
             "created_at": created_at,
             "redacted": true,
-            "files": [
-                "manifest.json",
-                "state.json",
-                "logs.json",
-                "engine-inventory.json",
-                "app-routing.json",
-                "service-self-check.json",
-                "service-audit.json",
-                "health.txt"
-            ],
+            "files": file_names,
+            "diagnostics_summary": "diagnostics-summary.json",
+            "recent_errors": "recent-errors.json",
             "service_readiness": state.service_readiness.status,
             "recovery_policy": state.recovery_policy.owner,
             "subscription_operations": state.subscription_operations.status,
@@ -846,6 +866,14 @@ impl ServiceStore {
             (
                 "manifest.json",
                 redact_support_text(&serde_json::to_string_pretty(&manifest)?),
+            ),
+            (
+                "diagnostics-summary.json",
+                redact_support_text(&serde_json::to_string_pretty(&diagnostics_summary)?),
+            ),
+            (
+                "recent-errors.json",
+                redact_support_text(&serde_json::to_string_pretty(&recent_errors)?),
             ),
             (
                 "state.json",
@@ -5157,6 +5185,181 @@ fn now_engine_label() -> String {
     format!("Engine event: {seconds}")
 }
 
+fn build_diagnostics_summary(
+    state: &ServiceState,
+    logs: &LogSnapshotState,
+    created_at: &str,
+) -> serde_json::Value {
+    let server_count = state
+        .subscriptions
+        .iter()
+        .map(|subscription| subscription.servers.len())
+        .sum::<usize>();
+    let available_engines = state
+        .engine_catalog
+        .iter()
+        .filter(|engine| engine.available)
+        .count();
+    let enabled_route_apps = state
+        .app_routing_policy
+        .applications
+        .iter()
+        .filter(|application| application.enabled)
+        .count();
+
+    serde_json::json!({
+        "product": "Samhain Security",
+        "version": env!("CARGO_PKG_VERSION"),
+        "created_at": created_at,
+        "redacted": true,
+        "counts": {
+            "subscriptions": state.subscriptions.len(),
+            "servers": server_count,
+            "available_engines": available_engines,
+            "route_applications": state.app_routing_policy.applications.len(),
+            "enabled_route_applications": enabled_route_apps,
+            "audit_events": state.audit_events.len(),
+            "log_entries": logs.entries.len()
+        },
+        "connection": {
+            "engine_status": state.engine_state.status,
+            "engine": state.engine_state.engine,
+            "selected_server_id": state.selected_server_id,
+            "connected_server_id": state.connected_server_id,
+            "route_mode": state.route_mode,
+            "runtime_health": state.runtime_health.status,
+            "metrics_source": state.runtime_health.metrics_source,
+            "traffic_status": state.traffic_stats.status
+        },
+        "policies": {
+            "app_routing_status": state.app_routing_policy.status,
+            "app_routing_supported": state.app_routing_policy.supported,
+            "app_routing_transaction": state.app_routing_policy.transaction.status,
+            "protection_status": state.protection_policy.status,
+            "protection_supported": state.protection_policy.supported,
+            "protection_transaction": state.protection_policy.transaction.status
+        },
+        "readiness": {
+            "service_status": state.service_readiness.status,
+            "self_check": state.service_self_check.status,
+            "identity": state.service_readiness.identity,
+            "signing": state.service_readiness.signing_state,
+            "recovery_owner": state.recovery_policy.owner
+        },
+        "subscriptions": {
+            "operation_status": state.subscription_operations.status,
+            "last_action": state.subscription_operations.last_action,
+            "last_subscription_id": state.subscription_operations.last_subscription_id,
+            "update_interval_minutes": state.subscription_operations.update_interval_minutes,
+            "timeout_ms": state.subscription_operations.timeout_ms
+        },
+        "logs": {
+            "categories": logs.categories,
+            "exported_at": logs.exported_at
+        }
+    })
+}
+
+fn build_recent_error_report(state: &ServiceState, logs: &LogSnapshotState) -> serde_json::Value {
+    let log_events = logs
+        .entries
+        .iter()
+        .rev()
+        .filter(|entry| diagnostic_log_entry_is_issue(entry))
+        .take(20)
+        .map(|entry| {
+            serde_json::json!({
+                "level": entry.level,
+                "stream": entry.stream,
+                "message": redact_support_text(&entry.message),
+                "captured_at": entry.captured_at
+            })
+        })
+        .collect::<Vec<_>>();
+
+    let audit_events = state
+        .audit_events
+        .iter()
+        .rev()
+        .filter(|event| !diagnostic_audit_result_ok(&event.result))
+        .take(20)
+        .map(|event| {
+            serde_json::json!({
+                "id": event.id,
+                "timestamp": event.timestamp,
+                "category": event.category,
+                "action": event.action,
+                "result": event.result,
+                "detail": redact_support_text(&event.detail)
+            })
+        })
+        .collect::<Vec<_>>();
+
+    let mut state_errors = Vec::new();
+    if let Some(error) = &state.runtime_health.last_error {
+        state_errors.push(serde_json::json!({
+            "source": "runtime-health",
+            "status": state.runtime_health.status,
+            "message": redact_support_text(error)
+        }));
+    }
+    if let Some(error) = &state.subscription_operations.last_error {
+        state_errors.push(serde_json::json!({
+            "source": "subscription-operations",
+            "status": state.subscription_operations.status,
+            "message": redact_support_text(error)
+        }));
+    }
+    if matches!(
+        state.engine_state.status.as_str(),
+        "missing" | "crashed" | "failed"
+    ) {
+        state_errors.push(serde_json::json!({
+            "source": "engine",
+            "status": state.engine_state.status,
+            "message": redact_support_text(&state.engine_state.message)
+        }));
+    }
+    if state.app_routing_policy.transaction.status == "error" {
+        state_errors.push(serde_json::json!({
+            "source": "app-routing",
+            "status": state.app_routing_policy.transaction.status,
+            "message": redact_support_text(&state.app_routing_policy.transaction.message)
+        }));
+    }
+    if state.protection_policy.transaction.status == "error" {
+        state_errors.push(serde_json::json!({
+            "source": "protection",
+            "status": state.protection_policy.transaction.status,
+            "message": redact_support_text(&state.protection_policy.transaction.message)
+        }));
+    }
+
+    serde_json::json!({
+        "redacted": true,
+        "generated_at": now_engine_label(),
+        "state_errors": state_errors,
+        "log_events": log_events,
+        "audit_events": audit_events
+    })
+}
+
+fn diagnostic_log_entry_is_issue(entry: &EngineLogEntry) -> bool {
+    let level = entry.level.to_ascii_lowercase();
+    let message = entry.message.to_ascii_lowercase();
+    matches!(level.as_str(), "error" | "warn" | "warning")
+        || message.contains("failed")
+        || message.contains("error")
+        || message.contains("denied")
+}
+
+fn diagnostic_audit_result_ok(result: &str) -> bool {
+    matches!(
+        result.to_ascii_lowercase().as_str(),
+        "ok" | "success" | "created" | "updated" | "deleted" | "restored" | "planned"
+    )
+}
+
 fn build_log_snapshot(
     logs: &Arc<Mutex<Vec<EngineLogEntry>>>,
     category: Option<&str>,
@@ -5168,12 +5371,12 @@ fn build_log_snapshot(
     let (entries, categories) = logs
         .lock()
         .map(|logs| {
-            let categories = logs
+            let mut category_set = DEFAULT_LOG_CATEGORIES
                 .iter()
-                .map(|entry| entry.stream.clone())
-                .collect::<BTreeSet<_>>()
-                .into_iter()
-                .collect::<Vec<_>>();
+                .map(|category| (*category).to_string())
+                .collect::<BTreeSet<_>>();
+            category_set.extend(logs.iter().map(|entry| entry.stream.clone()));
+            let categories = category_set.iter().cloned().into_iter().collect::<Vec<_>>();
             let entries = logs
                 .iter()
                 .filter(|entry| {
@@ -6570,6 +6773,16 @@ mod tests {
     }
 
     #[test]
+    fn log_snapshot_includes_default_diagnostics_categories() {
+        let logs = Arc::new(Mutex::new(Vec::new()));
+        let snapshot = build_log_snapshot(&logs, None);
+
+        assert!(snapshot.categories.contains(&"routing".to_string()));
+        assert!(snapshot.categories.contains(&"updater".to_string()));
+        assert!(snapshot.categories.contains(&"support".to_string()));
+    }
+
+    #[test]
     fn log_snapshot_filters_categories() {
         let logs = Arc::new(Mutex::new(Vec::new()));
         push_engine_log(&logs, "info", "manager", "started");
@@ -6582,5 +6795,34 @@ mod tests {
         assert!(!snapshot.entries[0].message.contains("secret"));
         assert!(snapshot.categories.contains(&"manager".to_string()));
         assert!(snapshot.categories.contains(&"protection".to_string()));
+    }
+
+    #[test]
+    fn diagnostic_error_report_redacts_secrets() {
+        let mut state = ServiceState::default();
+        state.runtime_health.last_error = Some("token=secret-runtime failed".to_string());
+        state.subscription_operations.status = "error".to_string();
+        state.subscription_operations.last_error = Some("password=open failed".to_string());
+        state.audit_events.push(ServiceAuditEvent {
+            id: 1,
+            timestamp: "now".to_string(),
+            category: "subscription".to_string(),
+            action: "refresh".to_string(),
+            result: "error".to_string(),
+            detail: "sid=secret-audit denied".to_string(),
+        });
+        let logs = Arc::new(Mutex::new(Vec::new()));
+        push_engine_log(&logs, "error", "updater", "pbk=secret-log failed");
+        let snapshot = build_log_snapshot(&logs, None);
+
+        let report = build_recent_error_report(&state, &snapshot);
+        let serialized = serde_json::to_string(&report).expect("report serializes");
+
+        assert!(serialized.contains("\"redacted\":true"));
+        assert!(!serialized.contains("secret-runtime"));
+        assert!(!serialized.contains("secret-audit"));
+        assert!(!serialized.contains("secret-log"));
+        assert!(!serialized.contains("password=open"));
+        assert!(serialized.contains("<redacted>"));
     }
 }
