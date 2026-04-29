@@ -1279,7 +1279,7 @@ ApplicationWindow {
             spacing: 18
             PageTitle { text: "О программе" }
             MetricRow { title: "Программа"; value: "Samhain Security Native" }
-            MetricRow { title: "Версия"; value: "1.1.5" }
+            MetricRow { title: "Версия"; value: "1.1.6" }
             MetricRow { title: "Интерфейс"; value: "Qt 6 / QML" }
             MetricRow { title: "Ядро"; value: "Rust workspace" }
             MetricRow { title: "Статус"; value: appController.statusText }
@@ -1776,16 +1776,14 @@ ApplicationWindow {
             }
 
             if (iconKind === "refresh") {
-                var end = Math.PI * 1.62
-                var arrowX = 17 + Math.cos(end) * 10
-                var arrowY = 17 + Math.sin(end) * 10
+                ctx.lineWidth = 2.4
                 ctx.beginPath()
-                ctx.arc(17, 17, 10, Math.PI * 0.18, end, false)
+                ctx.arc(17, 17, 10, Math.PI * 0.18, Math.PI * 1.75, false)
                 ctx.stroke()
                 ctx.beginPath()
-                ctx.moveTo(arrowX - 1, arrowY - 6)
-                ctx.lineTo(arrowX, arrowY)
-                ctx.lineTo(arrowX + 6, arrowY - 1)
+                ctx.moveTo(23.8, 7.4)
+                ctx.lineTo(28, 10.5)
+                ctx.lineTo(22.6, 12.1)
                 ctx.stroke()
             } else if (iconKind === "latency") {
                 ctx.lineWidth = 2.35
@@ -1808,38 +1806,28 @@ ApplicationWindow {
                 ctx.arc(17, 21, 2.2, 0, Math.PI * 2)
                 ctx.fill()
             } else if (iconKind === "pin") {
-                ctx.save()
-                ctx.translate(17, 17)
-                ctx.rotate(-0.45)
-                roundedRect(-5.5, -11, 11, 7, 2)
+                ctx.lineWidth = 2.2
+                roundedRect(12, 6, 10, 7, 2)
                 ctx.stroke()
                 ctx.beginPath()
-                ctx.moveTo(0, -4)
-                ctx.lineTo(0, 8)
-                ctx.moveTo(-6, 2)
-                ctx.lineTo(6, 2)
-                ctx.moveTo(0, 8)
-                ctx.lineTo(-3.5, 14)
-                ctx.moveTo(0, 8)
-                ctx.lineTo(3.5, 14)
+                ctx.moveTo(17, 13)
+                ctx.lineTo(17, 25)
+                ctx.moveTo(10, 16.5)
+                ctx.lineTo(24, 16.5)
+                ctx.moveTo(17, 25)
+                ctx.lineTo(14.5, 29)
                 ctx.stroke()
-                ctx.restore()
-                ctx.globalAlpha = 0.55
-                ctx.beginPath()
-                ctx.moveTo(20, 24)
-                ctx.lineTo(24, 28)
-                ctx.stroke()
-                ctx.globalAlpha = 1
             } else if (iconKind === "copy") {
-                roundedRect(12, 8, 12, 15, 2)
+                ctx.lineWidth = 2.1
+                roundedRect(12, 7, 12, 15, 2.5)
                 ctx.stroke()
-                roundedRect(8, 12, 12, 15, 2)
+                roundedRect(8, 11, 12, 15, 2.5)
                 ctx.stroke()
                 ctx.beginPath()
-                ctx.moveTo(11, 17)
-                ctx.lineTo(17, 17)
-                ctx.moveTo(11, 21)
-                ctx.lineTo(16, 21)
+                ctx.moveTo(12, 16)
+                ctx.lineTo(17, 16)
+                ctx.moveTo(12, 20)
+                ctx.lineTo(17, 20)
                 ctx.stroke()
             } else if (iconKind === "edit") {
                 ctx.save()

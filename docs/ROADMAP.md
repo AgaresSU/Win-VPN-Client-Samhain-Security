@@ -1,6 +1,6 @@
 # Roadmap
 
-Current version: `1.1.5`
+Current version: `1.1.6`
 
 This roadmap is the working contract for Samhain Security. Future implementation should follow this order unless a blocker is found and documented in the same commit.
 
@@ -438,6 +438,16 @@ Done when the settings entry reads as a gear immediately in the sidebar.
 
 Status: shipped in `v1.1.5` with a gear-shaped settings icon.
 
+### 1.1.6 - Subscription Menu Icon Cleanup
+
+- Replace rough refresh, pin, and copy glyphs with simpler readable line icons.
+- Keep the action menu dark and compact without adding labels or extra controls.
+- Preserve the existing working actions while improving only their visual form.
+
+Done when refresh, pin, and copy can be recognized at menu size without visual noise.
+
+Status: shipped in `v1.1.6` with cleaner subscription action menu icons.
+
 ## Immediate Next Build Order
 
-1. `1.1.6`: installer-managed privileged service registration plan and dry-run operation surface.
+1. `1.1.7`: installer-managed privileged service registration plan and dry-run operation surface.
