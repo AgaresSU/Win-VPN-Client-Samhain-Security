@@ -2,7 +2,7 @@
 
 Samhain Security does not implement network protocols from scratch. The desktop app and Rust service orchestrate proven runtime binaries, generate redacted configs, and decide availability from the package inventory.
 
-Version: `1.4.7`
+Version: `1.4.8`
 
 ## Required Layout
 

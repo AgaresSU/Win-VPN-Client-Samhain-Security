@@ -64,6 +64,7 @@ $requiredPaths = @(
     "tools\smoke-tun-path.ps1",
     "tools\smoke-adapter-path.ps1",
     "tools\verify-update-manifest.ps1",
+    "tools\test-update-rehearsal.ps1",
     "tools\write-release-evidence.ps1",
     "tools\write-release-notes.ps1",
     "tools\test-signing-readiness.ps1",
@@ -152,6 +153,7 @@ if (Test-Path $manifestPath) {
         Add-Check "manifest:tun-path-smoke" ($manifest.quality.tunPathSmokeScript -eq "tools\smoke-tun-path.ps1") ([string]$manifest.quality.tunPathSmokeScript)
         Add-Check "manifest:adapter-path-smoke" ($manifest.quality.adapterPathSmokeScript -eq "tools\smoke-adapter-path.ps1") ([string]$manifest.quality.adapterPathSmokeScript)
         Add-Check "manifest:update-verifier" ($manifest.quality.updateManifestVerifier -eq "tools\verify-update-manifest.ps1") ([string]$manifest.quality.updateManifestVerifier)
+        Add-Check "manifest:update-rehearsal" ($manifest.quality.updateRehearsalScript -eq "tools\test-update-rehearsal.ps1") ([string]$manifest.quality.updateRehearsalScript)
         Add-Check "manifest:release-evidence" ($manifest.quality.releaseEvidenceScript -eq "tools\write-release-evidence.ps1") ([string]$manifest.quality.releaseEvidenceScript)
         Add-Check "manifest:release-notes" ($manifest.quality.releaseNotesScript -eq "tools\write-release-notes.ps1") ([string]$manifest.quality.releaseNotesScript)
         Add-Check "manifest:signing-readiness" ($manifest.quality.signingReadinessScript -eq "tools\test-signing-readiness.ps1") ([string]$manifest.quality.signingReadinessScript)
@@ -162,6 +164,7 @@ if (Test-Path $manifestPath) {
         Add-Check "manifest:tun-path-smoke-gate" ($manifest.quality.gates -contains "tools\smoke-tun-path.ps1") "gates=$($manifest.quality.gates -join ',')"
         Add-Check "manifest:adapter-path-smoke-gate" ($manifest.quality.gates -contains "tools\smoke-adapter-path.ps1") "gates=$($manifest.quality.gates -join ',')"
         Add-Check "manifest:privileged-service-readiness-gate" ($manifest.quality.gates -contains "tools\test-privileged-service-readiness.ps1") "gates=$($manifest.quality.gates -join ',')"
+        Add-Check "manifest:update-rehearsal-gate" ($manifest.quality.gates -contains "tools\test-update-rehearsal.ps1") "gates=$($manifest.quality.gates -join ',')"
         Add-Check "manifest:runtime-bundle-gate" ($manifest.quality.gates -contains "tools\prepare-runtime-bundle.ps1") "gates=$($manifest.quality.gates -join ',')"
         Add-Check "manifest:runtime-bundle-fetch-gate" ($manifest.quality.gates -contains "tools\fetch-runtime-bundle.ps1") "gates=$($manifest.quality.gates -join ',')"
         Add-Check "manifest:release-readiness-status" ($manifest.releaseReadiness.status -eq "release-ready-dev-signed") ([string]$manifest.releaseReadiness.status)
@@ -178,6 +181,7 @@ if (Test-Path $manifestPath) {
         Add-Check "manifest:update-policy-recovery" ([bool]$manifest.updates.policy.explicitRecoveryRequired) ([string]$manifest.updates.policy.explicitRecoveryRequired)
         Add-Check "manifest:update-policy-rollback" ([bool]$manifest.updates.policy.rollback.preservePreviousPackage) ([string]$manifest.updates.policy.rollback.preservePreviousPackage)
         Add-Check "manifest:update-policy-rollback-owner" ($manifest.updates.policy.rollback.owner -eq "local-ops") ([string]$manifest.updates.policy.rollback.owner)
+        Add-Check "manifest:update-rehearsal-script" ($manifest.updates.rehearsalScript -eq "tools\test-update-rehearsal.ps1") ([string]$manifest.updates.rehearsalScript)
     }
     catch {
         Add-Check "manifest:json" $false $_.Exception.Message

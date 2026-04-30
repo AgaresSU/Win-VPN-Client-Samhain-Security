@@ -1,5 +1,5 @@
 param(
-    [string]$Version = "1.4.7",
+    [string]$Version = "1.4.8",
     [string]$Configuration = "Release"
 )
 
@@ -152,6 +152,7 @@ Copy-Item -LiteralPath (Join-Path $RepoRoot "scripts\smoke-proxy-path.ps1") -Des
 Copy-Item -LiteralPath (Join-Path $RepoRoot "scripts\smoke-tun-path.ps1") -Destination $ToolsOut -Force
 Copy-Item -LiteralPath (Join-Path $RepoRoot "scripts\smoke-adapter-path.ps1") -Destination $ToolsOut -Force
 Copy-Item -LiteralPath (Join-Path $RepoRoot "scripts\verify-update-manifest.ps1") -Destination $ToolsOut -Force
+Copy-Item -LiteralPath (Join-Path $RepoRoot "scripts\test-update-rehearsal.ps1") -Destination $ToolsOut -Force
 Copy-Item -LiteralPath (Join-Path $RepoRoot "scripts\write-release-evidence.ps1") -Destination $ToolsOut -Force
 Copy-Item -LiteralPath (Join-Path $RepoRoot "scripts\write-release-notes.ps1") -Destination $ToolsOut -Force
 Copy-Item -LiteralPath (Join-Path $RepoRoot "scripts\test-signing-readiness.ps1") -Destination $ToolsOut -Force
@@ -279,6 +280,7 @@ $manifest = [PSCustomObject]@{
         tunPathSmokeScript = "tools\smoke-tun-path.ps1"
         adapterPathSmokeScript = "tools\smoke-adapter-path.ps1"
         updateManifestVerifier = "tools\verify-update-manifest.ps1"
+        updateRehearsalScript = "tools\test-update-rehearsal.ps1"
         releaseEvidenceScript = "tools\write-release-evidence.ps1"
         releaseNotesScript = "tools\write-release-notes.ps1"
         signingReadinessScript = "tools\test-signing-readiness.ps1"
@@ -303,6 +305,7 @@ $manifest = [PSCustomObject]@{
             "tools\smoke-tun-path.ps1",
             "tools\smoke-adapter-path.ps1",
             "tools\verify-update-manifest.ps1",
+            "tools\test-update-rehearsal.ps1",
             "tools\write-release-evidence.ps1",
             "tools\write-release-notes.ps1",
             "tools\test-signing-readiness.ps1",
@@ -327,7 +330,7 @@ $manifest = [PSCustomObject]@{
         }
         docs = [PSCustomObject]@{
             stableRelease = "docs\STABLE_RELEASE.md"
-            releaseNotes = "docs\RELEASE_NOTES_1.4.7.md"
+            releaseNotes = "docs\RELEASE_NOTES_1.4.8.md"
             protocolMatrix = "docs\PROTOCOL_MATRIX.md"
             visualQa = "docs\VISUAL_QA.md"
             securityPosture = "docs\SECURITY_POSTURE.md"
@@ -349,6 +352,7 @@ $manifest = [PSCustomObject]@{
         manifestFile = "SamhainSecurityNative-$Version-win-x64.update-manifest.json"
         archiveFile = "SamhainSecurityNative-$Version-win-x64.zip"
         verifier = "tools\verify-update-manifest.ps1"
+        rehearsalScript = "tools\test-update-rehearsal.ps1"
         policy = [PSCustomObject]@{
             trustedHashAlgorithm = "SHA256"
             downgradeProtection = $true
@@ -376,6 +380,7 @@ $checksumTargets = @(
     "tools\smoke-tun-path.ps1",
     "tools\smoke-adapter-path.ps1",
     "tools\verify-update-manifest.ps1",
+    "tools\test-update-rehearsal.ps1",
     "tools\write-release-evidence.ps1",
     "tools\write-release-notes.ps1",
     "tools\test-signing-readiness.ps1",
@@ -472,6 +477,7 @@ $updateManifest = [PSCustomObject]@{
         tunPathSmokeScript = "tools\smoke-tun-path.ps1"
         adapterPathSmokeScript = "tools\smoke-adapter-path.ps1"
         updateManifestVerifier = "tools\verify-update-manifest.ps1"
+        updateRehearsalScript = "tools\test-update-rehearsal.ps1"
         releaseEvidenceScript = "tools\write-release-evidence.ps1"
         releaseNotesScript = "tools\write-release-notes.ps1"
         signingReadinessScript = "tools\test-signing-readiness.ps1"

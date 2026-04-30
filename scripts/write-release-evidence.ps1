@@ -105,6 +105,7 @@ if ([string]::IsNullOrWhiteSpace($Tag)) {
 $toolsRoot = Join-Path $PackageRoot "tools"
 $validateScript = Join-Path $toolsRoot "validate-package.ps1"
 $verifyScript = Join-Path $toolsRoot "verify-update-manifest.ps1"
+$updateRehearsalScript = Join-Path $toolsRoot "test-update-rehearsal.ps1"
 $smokeScript = Join-Path $toolsRoot "smoke-package.ps1"
 $proxyPathSmokeScript = Join-Path $toolsRoot "smoke-proxy-path.ps1"
 $tunPathSmokeScript = Join-Path $toolsRoot "smoke-tun-path.ps1"
@@ -157,6 +158,13 @@ Invoke-GateScript -Name "verify-update-manifest" -ScriptPath $verifyScript -Para
     ArchivePath = $archivePath
     ExpectedVersion = $ExpectedVersion
     RequireStableChannel = $true
+    Json = $true
+}
+Invoke-GateScript -Name "update-rehearsal" -ScriptPath $updateRehearsalScript -Parameters @{
+    PackageRoot = $PackageRoot
+    ManifestPath = $updateManifestPath
+    ArchivePath = $archivePath
+    ExpectedVersion = $ExpectedVersion
     Json = $true
 }
 

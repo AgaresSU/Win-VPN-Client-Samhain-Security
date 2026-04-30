@@ -232,6 +232,7 @@ $tunPathSmokeScript = Join-Path $toolsRoot "smoke-tun-path.ps1"
 $adapterPathSmokeScript = Join-Path $toolsRoot "smoke-adapter-path.ps1"
 $signingScript = Join-Path $toolsRoot "test-signing-readiness.ps1"
 $privilegedServiceReadinessScript = Join-Path $toolsRoot "test-privileged-service-readiness.ps1"
+$updateRehearsalScript = Join-Path $toolsRoot "test-update-rehearsal.ps1"
 $cleanMachineScript = Join-Path $toolsRoot "write-clean-machine-evidence.ps1"
 $releaseNotesScript = Join-Path $toolsRoot "write-release-notes.ps1"
 $runtimeBundleScript = Join-Path $toolsRoot "prepare-runtime-bundle.ps1"
@@ -286,6 +287,13 @@ Invoke-ScriptStep -Name "update-manifest:recovery-override" -ScriptPath $updateV
     ExpectedVersion = $ExpectedVersion
     InstalledVersion = "9.9.9"
     AllowDowngradeRecovery = $true
+    Json = $true
+}
+Invoke-ScriptStep -Name "update-rehearsal" -ScriptPath $updateRehearsalScript -Parameters @{
+    PackageRoot = $PackageRoot
+    ManifestPath = $updateManifestPath
+    ArchivePath = $archivePath
+    ExpectedVersion = $ExpectedVersion
     Json = $true
 }
 Invoke-ScriptStep -Name "signing-readiness" -ScriptPath $signingScript -Parameters @{

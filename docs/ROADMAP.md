@@ -1,6 +1,6 @@
 # Roadmap
 
-Current version: `1.4.7`
+Current version: `1.4.8`
 
 This roadmap is the working contract for Samhain Security. Future implementation should follow this order unless a blocker is found and documented in the same commit.
 
@@ -26,6 +26,7 @@ Each release commit should pass:
 - `.\scripts\validate-package.ps1 -RunServiceStatus`
 - `.\scripts\prepare-runtime-bundle.ps1 -PackageRoot <package-root> -ValidateOnly`
 - `.\scripts\verify-update-manifest.ps1 -RequireStableChannel` for stable tags
+- `.\scripts\test-update-rehearsal.ps1` for stable tags
 - `.\scripts\write-release-evidence.ps1` for stable tags
 - `.\scripts\test-signing-readiness.ps1`
 - `.\scripts\write-clean-machine-evidence.ps1`
@@ -742,7 +743,19 @@ Done when the package can explain exactly why real TUN/adapter actions are avail
 
 Status: shipped in `v1.4.7` with service readiness fields, ProgramData machine storage policy, `tools\test-privileged-service-readiness.ps1`, and release gate integration.
 
+### 1.4.8 - Update Rehearsal Gate
+
+- Add a packaged update rehearsal script for local archive validation.
+- Verify stable update manifest wiring, archive SHA256, size, and extracted package contents before promotion.
+- Rehearse previous-package preservation in an isolated temp install root.
+- Rehearse candidate apply from the extracted archive and rollback restore back to the previous version.
+- Wire the rehearsal into package manifests, update manifests, validation, smoke-package, clean-machine evidence, release evidence, and release docs.
+
+Done when a package can prove its update archive and rollback slot without touching real user data, service registration, or startup entries.
+
+Status: shipped in `v1.4.8` with `tools\test-update-rehearsal.ps1` and release gate integration.
+
 ## Immediate Next Build Order
 
-1. `1.4.8`: real updater install/rollback rehearsal with local archive validation.
-2. `1.4.x`: public updater rollout.
+1. `1.4.9`: public updater rollout plan and signed-installer handoff boundary.
+2. `1.4.x`: production signing and first public update channel rehearsal on a clean Windows machine.

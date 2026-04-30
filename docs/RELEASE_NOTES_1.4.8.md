@@ -1,8 +1,8 @@
-# Samhain Security Native 1.4.7
+# Samhain Security Native 1.4.8
 
-Version: `1.4.7`
+Version: `1.4.8`
 
-Samhain Security `1.4.7` wires the privileged service readiness layer. The package now reports exactly why machine-level TUN and adapter actions are available or gated, keeps machine service state under ProgramData, and ships a preflight script for installer/service readiness.
+Samhain Security `1.4.8` adds an update rehearsal gate. The package now proves the local archive can be verified, extracted, applied over an isolated previous install, and restored from the rollback snapshot before a release is promoted.
 
 ## Included
 
@@ -27,17 +27,18 @@ Samhain Security `1.4.7` wires the privileged service readiness layer. The packa
 - Explicit service readiness fields for identity source, signing source, privileged-service readiness, TUN path allowance, and adapter path allowance.
 - Privileged service preflight with manifest validation, machine install dry-run, service readiness JSON checks, signature status, Program Files path checks, and optional installed-service validation.
 - Machine service plan evidence for unrestricted service SID policy used by future service-scoped rules.
+- Update rehearsal preflight with local archive hash verification, stable manifest validation, extracted-package validation, isolated previous-package snapshot, candidate apply, and rollback restore proof.
 - Smoke validation that a launched desktop process brings up the service IPC endpoint.
 - Release readiness docs for stable gates, protocol coverage, visual QA, security posture, and clean-machine checks.
 
 ## Artifacts
 
-- `dist\SamhainSecurityNative-1.4.7-win-x64`
-- `dist\SamhainSecurityNative-1.4.7-win-x64.zip`
-- `dist\SamhainSecurityNative-1.4.7-win-x64.update-manifest.json`
-- `dist\SamhainSecurityNative-1.4.7-win-x64.release-evidence.json`
-- `dist\SamhainSecurityNative-1.4.7-win-x64.clean-machine-evidence.json`
-- `dist\SamhainSecurityNative-1.4.7-win-x64.release-notes.md`
+- `dist\SamhainSecurityNative-1.4.8-win-x64`
+- `dist\SamhainSecurityNative-1.4.8-win-x64.zip`
+- `dist\SamhainSecurityNative-1.4.8-win-x64.update-manifest.json`
+- `dist\SamhainSecurityNative-1.4.8-win-x64.release-evidence.json`
+- `dist\SamhainSecurityNative-1.4.8-win-x64.clean-machine-evidence.json`
+- `dist\SamhainSecurityNative-1.4.8-win-x64.release-notes.md`
 
 ## Verification
 
@@ -49,17 +50,18 @@ cargo test --workspace
 .\scripts\fetch-runtime-bundle.ps1
 .\scripts\prepare-runtime-bundle.ps1
 .\scripts\package.ps1
-.\scripts\validate-package.ps1 -ExpectedVersion 1.4.7 -RunServiceStatus
-.\scripts\prepare-runtime-bundle.ps1 -PackageRoot .\dist\SamhainSecurityNative-1.4.7-win-x64 -ValidateOnly
-.\scripts\verify-update-manifest.ps1 -ExpectedVersion 1.4.7 -RequireStableChannel
-.\scripts\test-signing-readiness.ps1 -ExpectedVersion 1.4.7
-.\scripts\test-privileged-service-readiness.ps1 -ExpectedVersion 1.4.7
-.\scripts\write-clean-machine-evidence.ps1 -ExpectedVersion 1.4.7 -SkipLaunch
-.\scripts\smoke-proxy-path.ps1 -ExpectedVersion 1.4.7
-.\scripts\smoke-tun-path.ps1 -ExpectedVersion 1.4.7
-.\scripts\smoke-adapter-path.ps1 -ExpectedVersion 1.4.7
-.\scripts\smoke-package.ps1 -ExpectedVersion 1.4.7
-.\scripts\write-release-evidence.ps1 -ExpectedVersion 1.4.7 -Tag v1.4.7
+.\scripts\validate-package.ps1 -ExpectedVersion 1.4.8 -RunServiceStatus
+.\scripts\prepare-runtime-bundle.ps1 -PackageRoot .\dist\SamhainSecurityNative-1.4.8-win-x64 -ValidateOnly
+.\scripts\verify-update-manifest.ps1 -ExpectedVersion 1.4.8 -RequireStableChannel
+.\scripts\test-update-rehearsal.ps1 -ExpectedVersion 1.4.8
+.\scripts\test-signing-readiness.ps1 -ExpectedVersion 1.4.8
+.\scripts\test-privileged-service-readiness.ps1 -ExpectedVersion 1.4.8
+.\scripts\write-clean-machine-evidence.ps1 -ExpectedVersion 1.4.8 -SkipLaunch
+.\scripts\smoke-proxy-path.ps1 -ExpectedVersion 1.4.8
+.\scripts\smoke-tun-path.ps1 -ExpectedVersion 1.4.8
+.\scripts\smoke-adapter-path.ps1 -ExpectedVersion 1.4.8
+.\scripts\smoke-package.ps1 -ExpectedVersion 1.4.8
+.\scripts\write-release-evidence.ps1 -ExpectedVersion 1.4.8 -Tag v1.4.8
 ```
 
 ## Known Limits

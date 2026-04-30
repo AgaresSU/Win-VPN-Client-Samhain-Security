@@ -174,6 +174,7 @@ if ([string]::IsNullOrWhiteSpace($ExpectedVersion)) {
 $toolsRoot = Join-Path $PackageRoot "tools"
 $validateScript = Join-Path $toolsRoot "validate-package.ps1"
 $verifyScript = Join-Path $toolsRoot "verify-update-manifest.ps1"
+$updateRehearsalScript = Join-Path $toolsRoot "test-update-rehearsal.ps1"
 $signingScript = Join-Path $toolsRoot "test-signing-readiness.ps1"
 $privilegedServiceReadinessScript = Join-Path $toolsRoot "test-privileged-service-readiness.ps1"
 $releaseNotesScript = Join-Path $toolsRoot "write-release-notes.ps1"
@@ -227,6 +228,13 @@ if ((Test-Path $updateManifestPath) -and (Test-Path $archivePath)) {
         InstalledVersion = "9.9.9"
         AllowDowngradeRecovery = $true
         RequireStableChannel = $true
+        Json = $true
+    }
+    Invoke-ScriptStep -Name "update-rehearsal" -ScriptPath $updateRehearsalScript -Parameters @{
+        PackageRoot = $PackageRoot
+        ManifestPath = $updateManifestPath
+        ArchivePath = $archivePath
+        ExpectedVersion = $ExpectedVersion
         Json = $true
     }
 }
