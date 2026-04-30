@@ -79,8 +79,9 @@ function Invoke-GateScript {
         return
     }
 
+    $global:LASTEXITCODE = 0
     $output = & $ScriptPath @Parameters *>&1
-    $exitCode = $LASTEXITCODE
+    $exitCode = if ($null -eq $LASTEXITCODE) { 0 } else { [int]$LASTEXITCODE }
     $detail = ($output | Out-String).Trim()
     if ($detail.Length -gt 800) {
         $detail = $detail.Substring(0, 800)
@@ -108,10 +109,13 @@ $smokeScript = Join-Path $toolsRoot "smoke-package.ps1"
 $signingScript = Join-Path $toolsRoot "test-signing-readiness.ps1"
 $cleanMachineScript = Join-Path $toolsRoot "write-clean-machine-evidence.ps1"
 $releaseNotesScript = Join-Path $toolsRoot "write-release-notes.ps1"
+$runtimeBundleScript = Join-Path $toolsRoot "prepare-runtime-bundle.ps1"
 $archivePath = "$PackageRoot.zip"
 $updateManifestPath = "$PackageRoot.update-manifest.json"
 $evidencePath = "$PackageRoot.release-evidence.json"
 $releaseNotesPath = "$PackageRoot.release-notes.md"
+$runtimeBundleLockPath = Join-Path $PackageRoot "runtime-bundle.lock.json"
+$runtimeBundleStatePath = Join-Path $PackageRoot "app\engines\runtime-bundle-state.json"
 $gates = New-Object System.Collections.Generic.List[object]
 $warnings = New-Object System.Collections.Generic.List[string]
 $failed = $false
@@ -137,6 +141,11 @@ Invoke-GateScript -Name "validate-package" -ScriptPath $validateScript -Paramete
     PackageRoot = $PackageRoot
     ExpectedVersion = $ExpectedVersion
     RunServiceStatus = $true
+    Json = $true
+}
+Invoke-GateScript -Name "runtime-bundle" -ScriptPath $runtimeBundleScript -Parameters @{
+    PackageRoot = $PackageRoot
+    ValidateOnly = $true
     Json = $true
 }
 Invoke-GateScript -Name "verify-update-manifest" -ScriptPath $verifyScript -Parameters @{
@@ -212,6 +221,12 @@ $evidence = [PSCustomObject]@{
         fileName = if ($archive) { $archive.Name } else { "" }
         sizeBytes = if ($archive) { $archive.Length } else { 0 }
         sha256 = $archiveHash
+    }
+    runtimeBundle = [PSCustomObject]@{
+        lockPath = $runtimeBundleLockPath
+        statePath = $runtimeBundleStatePath
+        lockPresent = Test-Path $runtimeBundleLockPath
+        statePresent = Test-Path $runtimeBundleStatePath
     }
     signing = [PSCustomObject]@{
         status = $signingStatus

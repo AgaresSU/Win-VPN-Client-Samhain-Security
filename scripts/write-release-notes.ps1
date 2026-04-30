@@ -55,6 +55,8 @@ $manifest = Get-Content -LiteralPath $manifestPath -Raw | ConvertFrom-Json
 $updateManifest = if (Test-Path $updateManifestPath) { Get-Content -LiteralPath $updateManifestPath -Raw | ConvertFrom-Json } else { $null }
 $archiveHash = if (Test-Path $archivePath) { (Get-FileHash -Algorithm SHA256 -LiteralPath $archivePath).Hash.ToLowerInvariant() } else { "" }
 $readinessStatus = if ($manifest.releaseReadiness) { [string]$manifest.releaseReadiness.status } else { "not declared" }
+$runtimeBundleLockPath = Join-Path $PackageRoot "runtime-bundle.lock.json"
+$runtimeBundleStatePath = Join-Path $PackageRoot "app\engines\runtime-bundle-state.json"
 
 $cleanEvidenceStatus = "not generated"
 if (Test-Path $cleanEvidencePath) {
@@ -87,6 +89,7 @@ $lines = @(
     "- Desktop integration: tray, startup registration, single-instance handoff, and samhain:// link ownership evidence.",
     "- Update safety: stable update manifest, archive SHA256, downgrade guard, explicit recovery override, and previous-package rollback slot.",
     "- Security posture: bounded IPC payloads, command validation, bundled-only runtime search by default, storage boundary checks, and redacted logs.",
+    "- Runtime bundle preparation: locked runtime layout, package state file, validation script, SHA256 evidence when binaries are present, and clear missing-runtime status.",
     "- Release readiness docs: stable gates, protocol matrix, visual QA, security posture, and clean-machine evidence are packaged together.",
     "",
     "## Artifacts",
@@ -96,6 +99,8 @@ $lines = @(
     "- Archive SHA256: $archiveHash",
     "- Update manifest: $updateManifestPath",
     "- Checksums: $(Join-Path $PackageRoot "checksums.txt")",
+    "- Runtime bundle lock: $runtimeBundleLockPath",
+    "- Runtime bundle state: $runtimeBundleStatePath",
     "- Generated release notes: $OutputPath",
     "",
     "## Verification",
@@ -127,6 +132,8 @@ $summary = [PSCustomObject]@{
     archivePath = $archivePath
     archiveSha256 = $archiveHash
     outputPath = [System.IO.Path]::GetFullPath($OutputPath)
+    runtimeBundleLock = $runtimeBundleLockPath
+    runtimeBundleState = $runtimeBundleStatePath
     cleanMachineEvidence = $cleanEvidenceStatus
     releaseEvidence = $releaseEvidenceStatus
 }

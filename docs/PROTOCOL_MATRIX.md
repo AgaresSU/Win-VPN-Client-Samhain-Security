@@ -1,6 +1,6 @@
 # Protocol Matrix
 
-Version: `1.4.0`
+Version: `1.4.1`
 
 This matrix keeps protocol readiness honest. The desktop shows only the compact server list; these details stay in docs, diagnostics, and advanced tooling.
 
@@ -22,6 +22,7 @@ This matrix keeps protocol readiness honest. The desktop shows only the compact 
 - Confirm the grouped server row renders protocol, host label, and measured or `n/a` latency.
 - Run a single-server latency check and a batch latency check.
 - Confirm no synthetic latency is shown when the service cannot measure.
+- Confirm `runtime-bundle.lock.json` and `app\engines\runtime-bundle-state.json` are present in the package.
 - Confirm `engine-inventory.json` marks each runtime as `available` or `missing`.
 - Confirm support export redacts subscription URLs, keys, and raw configs.
 - Confirm connect and disconnect either complete through the service or return a clear failure message.

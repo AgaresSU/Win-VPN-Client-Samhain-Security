@@ -91,8 +91,9 @@ function Invoke-ScriptStep {
     }
 
     try {
+        $global:LASTEXITCODE = 0
         $output = & $ScriptPath @Parameters *>&1
-        $exitCode = $LASTEXITCODE
+        $exitCode = if ($null -eq $LASTEXITCODE) { 0 } else { [int]$LASTEXITCODE }
     }
     catch {
         $output = $_ | Out-String
@@ -119,8 +120,9 @@ function Invoke-ExpectedFailureStep {
     }
 
     try {
+        $global:LASTEXITCODE = 0
         $output = & $ScriptPath @Parameters *>&1
-        $exitCode = $LASTEXITCODE
+        $exitCode = if ($null -eq $LASTEXITCODE) { 0 } else { [int]$LASTEXITCODE }
     }
     catch {
         $output = $_ | Out-String
@@ -174,6 +176,7 @@ $validateScript = Join-Path $toolsRoot "validate-package.ps1"
 $verifyScript = Join-Path $toolsRoot "verify-update-manifest.ps1"
 $signingScript = Join-Path $toolsRoot "test-signing-readiness.ps1"
 $releaseNotesScript = Join-Path $toolsRoot "write-release-notes.ps1"
+$runtimeBundleScript = Join-Path $toolsRoot "prepare-runtime-bundle.ps1"
 $localOpsScript = Join-Path $toolsRoot "local-ops.ps1"
 $serviceExe = Join-Path $PackageRoot "service\samhain-service.exe"
 $appExe = Join-Path $PackageRoot "app\SamhainSecurityNative.exe"
@@ -192,6 +195,11 @@ Invoke-ScriptStep -Name "validate-package" -ScriptPath $validateScript -Paramete
     PackageRoot = $PackageRoot
     ExpectedVersion = $ExpectedVersion
     RunServiceStatus = $true
+    Json = $true
+}
+Invoke-ScriptStep -Name "runtime-bundle" -ScriptPath $runtimeBundleScript -Parameters @{
+    PackageRoot = $PackageRoot
+    ValidateOnly = $true
     Json = $true
 }
 

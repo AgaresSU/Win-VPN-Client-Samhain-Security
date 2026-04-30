@@ -1,6 +1,6 @@
 # Release Candidate Gates
 
-Version: `1.4.0`
+Version: `1.4.1`
 
 The release candidate build adds update-manifest verification and repeatable evidence for package integrity.
 
@@ -11,13 +11,15 @@ Run before tagging:
 ```powershell
 cargo test --workspace
 .\scripts\build.ps1
+.\scripts\prepare-runtime-bundle.ps1
 .\scripts\package.ps1
-.\scripts\validate-package.ps1 -ExpectedVersion 1.4.0 -RunServiceStatus
-.\scripts\verify-update-manifest.ps1 -ExpectedVersion 1.4.0 -RequireStableChannel
-.\scripts\test-signing-readiness.ps1 -ExpectedVersion 1.4.0
-.\scripts\write-clean-machine-evidence.ps1 -ExpectedVersion 1.4.0 -SkipLaunch
-.\scripts\write-release-notes.ps1 -ExpectedVersion 1.4.0
-.\scripts\smoke-package.ps1 -ExpectedVersion 1.4.0
+.\scripts\validate-package.ps1 -ExpectedVersion 1.4.1 -RunServiceStatus
+.\scripts\prepare-runtime-bundle.ps1 -PackageRoot .\dist\SamhainSecurityNative-1.4.1-win-x64 -ValidateOnly
+.\scripts\verify-update-manifest.ps1 -ExpectedVersion 1.4.1 -RequireStableChannel
+.\scripts\test-signing-readiness.ps1 -ExpectedVersion 1.4.1
+.\scripts\write-clean-machine-evidence.ps1 -ExpectedVersion 1.4.1 -SkipLaunch
+.\scripts\write-release-notes.ps1 -ExpectedVersion 1.4.1
+.\scripts\smoke-package.ps1 -ExpectedVersion 1.4.1
 ```
 
 The update manifest verifier checks the published zip hash and size, extracts the archive into a temporary folder, and runs package validation against the extracted files.
@@ -31,6 +33,7 @@ For each release candidate, keep:
 - package folder path;
 - zip path;
 - update manifest path;
+- runtime bundle lock and package state path;
 - `validate-package` JSON output;
 - `verify-update-manifest` JSON output;
 - generated release notes path;

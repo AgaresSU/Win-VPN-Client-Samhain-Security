@@ -1,0 +1,99 @@
+{
+  "schema": "samhain.runtimeBundleLock",
+  "schemaVersion": 1,
+  "product": "Samhain Security Native",
+  "version": "1.4.1",
+  "layout": {
+    "packageRoot": "app\\engines",
+    "stateFile": "app\\engines\\runtime-bundle-state.json"
+  },
+  "policy": {
+    "runtimeSearch": "bundled-only",
+    "missingRuntimeIsPackageWarning": true,
+    "sha256RequiredWhenPresent": true,
+    "versionProbeRequiredWhenPresent": true,
+    "downloadMode": "operator-pinned"
+  },
+  "runtimes": [
+    {
+      "runtimeId": "sing-box",
+      "name": "sing-box",
+      "kind": "sing-box",
+      "productionRequired": true,
+      "bundle": {
+        "directory": "sing-box",
+        "executable": "sing-box.exe",
+        "packagePath": "app\\engines\\sing-box\\sing-box.exe",
+        "versionArgs": [ "version" ]
+      },
+      "protocols": [ "vless-tcp-reality", "trojan", "shadowsocks", "hysteria2", "tuic", "sing-box" ],
+      "source": {
+        "project": "SagerNet sing-box",
+        "projectUrl": "https://github.com/SagerNet/sing-box/releases",
+        "pinnedVersion": "",
+        "downloadUrl": "",
+        "archiveSha256": ""
+      }
+    },
+    {
+      "runtimeId": "xray",
+      "name": "Xray",
+      "kind": "xray",
+      "productionRequired": true,
+      "bundle": {
+        "directory": "xray",
+        "executable": "xray.exe",
+        "packagePath": "app\\engines\\xray\\xray.exe",
+        "versionArgs": [ "version" ]
+      },
+      "protocols": [ "vless-tcp-reality", "trojan" ],
+      "source": {
+        "project": "XTLS Xray-core",
+        "projectUrl": "https://github.com/XTLS/Xray-core/releases",
+        "pinnedVersion": "",
+        "downloadUrl": "",
+        "archiveSha256": ""
+      }
+    },
+    {
+      "runtimeId": "wireguard",
+      "name": "WireGuard",
+      "kind": "wire-guard",
+      "productionRequired": true,
+      "bundle": {
+        "directory": "wireguard",
+        "executable": "wireguard.exe",
+        "packagePath": "app\\engines\\wireguard\\wireguard.exe",
+        "versionArgs": [ "--version" ]
+      },
+      "protocols": [ "wireguard" ],
+      "source": {
+        "project": "WireGuard for Windows",
+        "projectUrl": "https://www.wireguard.com/install/",
+        "pinnedVersion": "",
+        "downloadUrl": "",
+        "archiveSha256": ""
+      }
+    },
+    {
+      "runtimeId": "amneziawg",
+      "name": "AmneziaWG",
+      "kind": "amnezia-wg",
+      "productionRequired": true,
+      "bundle": {
+        "directory": "amneziawg",
+        "executable": "awg-quick.exe",
+        "packagePath": "app\\engines\\amneziawg\\awg-quick.exe",
+        "versionArgs": [ "--version" ]
+      },
+      "protocols": [ "amneziawg" ],
+      "source": {
+        "project": "AmneziaWG tools",
+        "projectUrl": "",
+        "pinnedVersion": "",
+        "downloadUrl": "",
+        "archiveSha256": ""
+      }
+    }
+  ]
+}

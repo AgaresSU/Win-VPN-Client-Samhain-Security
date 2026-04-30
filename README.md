@@ -1,6 +1,6 @@
 # Samhain Security Native
 
-Version: `1.4.0`
+Version: `1.4.1`
 
 Native Windows secure tunneling client prototype built from a clean base.
 
@@ -16,7 +16,7 @@ Native Windows secure tunneling client prototype built from a clean base.
 
 This release is the native foundation. It focuses on the product shell, simple daily UX, local models, persistence, and build/package flow.
 
-Implemented through `1.4.0`:
+Implemented through `1.4.1`:
 
 - Happ-inspired Qt/QML shell with servers, add, settings, statistics, logs, and about sections.
 - Compact subscription group and server rows without technical clutter.
@@ -72,6 +72,7 @@ Implemented through `1.4.0`:
 - Connection reliability pass: no local fake connected state when the service is unavailable, explicit connect/disconnect progress text, 8-second engine command timeout, blocked route-mode switching while connected, and clearer failure messages.
 - App-routing design gate: release-supported, experimental, and compatibility evidence for whole-computer, selected-apps-only, and except-selected-apps modes, with transparent per-process routing kept blocked until the signed WFP layer exists.
 - App-routing enforcement V1: selected-apps-only now runs as a release-supported proxy-aware route without enabling system proxy globally, with transaction rollback evidence in service state and support export.
+- Runtime bundle preparation: locked runtime layout, package state file, packaged validation script, SHA256/version evidence when binaries are present, and clear missing-runtime status before public installer work.
 
 Not implemented yet:
 
@@ -96,7 +97,7 @@ Not implemented yet:
 The package is written to:
 
 ```text
-dist\SamhainSecurityNative-1.4.0-win-x64
+dist\SamhainSecurityNative-1.4.1-win-x64
 ```
 
 ## Local Operations
@@ -113,11 +114,25 @@ After extracting the package, use:
 
 See `docs\LOCAL_OPERATIONS.md` and `docs\SIGNING.md` for install scope, storage, migration, and integrity notes.
 
+## Runtime Bundle
+
+Prepare the expected runtime folders before packaging:
+
+```powershell
+.\scripts\prepare-runtime-bundle.ps1
+```
+
+Validate a built package:
+
+```powershell
+.\scripts\prepare-runtime-bundle.ps1 -PackageRoot .\dist\SamhainSecurityNative-1.4.1-win-x64 -ValidateOnly
+```
+
 ## Package Checks
 
 ```powershell
-.\scripts\validate-package.ps1 -ExpectedVersion 1.4.0 -RunServiceStatus
-.\scripts\smoke-package.ps1 -ExpectedVersion 1.4.0
+.\scripts\validate-package.ps1 -ExpectedVersion 1.4.1 -RunServiceStatus
+.\scripts\smoke-package.ps1 -ExpectedVersion 1.4.1
 ```
 
 See `docs\BETA_CHECKLIST.md` for the manual Windows and protocol matrix.
@@ -125,12 +140,12 @@ See `docs\BETA_CHECKLIST.md` for the manual Windows and protocol matrix.
 ## Stable Checks
 
 ```powershell
-.\scripts\verify-update-manifest.ps1 -ExpectedVersion 1.4.0 -RequireStableChannel
-.\scripts\verify-update-manifest.ps1 -ExpectedVersion 1.4.0 -RequireStableChannel -InstalledVersion 9.9.9 -AllowDowngradeRecovery
-.\scripts\test-signing-readiness.ps1 -ExpectedVersion 1.4.0
-.\scripts\write-clean-machine-evidence.ps1 -ExpectedVersion 1.4.0 -SkipLaunch
-.\scripts\write-release-notes.ps1 -ExpectedVersion 1.4.0
-.\scripts\write-release-evidence.ps1 -ExpectedVersion 1.4.0
+.\scripts\verify-update-manifest.ps1 -ExpectedVersion 1.4.1 -RequireStableChannel
+.\scripts\verify-update-manifest.ps1 -ExpectedVersion 1.4.1 -RequireStableChannel -InstalledVersion 9.9.9 -AllowDowngradeRecovery
+.\scripts\test-signing-readiness.ps1 -ExpectedVersion 1.4.1
+.\scripts\write-clean-machine-evidence.ps1 -ExpectedVersion 1.4.1 -SkipLaunch
+.\scripts\write-release-notes.ps1 -ExpectedVersion 1.4.1
+.\scripts\write-release-evidence.ps1 -ExpectedVersion 1.4.1
 ```
 
 See `docs\STABLE_RELEASE.md`, `docs\CLEAN_MACHINE_EVIDENCE.md`, `docs\PROTOCOL_MATRIX.md`, and `docs\VISUAL_QA.md` for the stable release checklist, protocol coverage, visual checks, and external test evidence flow.

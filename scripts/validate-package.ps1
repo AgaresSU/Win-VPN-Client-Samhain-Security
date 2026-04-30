@@ -65,12 +65,15 @@ $requiredPaths = @(
     "tools\write-release-notes.ps1",
     "tools\test-signing-readiness.ps1",
     "tools\write-clean-machine-evidence.ps1",
+    "tools\prepare-runtime-bundle.ps1",
     "assets",
     "docs",
     "README.md",
     "VERSION",
+    "runtime-bundle.lock.json",
     "release-manifest.json",
     "engine-inventory.json",
+    "app\engines\runtime-bundle-state.json",
     "checksums.txt"
 )
 
@@ -124,8 +127,14 @@ if (Test-Path $manifestPath) {
         Add-Check "manifest:enforcement-transaction" ($manifest.operations.enforcementTransaction.model -eq "typed-apply-rollback") ([string]$manifest.operations.enforcementTransaction.model)
         Add-Check "manifest:enforcement-snapshots" ([bool]$manifest.operations.enforcementTransaction.beforeAfterSnapshots) ([string]$manifest.operations.enforcementTransaction.beforeAfterSnapshots)
         Add-Check "manifest:runtime-contract" ($manifest.operations.runtimeContract.inventory -eq "engine-inventory.json") ([string]$manifest.operations.runtimeContract.inventory)
+        Add-Check "manifest:runtime-lock" ($manifest.operations.runtimeContract.lock -eq "runtime-bundle.lock.json") ([string]$manifest.operations.runtimeContract.lock)
+        Add-Check "manifest:runtime-state" ($manifest.operations.runtimeContract.state -eq "app\engines\runtime-bundle-state.json") ([string]$manifest.operations.runtimeContract.state)
+        Add-Check "manifest:runtime-prepare-script" ($manifest.operations.runtimeContract.prepareScript -eq "tools\prepare-runtime-bundle.ps1") ([string]$manifest.operations.runtimeContract.prepareScript)
         Add-Check "manifest:runtime-source" ($manifest.operations.runtimeContract.availabilitySource -eq "package-inventory") ([string]$manifest.operations.runtimeContract.availabilitySource)
         Add-Check "manifest:runtime-layout" ($manifest.operations.runtimeContract.layout.Count -ge 4) "entries=$($manifest.operations.runtimeContract.layout.Count)"
+        Add-Check "manifest:runtime-bundle-script" ($manifest.quality.runtimeBundleScript -eq "tools\prepare-runtime-bundle.ps1") ([string]$manifest.quality.runtimeBundleScript)
+        Add-Check "manifest:runtime-bundle-lock" ($manifest.quality.runtimeBundleLock -eq "runtime-bundle.lock.json") ([string]$manifest.quality.runtimeBundleLock)
+        Add-Check "manifest:runtime-bundle-state" ($manifest.quality.runtimeBundleState -eq "app\engines\runtime-bundle-state.json") ([string]$manifest.quality.runtimeBundleState)
         Add-Check "manifest:runtime-health" ($manifest.quality.runtimeHealthEvidence -eq "service.runtime_health") ([string]$manifest.quality.runtimeHealthEvidence)
         Add-Check "manifest:subscription-operations" ($manifest.quality.subscriptionOperationsEvidence -eq "service.subscription_operations") ([string]$manifest.quality.subscriptionOperationsEvidence)
         Add-Check "manifest:smoke" ($manifest.quality.smokeScript -eq "tools\smoke-package.ps1") ([string]$manifest.quality.smokeScript)
@@ -135,6 +144,7 @@ if (Test-Path $manifestPath) {
         Add-Check "manifest:signing-readiness" ($manifest.quality.signingReadinessScript -eq "tools\test-signing-readiness.ps1") ([string]$manifest.quality.signingReadinessScript)
         Add-Check "manifest:clean-machine-evidence" ($manifest.quality.cleanMachineEvidenceScript -eq "tools\write-clean-machine-evidence.ps1") ([string]$manifest.quality.cleanMachineEvidenceScript)
         Add-Check "manifest:release-notes-gate" ($manifest.quality.gates -contains "tools\write-release-notes.ps1") "gates=$($manifest.quality.gates -join ',')"
+        Add-Check "manifest:runtime-bundle-gate" ($manifest.quality.gates -contains "tools\prepare-runtime-bundle.ps1") "gates=$($manifest.quality.gates -join ',')"
         Add-Check "manifest:release-readiness-status" ($manifest.releaseReadiness.status -eq "release-ready-dev-signed") ([string]$manifest.releaseReadiness.status)
         Add-Check "manifest:release-readiness-daily-flow" ([bool]$manifest.releaseReadiness.dailyUx.simpleMainFlow) ([string]$manifest.releaseReadiness.dailyUx.simpleMainFlow)
         Add-Check "manifest:release-readiness-advanced-hidden" ([bool]$manifest.releaseReadiness.dailyUx.advancedSettingsHidden) ([string]$manifest.releaseReadiness.dailyUx.advancedSettingsHidden)
@@ -177,6 +187,69 @@ if (Test-Path $engineInventoryPath) {
     }
     catch {
         Add-Check "engine-inventory:json" $false $_.Exception.Message
+    }
+}
+
+$runtimeLockPath = Join-Path $PackageRoot "runtime-bundle.lock.json"
+if (Test-Path $runtimeLockPath) {
+    try {
+        $runtimeLock = Get-Content -LiteralPath $runtimeLockPath -Raw | ConvertFrom-Json
+        $lockedRuntimes = @($runtimeLock.runtimes)
+        Add-Check "runtime-bundle-lock:json" $true "entries=$($lockedRuntimes.Count)"
+        Add-Check "runtime-bundle-lock:schema" ($runtimeLock.schema -eq "samhain.runtimeBundleLock") ([string]$runtimeLock.schema)
+        Add-Check "runtime-bundle-lock:version" (-not [string]::IsNullOrWhiteSpace([string]$runtimeLock.version)) ([string]$runtimeLock.version)
+        Add-Check "runtime-bundle-lock:layout" ($runtimeLock.layout.packageRoot -eq "app\engines") ([string]$runtimeLock.layout.packageRoot)
+
+        $inventory = @()
+        if (Test-Path $engineInventoryPath) {
+            $inventory = @(Get-Content -LiteralPath $engineInventoryPath -Raw | ConvertFrom-Json)
+        }
+
+        foreach ($runtime in $lockedRuntimes) {
+            $runtimeId = [string]$runtime.runtimeId
+            $expectedPackagePath = [string]$runtime.bundle.packagePath
+            $inventoryEntry = $inventory | Where-Object { $_.runtimeId -eq $runtimeId } | Select-Object -First 1
+            Add-Check "runtime-bundle-lock:${runtimeId}-inventory" ($null -ne $inventoryEntry) "present=$($null -ne $inventoryEntry)"
+            if ($null -ne $inventoryEntry) {
+                Add-Check "runtime-bundle-lock:${runtimeId}-path" ($inventoryEntry.bundledPath -eq $expectedPackagePath) "lock=$expectedPackagePath inventory=$($inventoryEntry.bundledPath)"
+            }
+        }
+    }
+    catch {
+        Add-Check "runtime-bundle-lock:json" $false $_.Exception.Message
+    }
+}
+
+$runtimeStatePath = Join-Path $PackageRoot "app\engines\runtime-bundle-state.json"
+if (Test-Path $runtimeStatePath) {
+    try {
+        $runtimeState = Get-Content -LiteralPath $runtimeStatePath -Raw | ConvertFrom-Json
+        Add-Check "runtime-bundle-state:json" $true "entries=$(@($runtimeState.runtimes).Count)"
+        Add-Check "runtime-bundle-state:version" (-not [string]::IsNullOrWhiteSpace([string]$runtimeState.version)) ([string]$runtimeState.version)
+        Add-Check "runtime-bundle-state:mode" ($runtimeState.mode -eq "prepare") ([string]$runtimeState.mode)
+        Add-Check "runtime-bundle-state:context" ($runtimeState.context -eq "package") ([string]$runtimeState.context)
+        Add-Check "runtime-bundle-state:runtimes" (@($runtimeState.runtimes).Count -ge 4) "entries=$(@($runtimeState.runtimes).Count)"
+    }
+    catch {
+        Add-Check "runtime-bundle-state:json" $false $_.Exception.Message
+    }
+}
+
+$runtimePrepScript = Join-Path $PackageRoot "tools\prepare-runtime-bundle.ps1"
+if (Test-Path $runtimePrepScript) {
+    try {
+        $global:LASTEXITCODE = 0
+        $runtimePrepOutput = & $runtimePrepScript -PackageRoot $PackageRoot -ValidateOnly -Json 2>&1
+        $runtimePrepExitCode = if ($null -eq $LASTEXITCODE) { 0 } else { [int]$LASTEXITCODE }
+        Add-Check "runtime-bundle:validate-only" ($runtimePrepExitCode -eq 0) "exit=$runtimePrepExitCode"
+        if ($runtimePrepExitCode -eq 0) {
+            $runtimePrep = ($runtimePrepOutput | Out-String).Trim() | ConvertFrom-Json
+            Add-Check "runtime-bundle:validate-json" ($runtimePrep.ok -eq $true) "ok=$($runtimePrep.ok)"
+            Add-Check "runtime-bundle:validate-count" (@($runtimePrep.runtimes).Count -ge 4) "entries=$(@($runtimePrep.runtimes).Count)"
+        }
+    }
+    catch {
+        Add-Check "runtime-bundle:validate-only" $false $_.Exception.Message
     }
 }
 

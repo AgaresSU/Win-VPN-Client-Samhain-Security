@@ -1,6 +1,6 @@
 # Roadmap
 
-Current version: `1.4.0`
+Current version: `1.4.1`
 
 This roadmap is the working contract for Samhain Security. Future implementation should follow this order unless a blocker is found and documented in the same commit.
 
@@ -20,8 +20,10 @@ Each release commit should pass:
 
 - `cargo test --workspace`
 - `.\scripts\build.ps1`
+- `.\scripts\prepare-runtime-bundle.ps1`
 - `.\scripts\package.ps1` before release tags
 - `.\scripts\validate-package.ps1 -RunServiceStatus`
+- `.\scripts\prepare-runtime-bundle.ps1 -PackageRoot <package-root> -ValidateOnly`
 - `.\scripts\verify-update-manifest.ps1 -RequireStableChannel` for stable tags
 - `.\scripts\write-release-evidence.ps1` for stable tags
 - `.\scripts\test-signing-readiness.ps1`
@@ -658,6 +660,17 @@ Status: shipped in `v1.3.7` with bounded IPC payload/request validation, command
 Done when Samhain Security can be installed and used by normal Windows users with a simple flow, honest limitations, and no hidden privileged-network assumptions.
 
 Status: shipped in `v1.4.0` with a release-ready package contract, generated release notes, packaged protocol and visual QA matrices, stable/update manifest readiness fields, clean-machine evidence hooks, signing/readiness gates, and honest limits for production signing, runtime bundles, elevated machine install, and transparent except-selected app routing.
+
+### 1.4.1 - Runtime Bundle Preparation
+
+- Add a locked runtime layout for sing-box, Xray, WireGuard, and AmneziaWG.
+- Add a preparation script that creates expected runtime folders, writes package state, and validates package layout.
+- Include runtime bundle lock and state evidence in package manifests, update manifests, release notes, clean-machine evidence, and smoke gates.
+- Keep runtime binaries operator-supplied until provenance, license, and clean-machine validation are complete.
+
+Done when a package can explain exactly which runtime binaries are present, which are missing, which protocols depend on them, and how an operator validates the package before public installer work.
+
+Status: shipped in `v1.4.1` with `runtime-bundle.lock.json`, packaged `tools\prepare-runtime-bundle.ps1`, `app\engines\runtime-bundle-state.json`, runtime bundle validation gates, and updated release docs.
 
 ## Immediate Next Build Order
 

@@ -2,6 +2,8 @@
 
 Samhain Security does not implement network protocols from scratch. The desktop app and Rust service orchestrate proven runtime binaries, generate redacted configs, and decide availability from the package inventory.
 
+Version: `1.4.1`
+
 ## Required Layout
 
 Place production runtimes under the packaged `app\engines` directory:
@@ -14,6 +16,24 @@ Place production runtimes under the packaged `app\engines` directory:
 | AmneziaWG | `app\engines\amneziawg\awg-quick.exe` | AmneziaWG |
 
 Development builds may also use `SAMHAIN_ENGINE_DIR`, but release packages are validated against the layout above.
+
+## Bundle Lock
+
+`runtime-bundle.lock.json` is the source of truth for:
+
+- runtime id, display name, engine kind, and production-required flag;
+- packaged executable path;
+- version probe arguments;
+- protocol records unlocked by that runtime;
+- upstream project metadata for operator-managed updates.
+
+Run this before packaging:
+
+```powershell
+.\scripts\prepare-runtime-bundle.ps1
+```
+
+The command creates the expected local `engines` folders and writes `engines\runtime-bundle-state.json`. The state file is not committed, but it is copied into packages as `app\engines\runtime-bundle-state.json`.
 
 ## Inventory
 
@@ -34,6 +54,7 @@ The service exposes the same contract in `engine_catalog`. Support bundles inclu
 2. Replace only the executable inside the runtime folder listed above.
 3. Run `.\scripts\package.ps1 -Version <version>`.
 4. Run `.\scripts\validate-package.ps1 -ExpectedVersion <version> -RunServiceStatus`.
-5. Check `engine-inventory.json` for SHA256, size, version status, and protocol availability.
+5. Run `.\scripts\prepare-runtime-bundle.ps1 -PackageRoot <package-root> -ValidateOnly`.
+6. Check `engine-inventory.json` and `app\engines\runtime-bundle-state.json` for SHA256, size, version status, and protocol availability.
 
 Do not place raw subscriptions, private keys, generated configs, or credentials in `app\engines`.

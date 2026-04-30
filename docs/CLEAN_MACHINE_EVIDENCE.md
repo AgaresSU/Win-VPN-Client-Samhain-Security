@@ -1,6 +1,6 @@
 # Clean Machine Evidence
 
-Version: `1.4.0`
+Version: `1.4.1`
 
 This checklist records repeatable evidence from a fresh Windows profile or test machine without changing the simple desktop workflow.
 
@@ -9,13 +9,13 @@ This checklist records repeatable evidence from a fresh Windows profile or test 
 Run from the extracted package root or from the repository:
 
 ```powershell
-.\tools\write-clean-machine-evidence.ps1 -ExpectedVersion 1.4.0
+.\tools\write-clean-machine-evidence.ps1 -ExpectedVersion 1.4.1
 ```
 
 For local release verification without launching the desktop:
 
 ```powershell
-.\scripts\write-clean-machine-evidence.ps1 -ExpectedVersion 1.4.0 -SkipLaunch
+.\scripts\write-clean-machine-evidence.ps1 -ExpectedVersion 1.4.1 -SkipLaunch
 ```
 
 The script records:
@@ -23,6 +23,7 @@ The script records:
 - Windows version and build;
 - current user and admin role;
 - package validation;
+- runtime bundle lock and package state validation;
 - stable update-manifest verification when the sibling archive and manifest are present;
 - signing readiness inventory;
 - generated release notes;

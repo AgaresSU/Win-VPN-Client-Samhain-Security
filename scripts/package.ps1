@@ -1,5 +1,5 @@
 param(
-    [string]$Version = "1.4.0",
+    [string]$Version = "1.4.1",
     [string]$Configuration = "Release"
 )
 
@@ -153,10 +153,14 @@ Copy-Item -LiteralPath (Join-Path $RepoRoot "scripts\write-release-evidence.ps1"
 Copy-Item -LiteralPath (Join-Path $RepoRoot "scripts\write-release-notes.ps1") -Destination $ToolsOut -Force
 Copy-Item -LiteralPath (Join-Path $RepoRoot "scripts\test-signing-readiness.ps1") -Destination $ToolsOut -Force
 Copy-Item -LiteralPath (Join-Path $RepoRoot "scripts\write-clean-machine-evidence.ps1") -Destination $ToolsOut -Force
+Copy-Item -LiteralPath (Join-Path $RepoRoot "scripts\prepare-runtime-bundle.ps1") -Destination $ToolsOut -Force
+Copy-Item -LiteralPath (Join-Path $RepoRoot "runtime-bundle.lock.json") -Destination $PackageRoot -Force
 Copy-Item -LiteralPath (Join-Path $RepoRoot "assets") -Destination $PackageRoot -Recurse -Force
 if (Test-Path (Join-Path $RepoRoot "engines")) {
     Copy-Item -Path (Join-Path $RepoRoot "engines\*") -Destination $EnginesOut -Recurse -Force
 }
+
+& (Join-Path $RepoRoot "scripts\prepare-runtime-bundle.ps1") -PackageRoot $PackageRoot -Json | Out-Null
 
 $engineInventory = @(New-EngineInventory -Root $PackageRoot)
 $engineInventory | ConvertTo-Json -Depth 5 | Set-Content -LiteralPath (Join-Path $PackageRoot "engine-inventory.json") -Encoding UTF8
@@ -240,6 +244,9 @@ $manifest = [PSCustomObject]@{
         }
         runtimeContract = [PSCustomObject]@{
             inventory = "engine-inventory.json"
+            lock = "runtime-bundle.lock.json"
+            state = "app\engines\runtime-bundle-state.json"
+            prepareScript = "tools\prepare-runtime-bundle.ps1"
             availabilitySource = "package-inventory"
             layout = @($EngineContracts | ForEach-Object {
                 [PSCustomObject]@{
@@ -264,9 +271,12 @@ $manifest = [PSCustomObject]@{
         releaseNotesScript = "tools\write-release-notes.ps1"
         signingReadinessScript = "tools\test-signing-readiness.ps1"
         cleanMachineEvidenceScript = "tools\write-clean-machine-evidence.ps1"
+        runtimeBundleScript = "tools\prepare-runtime-bundle.ps1"
         serviceSelfCheckCommand = "service\samhain-service.exe self-check"
         enforcementTransactionEvidence = "service.protection_policy.transaction"
         engineInventory = "engine-inventory.json"
+        runtimeBundleLock = "runtime-bundle.lock.json"
+        runtimeBundleState = "app\engines\runtime-bundle-state.json"
         runtimeHealthEvidence = "service.runtime_health"
         subscriptionOperationsEvidence = "service.subscription_operations"
         gates = @(
@@ -279,7 +289,8 @@ $manifest = [PSCustomObject]@{
             "tools\write-release-evidence.ps1",
             "tools\write-release-notes.ps1",
             "tools\test-signing-readiness.ps1",
-            "tools\write-clean-machine-evidence.ps1"
+            "tools\write-clean-machine-evidence.ps1",
+            "tools\prepare-runtime-bundle.ps1"
         )
     }
     releaseReadiness = [PSCustomObject]@{
@@ -297,7 +308,7 @@ $manifest = [PSCustomObject]@{
         }
         docs = [PSCustomObject]@{
             stableRelease = "docs\STABLE_RELEASE.md"
-            releaseNotes = "docs\RELEASE_NOTES_1.4.0.md"
+            releaseNotes = "docs\RELEASE_NOTES_1.4.1.md"
             protocolMatrix = "docs\PROTOCOL_MATRIX.md"
             visualQa = "docs\VISUAL_QA.md"
             securityPosture = "docs\SECURITY_POSTURE.md"
@@ -347,8 +358,11 @@ $checksumTargets = @(
     "tools\write-release-notes.ps1",
     "tools\test-signing-readiness.ps1",
     "tools\write-clean-machine-evidence.ps1",
+    "tools\prepare-runtime-bundle.ps1",
     "release-manifest.json",
     "engine-inventory.json",
+    "runtime-bundle.lock.json",
+    "app\engines\runtime-bundle-state.json",
     "README.md",
     "VERSION"
 )
@@ -406,6 +420,9 @@ $updateManifest = [PSCustomObject]@{
         }
         runtimeContract = [PSCustomObject]@{
             inventory = "engine-inventory.json"
+            lock = "runtime-bundle.lock.json"
+            state = "app\engines\runtime-bundle-state.json"
+            prepareScript = "tools\prepare-runtime-bundle.ps1"
             availabilitySource = "package-inventory"
         }
         securityPosture = [PSCustomObject]@{
@@ -431,9 +448,12 @@ $updateManifest = [PSCustomObject]@{
         releaseNotesScript = "tools\write-release-notes.ps1"
         signingReadinessScript = "tools\test-signing-readiness.ps1"
         cleanMachineEvidenceScript = "tools\write-clean-machine-evidence.ps1"
+        runtimeBundleScript = "tools\prepare-runtime-bundle.ps1"
         serviceSelfCheckCommand = "service\samhain-service.exe self-check"
         enforcementTransactionEvidence = "service.protection_policy.transaction"
         engineInventory = "engine-inventory.json"
+        runtimeBundleLock = "runtime-bundle.lock.json"
+        runtimeBundleState = "app\engines\runtime-bundle-state.json"
         runtimeHealthEvidence = "service.runtime_health"
         subscriptionOperationsEvidence = "service.subscription_operations"
         signingStatus = "unsigned-dev"

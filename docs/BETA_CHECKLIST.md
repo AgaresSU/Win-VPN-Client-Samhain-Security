@@ -1,6 +1,6 @@
 # Beta Checklist
 
-Version: `1.4.0`
+Version: `1.4.1`
 
 This checklist keeps beta readiness visible without adding complexity to the desktop UI.
 
@@ -11,16 +11,18 @@ Run before tagging a release:
 ```powershell
 cargo test --workspace
 .\scripts\build.ps1
+.\scripts\prepare-runtime-bundle.ps1
 .\scripts\package.ps1
-.\scripts\validate-package.ps1 -ExpectedVersion 1.4.0 -RunServiceStatus
-.\scripts\verify-update-manifest.ps1 -ExpectedVersion 1.4.0 -RequireStableChannel
-.\scripts\test-signing-readiness.ps1 -ExpectedVersion 1.4.0
-.\scripts\write-clean-machine-evidence.ps1 -ExpectedVersion 1.4.0 -SkipLaunch
-.\scripts\write-release-notes.ps1 -ExpectedVersion 1.4.0
-.\scripts\smoke-package.ps1 -ExpectedVersion 1.4.0
+.\scripts\validate-package.ps1 -ExpectedVersion 1.4.1 -RunServiceStatus
+.\scripts\prepare-runtime-bundle.ps1 -PackageRoot .\dist\SamhainSecurityNative-1.4.1-win-x64 -ValidateOnly
+.\scripts\verify-update-manifest.ps1 -ExpectedVersion 1.4.1 -RequireStableChannel
+.\scripts\test-signing-readiness.ps1 -ExpectedVersion 1.4.1
+.\scripts\write-clean-machine-evidence.ps1 -ExpectedVersion 1.4.1 -SkipLaunch
+.\scripts\write-release-notes.ps1 -ExpectedVersion 1.4.1
+.\scripts\smoke-package.ps1 -ExpectedVersion 1.4.1
 ```
 
-The smoke script validates package structure, SHA256 hashes, service status, current-user operations in dry-run mode, machine-scope service status/dry-runs, and packaged desktop launch.
+The smoke script validates package structure, SHA256 hashes, runtime bundle state, service status, current-user operations in dry-run mode, machine-scope service status/dry-runs, and packaged desktop launch.
 
 ## Manual Windows Matrix
 
