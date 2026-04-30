@@ -3249,6 +3249,33 @@ impl EngineManager {
             push_engine_log(&self.logs, "warn", "tun", &message);
             return Err(anyhow!("{}", message));
         }
+        if generated.path == EnginePath::Adapter && !adapter_path_allowed() {
+            let message = adapter_gate_message();
+            let _ = self.proxy.restore();
+            let _ = self.tun.restore();
+            self.app_routing.restore();
+            self.protection.restore();
+            self.traffic.stop();
+            self.state = EngineLifecycleState {
+                status: "blocked".to_string(),
+                engine: generated.engine,
+                server_id: Some(server.id.clone()),
+                pid: None,
+                started_at: None,
+                stopped_at: Some(now_engine_label()),
+                last_exit_code: None,
+                restart_attempts: 0,
+                config_path: Some(
+                    engine_config_path(&server.id, generated.engine)
+                        .display()
+                        .to_string(),
+                ),
+                message: message.clone(),
+                log_tail: self.log_tail(),
+            };
+            push_engine_log(&self.logs, "warn", "adapter", &message);
+            return Err(anyhow!("{}", message));
+        }
 
         self.traffic.start(server, generated.path);
         let catalog = discover_engines();
@@ -3670,6 +3697,9 @@ fn generate_engine_config(
             "Адаптерный путь требует прав администратора и установленного runtime-инструмента."
                 .to_string(),
         );
+        if !adapter_path_allowed() {
+            warnings.push(adapter_gate_message());
+        }
     }
 
     let (full_config, redacted_config) = if path == EnginePath::Adapter {
@@ -4112,6 +4142,15 @@ fn tun_path_allowed() -> bool {
 
 fn tun_gate_message() -> String {
     "TUN path is gated until Samhain Security runs as an elevated, installer-owned, trusted service."
+        .to_string()
+}
+
+fn adapter_path_allowed() -> bool {
+    privileged_policy_allows_network_actions() || adapter_dry_run()
+}
+
+fn adapter_gate_message() -> String {
+    "Adapter path is gated until Samhain Security runs as an elevated, installer-owned, trusted service."
         .to_string()
 }
 
@@ -4622,6 +4661,16 @@ fn service_self_check_state(storage_path: &Path) -> ServiceSelfCheckState {
             "requires elevated installer-owned trusted service identity and packaged runtime",
         ),
         check_item(
+            "adapter-path",
+            adapter_path_allowed(),
+            if adapter_path_allowed() {
+                "available"
+            } else {
+                "gated"
+            },
+            "requires elevated installer-owned trusted service identity, adapter runtime, and driver",
+        ),
+        check_item(
             "firewall",
             readiness.firewall_enforcement_available,
             if readiness.firewall_enforcement_available {
@@ -4719,6 +4768,7 @@ fn service_readiness_state() -> ServiceReadinessState {
     checks.push(format!("app_routing_requested={app_routing_requested}"));
     checks.push(format!("app_routing_available={app_routing_available}"));
     checks.push(format!("tun_path_allowed={}", tun_path_allowed()));
+    checks.push(format!("adapter_path_allowed={}", adapter_path_allowed()));
     checks.push(format!("service_identity={identity}"));
     checks.push("required_identity=signed-privileged-service".to_string());
     checks.push("ipc_command_surface=hardened".to_string());
@@ -6681,6 +6731,47 @@ mod tests {
         assert_eq!(health.status, "gated");
         assert_eq!(health.route_path, "idle");
         assert!(health.message.contains("TUN path is gated"));
+    }
+
+    #[test]
+    fn adapter_start_is_gated_without_privileged_identity() {
+        if adapter_path_allowed() {
+            return;
+        }
+
+        let raw_config = "[Interface]\nPrivateKey = private-secret\nAddress = 10.8.0.2/32\nDNS = 1.1.1.1\nMTU = 1420\n\n[Peer]\nPublicKey = public-secret\nAllowedIPs = 0.0.0.0/0, ::/0\nEndpoint = 203.0.113.10:51820\nPersistentKeepalive = 25\n";
+        let server = Server {
+            id: "wg-gated".to_string(),
+            name: "WG Gated".to_string(),
+            host: "203.0.113.10".to_string(),
+            port: Some(51820),
+            protocol: Protocol::WireGuard,
+            country_code: None,
+            ping_ms: None,
+            raw_url: raw_config.to_string(),
+        };
+        let generated =
+            generate_engine_config(&server, raw_config, RouteMode::WholeComputer).expect("config");
+        assert_eq!(generated.path, EnginePath::Adapter);
+        assert!(
+            generated
+                .warnings
+                .iter()
+                .any(|warning| warning.contains("Adapter path is gated"))
+        );
+
+        let mut manager = EngineManager::new();
+        let result = manager.start(&server, raw_config, RouteMode::WholeComputer);
+
+        assert!(result.is_err());
+        let state = manager.snapshot();
+        assert_eq!(state.status, "blocked");
+        assert_eq!(state.engine, EngineKind::WireGuard);
+        assert!(state.message.contains("Adapter path is gated"));
+        let health = manager.runtime_health_snapshot();
+        assert_eq!(health.status, "gated");
+        assert_eq!(health.route_path, "idle");
+        assert!(health.message.contains("Adapter path is gated"));
     }
 
     #[test]

@@ -1,6 +1,6 @@
 # Roadmap
 
-Current version: `1.4.5`
+Current version: `1.4.6`
 
 This roadmap is the working contract for Samhain Security. Future implementation should follow this order unless a blocker is found and documented in the same commit.
 
@@ -718,7 +718,19 @@ Done when current-user packages fail closed for whole-computer TUN, privileged e
 
 Status: shipped in `v1.4.5` with TUN start gating, runtime-health gated status, `tools\smoke-tun-path.ps1`, release evidence integration, and package validation checks.
 
+### 1.4.6 - WireGuard And AmneziaWG Adapter Validation
+
+- Block adapter-path starts early when the package is not running as an elevated, installer-owned, trusted service, unless the service is explicitly running an adapter dry-run smoke.
+- Keep generated WireGuard and AmneziaWG previews available with secret redaction and adapter gate warnings.
+- Prove current-user adapter starts fail closed without running bundled adapter tools.
+- Add a package smoke that imports both WireGuard and AmneziaWG profiles, validates preview redaction, verifies the elevation gate, restarts into adapter dry-run mode, starts/stops both adapter paths, runs emergency restore, and records cleanup.
+- Wire the adapter-path smoke into package manifests, update manifests, smoke-package, release evidence, and validation gates.
+
+Done when current-user packages fail closed for adapter starts, dry-run lifecycle evidence covers both adapter families, privileged environments can opt into live adapter service installation, and rollback evidence is collected automatically.
+
+Status: shipped in `v1.4.6` with adapter start gating, adapter dry-run lifecycle smoke, runtime-health adapter evidence, `tools\smoke-adapter-path.ps1`, release evidence integration, and package validation checks.
+
 ## Immediate Next Build Order
 
-1. `1.4.6`: WireGuard and AmneziaWG live adapter validation.
-2. `1.4.x`: installer signing and public updater rollout.
+1. `1.4.7`: installer signing readiness and privileged service identity wiring.
+2. `1.4.x`: public updater rollout.

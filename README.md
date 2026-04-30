@@ -1,6 +1,6 @@
 # Samhain Security Native
 
-Version: `1.4.5`
+Version: `1.4.6`
 
 Native Windows secure tunneling client prototype built from a clean base.
 
@@ -16,7 +16,7 @@ Native Windows secure tunneling client prototype built from a clean base.
 
 This release is the native foundation. It focuses on the product shell, simple daily UX, local models, persistence, and build/package flow.
 
-Implemented through `1.4.5`:
+Implemented through `1.4.6`:
 
 - Happ-inspired Qt/QML shell with servers, add, settings, statistics, logs, and about sections.
 - Compact subscription group and server rows without technical clutter.
@@ -63,6 +63,7 @@ Implemented through `1.4.5`:
 - Runtime health state with explicit metrics source, fallback counter labels, route path, last error, last successful handshake, and reconnect reason fields.
 - Proxy-path runtime smoke: package gate imports a proxy-capable profile, starts bundled sing-box through selected-apps proxy path, verifies `127.0.0.1:20808`, checks runtime health, and stops cleanly.
 - TUN-path safety gate and smoke: current-user packages fail closed before route creation, report gated runtime health, restore TUN state, run emergency restore, and verify no packaged runtime process remains.
+- Adapter-path safety gate and smoke: WireGuard and AmneziaWG imports prove preview redaction, current-user gating, dry-run lifecycle, runtime-health evidence, and cleanup.
 - Main shell polish with a calmer connection panel, compact server rows, and bottom quick actions.
 - Compact subscription rows with secondary actions moved into a quiet menu and a cleaner add-subscription dialog.
 - Simplified settings with daily controls up front and technical service actions grouped under advanced settings.
@@ -99,7 +100,7 @@ Not implemented yet:
 The package is written to:
 
 ```text
-dist\SamhainSecurityNative-1.4.5-win-x64
+dist\SamhainSecurityNative-1.4.6-win-x64
 ```
 
 ## Local Operations
@@ -128,16 +129,17 @@ Prepare the expected runtime folders before packaging:
 Validate a built package:
 
 ```powershell
-.\scripts\prepare-runtime-bundle.ps1 -PackageRoot .\dist\SamhainSecurityNative-1.4.5-win-x64 -ValidateOnly
+.\scripts\prepare-runtime-bundle.ps1 -PackageRoot .\dist\SamhainSecurityNative-1.4.6-win-x64 -ValidateOnly
 ```
 
 ## Package Checks
 
 ```powershell
-.\scripts\validate-package.ps1 -ExpectedVersion 1.4.5 -RunServiceStatus
-.\scripts\smoke-proxy-path.ps1 -ExpectedVersion 1.4.5
-.\scripts\smoke-tun-path.ps1 -ExpectedVersion 1.4.5
-.\scripts\smoke-package.ps1 -ExpectedVersion 1.4.5
+.\scripts\validate-package.ps1 -ExpectedVersion 1.4.6 -RunServiceStatus
+.\scripts\smoke-proxy-path.ps1 -ExpectedVersion 1.4.6
+.\scripts\smoke-tun-path.ps1 -ExpectedVersion 1.4.6
+.\scripts\smoke-adapter-path.ps1 -ExpectedVersion 1.4.6
+.\scripts\smoke-package.ps1 -ExpectedVersion 1.4.6
 ```
 
 See `docs\BETA_CHECKLIST.md` for the manual Windows and protocol matrix.
@@ -145,12 +147,12 @@ See `docs\BETA_CHECKLIST.md` for the manual Windows and protocol matrix.
 ## Stable Checks
 
 ```powershell
-.\scripts\verify-update-manifest.ps1 -ExpectedVersion 1.4.5 -RequireStableChannel
-.\scripts\verify-update-manifest.ps1 -ExpectedVersion 1.4.5 -RequireStableChannel -InstalledVersion 9.9.9 -AllowDowngradeRecovery
-.\scripts\test-signing-readiness.ps1 -ExpectedVersion 1.4.5
-.\scripts\write-clean-machine-evidence.ps1 -ExpectedVersion 1.4.5 -SkipLaunch
-.\scripts\write-release-notes.ps1 -ExpectedVersion 1.4.5
-.\scripts\write-release-evidence.ps1 -ExpectedVersion 1.4.5
+.\scripts\verify-update-manifest.ps1 -ExpectedVersion 1.4.6 -RequireStableChannel
+.\scripts\verify-update-manifest.ps1 -ExpectedVersion 1.4.6 -RequireStableChannel -InstalledVersion 9.9.9 -AllowDowngradeRecovery
+.\scripts\test-signing-readiness.ps1 -ExpectedVersion 1.4.6
+.\scripts\write-clean-machine-evidence.ps1 -ExpectedVersion 1.4.6 -SkipLaunch
+.\scripts\write-release-notes.ps1 -ExpectedVersion 1.4.6
+.\scripts\write-release-evidence.ps1 -ExpectedVersion 1.4.6
 ```
 
 See `docs\STABLE_RELEASE.md`, `docs\CLEAN_MACHINE_EVIDENCE.md`, `docs\PROTOCOL_MATRIX.md`, and `docs\VISUAL_QA.md` for the stable release checklist, protocol coverage, visual checks, and external test evidence flow.

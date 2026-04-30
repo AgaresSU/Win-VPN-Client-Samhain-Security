@@ -108,6 +108,7 @@ $verifyScript = Join-Path $toolsRoot "verify-update-manifest.ps1"
 $smokeScript = Join-Path $toolsRoot "smoke-package.ps1"
 $proxyPathSmokeScript = Join-Path $toolsRoot "smoke-proxy-path.ps1"
 $tunPathSmokeScript = Join-Path $toolsRoot "smoke-tun-path.ps1"
+$adapterPathSmokeScript = Join-Path $toolsRoot "smoke-adapter-path.ps1"
 $signingScript = Join-Path $toolsRoot "test-signing-readiness.ps1"
 $cleanMachineScript = Join-Path $toolsRoot "write-clean-machine-evidence.ps1"
 $releaseNotesScript = Join-Path $toolsRoot "write-release-notes.ps1"
@@ -162,6 +163,7 @@ if ($SkipSmoke) {
     Add-Gate "smoke-package" $true "skipped"
     Add-Gate "proxy-path-smoke" $true "skipped"
     Add-Gate "tun-path-smoke" $true "skipped"
+    Add-Gate "adapter-path-smoke" $true "skipped"
 }
 else {
     Invoke-GateScript -Name "smoke-package" -ScriptPath $smokeScript -Parameters @{
@@ -176,6 +178,11 @@ else {
         Json = $true
     }
     Invoke-GateScript -Name "tun-path-smoke" -ScriptPath $tunPathSmokeScript -Parameters @{
+        PackageRoot = $PackageRoot
+        ExpectedVersion = $ExpectedVersion
+        Json = $true
+    }
+    Invoke-GateScript -Name "adapter-path-smoke" -ScriptPath $adapterPathSmokeScript -Parameters @{
         PackageRoot = $PackageRoot
         ExpectedVersion = $ExpectedVersion
         Json = $true

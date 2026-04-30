@@ -1,5 +1,5 @@
 param(
-    [string]$Version = "1.4.5",
+    [string]$Version = "1.4.6",
     [string]$Configuration = "Release"
 )
 
@@ -150,6 +150,7 @@ Copy-Item -LiteralPath (Join-Path $RepoRoot "scripts\validate-package.ps1") -Des
 Copy-Item -LiteralPath (Join-Path $RepoRoot "scripts\smoke-package.ps1") -Destination $ToolsOut -Force
 Copy-Item -LiteralPath (Join-Path $RepoRoot "scripts\smoke-proxy-path.ps1") -Destination $ToolsOut -Force
 Copy-Item -LiteralPath (Join-Path $RepoRoot "scripts\smoke-tun-path.ps1") -Destination $ToolsOut -Force
+Copy-Item -LiteralPath (Join-Path $RepoRoot "scripts\smoke-adapter-path.ps1") -Destination $ToolsOut -Force
 Copy-Item -LiteralPath (Join-Path $RepoRoot "scripts\verify-update-manifest.ps1") -Destination $ToolsOut -Force
 Copy-Item -LiteralPath (Join-Path $RepoRoot "scripts\write-release-evidence.ps1") -Destination $ToolsOut -Force
 Copy-Item -LiteralPath (Join-Path $RepoRoot "scripts\write-release-notes.ps1") -Destination $ToolsOut -Force
@@ -272,6 +273,7 @@ $manifest = [PSCustomObject]@{
         smokeScript = "tools\smoke-package.ps1"
         proxyPathSmokeScript = "tools\smoke-proxy-path.ps1"
         tunPathSmokeScript = "tools\smoke-tun-path.ps1"
+        adapterPathSmokeScript = "tools\smoke-adapter-path.ps1"
         updateManifestVerifier = "tools\verify-update-manifest.ps1"
         releaseEvidenceScript = "tools\write-release-evidence.ps1"
         releaseNotesScript = "tools\write-release-notes.ps1"
@@ -294,6 +296,7 @@ $manifest = [PSCustomObject]@{
             "tools\smoke-package.ps1",
             "tools\smoke-proxy-path.ps1",
             "tools\smoke-tun-path.ps1",
+            "tools\smoke-adapter-path.ps1",
             "tools\verify-update-manifest.ps1",
             "tools\write-release-evidence.ps1",
             "tools\write-release-notes.ps1",
@@ -318,7 +321,7 @@ $manifest = [PSCustomObject]@{
         }
         docs = [PSCustomObject]@{
             stableRelease = "docs\STABLE_RELEASE.md"
-            releaseNotes = "docs\RELEASE_NOTES_1.4.5.md"
+            releaseNotes = "docs\RELEASE_NOTES_1.4.6.md"
             protocolMatrix = "docs\PROTOCOL_MATRIX.md"
             visualQa = "docs\VISUAL_QA.md"
             securityPosture = "docs\SECURITY_POSTURE.md"
@@ -365,6 +368,7 @@ $checksumTargets = @(
     "tools\smoke-package.ps1",
     "tools\smoke-proxy-path.ps1",
     "tools\smoke-tun-path.ps1",
+    "tools\smoke-adapter-path.ps1",
     "tools\verify-update-manifest.ps1",
     "tools\write-release-evidence.ps1",
     "tools\write-release-notes.ps1",
@@ -459,6 +463,7 @@ $updateManifest = [PSCustomObject]@{
         smokeScript = "tools\smoke-package.ps1"
         proxyPathSmokeScript = "tools\smoke-proxy-path.ps1"
         tunPathSmokeScript = "tools\smoke-tun-path.ps1"
+        adapterPathSmokeScript = "tools\smoke-adapter-path.ps1"
         updateManifestVerifier = "tools\verify-update-manifest.ps1"
         releaseEvidenceScript = "tools\write-release-evidence.ps1"
         releaseNotesScript = "tools\write-release-notes.ps1"
