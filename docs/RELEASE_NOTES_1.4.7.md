@@ -1,8 +1,8 @@
-# Samhain Security Native 1.4.6
+# Samhain Security Native 1.4.7
 
-Version: `1.4.6`
+Version: `1.4.7`
 
-Samhain Security `1.4.6` validates the WireGuard and AmneziaWG adapter path. Current-user packages now fail closed before adapter service commands, expose clear readiness evidence, and prove both adapter profiles through safe dry-run lifecycle smoke.
+Samhain Security `1.4.7` wires the privileged service readiness layer. The package now reports exactly why machine-level TUN and adapter actions are available or gated, keeps machine service state under ProgramData, and ships a preflight script for installer/service readiness.
 
 ## Included
 
@@ -23,17 +23,21 @@ Samhain Security `1.4.6` validates the WireGuard and AmneziaWG adapter path. Cur
 - TUN-path smoke with safe preview validation, elevation-gate proof, runtime-health gated status, restore, emergency restore, and package-scoped cleanup checks.
 - Adapter-path start gate for WireGuard and AmneziaWG without elevated installer-owned trusted service identity.
 - Adapter-path smoke with WireGuard and AmneziaWG import, preview redaction, adapter gate proof, dry-run lifecycle, runtime-health evidence, emergency restore, and package-scoped cleanup checks.
+- Machine service storage policy for `%ProgramData%\SamhainSecurity` while current-user packages stay under `%APPDATA%\SamhainSecurity`.
+- Explicit service readiness fields for identity source, signing source, privileged-service readiness, TUN path allowance, and adapter path allowance.
+- Privileged service preflight with manifest validation, machine install dry-run, service readiness JSON checks, signature status, Program Files path checks, and optional installed-service validation.
+- Machine service plan evidence for unrestricted service SID policy used by future service-scoped rules.
 - Smoke validation that a launched desktop process brings up the service IPC endpoint.
 - Release readiness docs for stable gates, protocol coverage, visual QA, security posture, and clean-machine checks.
 
 ## Artifacts
 
-- `dist\SamhainSecurityNative-1.4.6-win-x64`
-- `dist\SamhainSecurityNative-1.4.6-win-x64.zip`
-- `dist\SamhainSecurityNative-1.4.6-win-x64.update-manifest.json`
-- `dist\SamhainSecurityNative-1.4.6-win-x64.release-evidence.json`
-- `dist\SamhainSecurityNative-1.4.6-win-x64.clean-machine-evidence.json`
-- `dist\SamhainSecurityNative-1.4.6-win-x64.release-notes.md`
+- `dist\SamhainSecurityNative-1.4.7-win-x64`
+- `dist\SamhainSecurityNative-1.4.7-win-x64.zip`
+- `dist\SamhainSecurityNative-1.4.7-win-x64.update-manifest.json`
+- `dist\SamhainSecurityNative-1.4.7-win-x64.release-evidence.json`
+- `dist\SamhainSecurityNative-1.4.7-win-x64.clean-machine-evidence.json`
+- `dist\SamhainSecurityNative-1.4.7-win-x64.release-notes.md`
 
 ## Verification
 
@@ -45,16 +49,17 @@ cargo test --workspace
 .\scripts\fetch-runtime-bundle.ps1
 .\scripts\prepare-runtime-bundle.ps1
 .\scripts\package.ps1
-.\scripts\validate-package.ps1 -ExpectedVersion 1.4.6 -RunServiceStatus
-.\scripts\prepare-runtime-bundle.ps1 -PackageRoot .\dist\SamhainSecurityNative-1.4.6-win-x64 -ValidateOnly
-.\scripts\verify-update-manifest.ps1 -ExpectedVersion 1.4.6 -RequireStableChannel
-.\scripts\test-signing-readiness.ps1 -ExpectedVersion 1.4.6
-.\scripts\write-clean-machine-evidence.ps1 -ExpectedVersion 1.4.6 -SkipLaunch
-.\scripts\smoke-proxy-path.ps1 -ExpectedVersion 1.4.6
-.\scripts\smoke-tun-path.ps1 -ExpectedVersion 1.4.6
-.\scripts\smoke-adapter-path.ps1 -ExpectedVersion 1.4.6
-.\scripts\smoke-package.ps1 -ExpectedVersion 1.4.6
-.\scripts\write-release-evidence.ps1 -ExpectedVersion 1.4.6 -Tag v1.4.6
+.\scripts\validate-package.ps1 -ExpectedVersion 1.4.7 -RunServiceStatus
+.\scripts\prepare-runtime-bundle.ps1 -PackageRoot .\dist\SamhainSecurityNative-1.4.7-win-x64 -ValidateOnly
+.\scripts\verify-update-manifest.ps1 -ExpectedVersion 1.4.7 -RequireStableChannel
+.\scripts\test-signing-readiness.ps1 -ExpectedVersion 1.4.7
+.\scripts\test-privileged-service-readiness.ps1 -ExpectedVersion 1.4.7
+.\scripts\write-clean-machine-evidence.ps1 -ExpectedVersion 1.4.7 -SkipLaunch
+.\scripts\smoke-proxy-path.ps1 -ExpectedVersion 1.4.7
+.\scripts\smoke-tun-path.ps1 -ExpectedVersion 1.4.7
+.\scripts\smoke-adapter-path.ps1 -ExpectedVersion 1.4.7
+.\scripts\smoke-package.ps1 -ExpectedVersion 1.4.7
+.\scripts\write-release-evidence.ps1 -ExpectedVersion 1.4.7 -Tag v1.4.7
 ```
 
 ## Known Limits

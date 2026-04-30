@@ -90,6 +90,7 @@ $lines = @(
     "- Update safety: stable update manifest, archive SHA256, downgrade guard, explicit recovery override, and previous-package rollback slot.",
     "- Security posture: bounded IPC payloads, command validation, bundled-only runtime search by default, storage boundary checks, and redacted logs.",
     "- Runtime bundle preparation: locked runtime layout, package state file, validation script, SHA256 evidence when binaries are present, and clear missing-runtime status.",
+    "- Privileged service readiness: packaged preflight script, ProgramData machine storage policy, and explicit TUN/adapter gate evidence.",
     "- Release readiness docs: stable gates, protocol matrix, visual QA, security posture, and clean-machine evidence are packaged together.",
     "",
     "## Artifacts",

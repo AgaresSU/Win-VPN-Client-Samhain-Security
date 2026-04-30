@@ -458,6 +458,7 @@ function Get-MachineServicePlan {
                 "Copy app, service, assets, docs, and tools to $InstallRoot",
                 "Register Windows service $ServiceName with command `"$serviceExe`" run",
                 "Set service start mode to Automatic",
+                "Set service SID type to unrestricted for service-scoped rules",
                 "Set recovery policy to restart after failure",
                 "Start service and verify named-pipe status",
                 "Write install-state.json with scope=Machine"
@@ -469,6 +470,7 @@ function Get-MachineServicePlan {
                 "Preserve current package in rollback slot",
                 "Refresh package files in $InstallRoot",
                 "Reapply service command, start mode, and recovery policy",
+                "Reapply service SID type for service-scoped rules",
                 "Start service and verify named-pipe status",
                 "Write repair timestamp to install-state.json"
             )
@@ -479,6 +481,7 @@ function Get-MachineServicePlan {
                 "Stop service $ServiceName if it is running",
                 "Restore the preserved previous package",
                 "Reapply service command, start mode, and recovery policy",
+                "Reapply service SID type for service-scoped rules",
                 "Start service and verify named-pipe status"
             )
         }
@@ -516,6 +519,8 @@ function Get-MachineStatus {
     $serviceRecord = Get-MachineServiceRecord
     $serviceExe = Join-Path $InstallRoot "service\samhain-service.exe"
     $serviceInstalled = $null -ne $serviceRecord
+    $registeredPath = if ($serviceRecord) { [string]$serviceRecord.PathName } else { "" }
+    $registeredPathMatchesExpected = $registeredPath -like "*$serviceExe*"
     $status = if (-not $serviceInstalled) {
         "not-installed"
     }
@@ -538,8 +543,11 @@ function Get-MachineStatus {
         serviceDescription = $ServiceDescription
         serviceStatus = if ($serviceRecord) { [string]$serviceRecord.State } else { "missing" }
         startMode = if ($serviceRecord) { [string]$serviceRecord.StartMode } else { "not-registered" }
+        serviceAccount = if ($serviceRecord) { [string]$serviceRecord.StartName } else { "not-registered" }
         executable = $serviceExe
-        registeredPath = if ($serviceRecord) { [string]$serviceRecord.PathName } else { "" }
+        registeredPath = $registeredPath
+        registeredPathMatchesExpected = $registeredPathMatchesExpected
+        serviceSidType = "unrestricted-required"
         desktopIntegrationPolicy = "per-user"
         desktopIntegrationOwner = "current-user local-ops or desktop settings"
         installRoot = $InstallRoot
@@ -547,6 +555,13 @@ function Get-MachineStatus {
         administrator = Test-IsAdministrator
         dryRun = [bool]$DryRun
         writeOperationsAvailable = Test-IsAdministrator
+        privilegedReadiness = [PSCustomObject]@{
+            serviceInstalled = $serviceInstalled
+            servicePathOwned = $registeredPathMatchesExpected
+            storageScope = "ProgramData"
+            signingRequired = $true
+            readinessScript = "tools\test-privileged-service-readiness.ps1"
+        }
         plannedActions = Get-MachineServicePlan -Operation $Action
     }
 }
@@ -686,6 +701,14 @@ function Set-MachineServiceRecovery {
     )
 }
 
+function Set-MachineServiceIdentityPolicy {
+    Invoke-ScCommand "Configuring Windows service SID type" @(
+        "sidtype",
+        $ServiceName,
+        "unrestricted"
+    )
+}
+
 function Start-MachineService {
     Invoke-Operation "Starting machine service $ServiceName" {
         Start-Service -Name $ServiceName -ErrorAction Stop
@@ -747,6 +770,7 @@ function Invoke-MachineInstall {
     try {
         Copy-MachinePackageContent
         Register-MachineService
+        Set-MachineServiceIdentityPolicy
         Set-MachineServiceRecovery
         Write-MachineInstallState
         Start-MachineService
@@ -769,6 +793,7 @@ function Invoke-MachineRepair {
     Stop-MachineService
     Copy-MachinePackageContent
     Register-MachineService
+    Set-MachineServiceIdentityPolicy
     Set-MachineServiceRecovery
     Write-MachineInstallState
     Start-MachineService

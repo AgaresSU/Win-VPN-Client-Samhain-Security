@@ -1937,11 +1937,29 @@ fn storage_path() -> PathBuf {
         return PathBuf::from(path);
     }
 
-    std::env::var_os("APPDATA")
-        .map(PathBuf::from)
-        .unwrap_or_else(std::env::temp_dir)
+    service_data_root()
         .join("SamhainSecurity")
         .join("service-subscriptions.json")
+}
+
+fn service_data_root() -> PathBuf {
+    if service_identity_valid() {
+        std::env::var_os("ProgramData")
+            .map(PathBuf::from)
+            .unwrap_or_else(std::env::temp_dir)
+    } else {
+        std::env::var_os("APPDATA")
+            .map(PathBuf::from)
+            .unwrap_or_else(std::env::temp_dir)
+    }
+}
+
+fn service_data_scope() -> &'static str {
+    if service_identity_valid() {
+        "machine"
+    } else {
+        "current-user"
+    }
 }
 
 fn support_bundle_path() -> PathBuf {
@@ -4519,6 +4537,14 @@ fn service_identity_valid() -> bool {
     exe.starts_with(install_root)
 }
 
+fn service_identity_source() -> String {
+    if service_identity_valid() {
+        "program-files-service-path".to_string()
+    } else {
+        "current-process-path".to_string()
+    }
+}
+
 fn service_signing_state() -> String {
     if service_signing_valid() {
         "trusted-signature".to_string()
@@ -4534,6 +4560,16 @@ fn service_signing_valid() -> bool {
             matches!(normalized.as_str(), "1" | "true" | "yes" | "trusted")
         })
         .unwrap_or(false)
+}
+
+fn service_signing_source() -> String {
+    if service_signing_valid() {
+        format!("{SERVICE_SIGNED_ENV}=trusted")
+    } else if std::env::var_os(SERVICE_SIGNED_ENV).is_some() {
+        format!("{SERVICE_SIGNED_ENV}=untrusted")
+    } else {
+        "signature-attestation-missing".to_string()
+    }
 }
 
 fn privileged_policy_allows_network_actions() -> bool {
@@ -4716,6 +4752,11 @@ fn storage_path_under_user_boundary(path: &Path) -> bool {
     if let Some(value) = std::env::var_os("LOCALAPPDATA") {
         roots.push(PathBuf::from(value));
     }
+    if service_identity_valid() {
+        if let Some(value) = std::env::var_os("ProgramData") {
+            roots.push(PathBuf::from(value));
+        }
+    }
     roots.push(std::env::temp_dir());
 
     roots.iter().any(|root| path.starts_with(root))
@@ -4739,6 +4780,8 @@ fn service_readiness_state() -> ServiceReadinessState {
     let signing_state = service_signing_state();
     let signing_valid = service_signing_valid();
     let privileged_policy_allowed = privileged_policy_allows_network_actions();
+    let tun_allowed = tun_path_allowed();
+    let adapter_allowed = adapter_path_allowed();
     let firewall_available = protection_requested && privileged_policy_allowed;
     let app_routing_available = app_routing_enforcement_available();
 
@@ -4758,17 +4801,23 @@ fn service_readiness_state() -> ServiceReadinessState {
     checks.push(format!("running_as_admin={running_as_admin}"));
     checks.push(format!("identity={identity}"));
     checks.push(format!("identity_valid={identity_valid}"));
+    checks.push(format!("identity_source={}", service_identity_source()));
+    checks.push(format!("storage_scope={}", service_data_scope()));
     checks.push(format!("signing_state={signing_state}"));
     checks.push(format!("signing_valid={signing_valid}"));
+    checks.push(format!("signing_source={}", service_signing_source()));
     checks.push(format!(
         "privileged_policy_allowed={privileged_policy_allowed}"
+    ));
+    checks.push(format!(
+        "privileged_service_ready={privileged_policy_allowed}"
     ));
     checks.push(format!("protection_requested={protection_requested}"));
     checks.push(format!("firewall_available={firewall_available}"));
     checks.push(format!("app_routing_requested={app_routing_requested}"));
     checks.push(format!("app_routing_available={app_routing_available}"));
-    checks.push(format!("tun_path_allowed={}", tun_path_allowed()));
-    checks.push(format!("adapter_path_allowed={}", adapter_path_allowed()));
+    checks.push(format!("tun_path_allowed={tun_allowed}"));
+    checks.push(format!("adapter_path_allowed={adapter_allowed}"));
     checks.push(format!("service_identity={identity}"));
     checks.push("required_identity=signed-privileged-service".to_string());
     checks.push("ipc_command_surface=hardened".to_string());
@@ -4803,10 +4852,15 @@ fn service_readiness_state() -> ServiceReadinessState {
         identity,
         required_identity: "signed-privileged-service".to_string(),
         identity_valid,
+        identity_source: service_identity_source(),
         signing_state,
         signing_valid,
+        signing_source: service_signing_source(),
         running_as_admin,
         privileged_policy_allowed,
+        privileged_service_ready: privileged_policy_allowed,
+        tun_path_allowed: tun_allowed,
+        adapter_path_allowed: adapter_allowed,
         protection_enforcement_requested: protection_requested,
         app_routing_enforcement_requested: app_routing_requested,
         firewall_enforcement_available: firewall_available,
@@ -7066,15 +7120,26 @@ mod tests {
         assert_eq!(state.identity, "current-user-package");
         assert_eq!(state.required_identity, "signed-privileged-service");
         assert!(!state.identity_valid);
+        assert_eq!(state.identity_source, "current-process-path");
         assert_eq!(state.signing_state, "unsigned-dev");
         assert!(!state.signing_valid);
+        assert_eq!(state.signing_source, "signature-attestation-missing");
         assert!(!state.privileged_policy_allowed);
+        assert!(!state.privileged_service_ready);
+        assert!(!state.tun_path_allowed);
+        assert!(!state.adapter_path_allowed);
         assert!(!state.app_routing_enforcement_available);
         assert!(
             state
                 .checks
                 .iter()
                 .any(|check| check.starts_with("privileged_policy_allowed="))
+        );
+        assert!(
+            state
+                .checks
+                .iter()
+                .any(|check| check == "storage_scope=current-user")
         );
         assert!(
             state

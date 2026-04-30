@@ -1,6 +1,6 @@
 # Roadmap
 
-Current version: `1.4.6`
+Current version: `1.4.7`
 
 This roadmap is the working contract for Samhain Security. Future implementation should follow this order unless a blocker is found and documented in the same commit.
 
@@ -730,7 +730,19 @@ Done when current-user packages fail closed for adapter starts, dry-run lifecycl
 
 Status: shipped in `v1.4.6` with adapter start gating, adapter dry-run lifecycle smoke, runtime-health adapter evidence, `tools\smoke-adapter-path.ps1`, release evidence integration, and package validation checks.
 
+### 1.4.7 - Privileged Service Readiness Wiring
+
+- Move machine-scope service storage to `%ProgramData%\SamhainSecurity` while keeping current-user packages on `%APPDATA%\SamhainSecurity`.
+- Expose explicit readiness fields for privileged service state: identity source, signing source, privileged-service readiness, TUN path allowance, and adapter path allowance.
+- Harden the machine-service plan with service SID policy evidence for future service-scoped rules.
+- Add a packaged privileged-service preflight that validates manifest wiring, machine install dry-run, service readiness JSON fields, binary signature status, expected Program Files path, and optional installed-service state.
+- Wire the preflight into package manifests, update manifests, validation, smoke-package, and release evidence.
+
+Done when the package can explain exactly why real TUN/adapter actions are available or gated on the current machine, without relying on manual log reading.
+
+Status: shipped in `v1.4.7` with service readiness fields, ProgramData machine storage policy, `tools\test-privileged-service-readiness.ps1`, and release gate integration.
+
 ## Immediate Next Build Order
 
-1. `1.4.7`: installer signing readiness and privileged service identity wiring.
+1. `1.4.8`: real updater install/rollback rehearsal with local archive validation.
 2. `1.4.x`: public updater rollout.

@@ -116,6 +116,7 @@ Add-Check "manifest:subscription-operations" ($manifest.verification.subscriptio
 Add-Check "manifest:proxy-path-smoke" ($manifest.verification.proxyPathSmokeScript -eq "tools\smoke-proxy-path.ps1") ([string]$manifest.verification.proxyPathSmokeScript)
 Add-Check "manifest:tun-path-smoke" ($manifest.verification.tunPathSmokeScript -eq "tools\smoke-tun-path.ps1") ([string]$manifest.verification.tunPathSmokeScript)
 Add-Check "manifest:adapter-path-smoke" ($manifest.verification.adapterPathSmokeScript -eq "tools\smoke-adapter-path.ps1") ([string]$manifest.verification.adapterPathSmokeScript)
+Add-Check "manifest:privileged-service-readiness" ($manifest.verification.privilegedServiceReadinessScript -eq "tools\test-privileged-service-readiness.ps1") ([string]$manifest.verification.privilegedServiceReadinessScript)
 Add-Check "manifest:release-notes-script" ($manifest.verification.releaseNotesScript -eq "tools\write-release-notes.ps1") ([string]$manifest.verification.releaseNotesScript)
 Add-Check "manifest:release-readiness-status" ($manifest.releaseReadiness.status -eq "release-ready-dev-signed") ([string]$manifest.releaseReadiness.status)
 Add-Check "manifest:release-readiness-protocol-doc" ($manifest.releaseReadiness.protocolMatrix -eq "docs\PROTOCOL_MATRIX.md") ([string]$manifest.releaseReadiness.protocolMatrix)

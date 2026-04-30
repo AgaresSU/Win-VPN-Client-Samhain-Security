@@ -67,6 +67,7 @@ $requiredPaths = @(
     "tools\write-release-evidence.ps1",
     "tools\write-release-notes.ps1",
     "tools\test-signing-readiness.ps1",
+    "tools\test-privileged-service-readiness.ps1",
     "tools\write-clean-machine-evidence.ps1",
     "tools\prepare-runtime-bundle.ps1",
     "tools\fetch-runtime-bundle.ps1",
@@ -116,6 +117,9 @@ if (Test-Path $manifestPath) {
         Add-Check "manifest:privileged-service-elevation" ([bool]$manifest.operations.privilegedService.requiresElevation) ([string]$manifest.operations.privilegedService.requiresElevation)
         Add-Check "manifest:privileged-service-dry-run" (-not [bool]$manifest.operations.privilegedService.dryRunRequired) ([string]$manifest.operations.privilegedService.dryRunRequired)
         Add-Check "manifest:privileged-service-rollback-action" ($manifest.operations.privilegedService.actions -contains "Rollback") "actions=$($manifest.operations.privilegedService.actions -join ',')"
+        Add-Check "manifest:privileged-service-sid" ($manifest.operations.privilegedService.serviceSidType -eq "unrestricted") ([string]$manifest.operations.privilegedService.serviceSidType)
+        Add-Check "manifest:privileged-service-storage" ($manifest.operations.privilegedService.storageRoot -eq "%ProgramData%\SamhainSecurity") ([string]$manifest.operations.privilegedService.storageRoot)
+        Add-Check "manifest:privileged-service-readiness-script" ($manifest.operations.privilegedService.readinessScript -eq "tools\test-privileged-service-readiness.ps1") ([string]$manifest.operations.privilegedService.readinessScript)
         Add-Check "manifest:service-self-check" ($manifest.operations.serviceSelfCheck.command -eq "service\samhain-service.exe self-check") ([string]$manifest.operations.serviceSelfCheck.command)
         Add-Check "manifest:desktop-integration-owner" ($manifest.operations.desktopIntegration.owner -eq "local-ops") ([string]$manifest.operations.desktopIntegration.owner)
         Add-Check "manifest:desktop-integration-status-file" ($manifest.operations.desktopIntegration.statusFile -eq "desktop-integration.json") ([string]$manifest.operations.desktopIntegration.statusFile)
@@ -151,11 +155,13 @@ if (Test-Path $manifestPath) {
         Add-Check "manifest:release-evidence" ($manifest.quality.releaseEvidenceScript -eq "tools\write-release-evidence.ps1") ([string]$manifest.quality.releaseEvidenceScript)
         Add-Check "manifest:release-notes" ($manifest.quality.releaseNotesScript -eq "tools\write-release-notes.ps1") ([string]$manifest.quality.releaseNotesScript)
         Add-Check "manifest:signing-readiness" ($manifest.quality.signingReadinessScript -eq "tools\test-signing-readiness.ps1") ([string]$manifest.quality.signingReadinessScript)
+        Add-Check "manifest:privileged-service-readiness" ($manifest.quality.privilegedServiceReadinessScript -eq "tools\test-privileged-service-readiness.ps1") ([string]$manifest.quality.privilegedServiceReadinessScript)
         Add-Check "manifest:clean-machine-evidence" ($manifest.quality.cleanMachineEvidenceScript -eq "tools\write-clean-machine-evidence.ps1") ([string]$manifest.quality.cleanMachineEvidenceScript)
         Add-Check "manifest:release-notes-gate" ($manifest.quality.gates -contains "tools\write-release-notes.ps1") "gates=$($manifest.quality.gates -join ',')"
         Add-Check "manifest:proxy-path-smoke-gate" ($manifest.quality.gates -contains "tools\smoke-proxy-path.ps1") "gates=$($manifest.quality.gates -join ',')"
         Add-Check "manifest:tun-path-smoke-gate" ($manifest.quality.gates -contains "tools\smoke-tun-path.ps1") "gates=$($manifest.quality.gates -join ',')"
         Add-Check "manifest:adapter-path-smoke-gate" ($manifest.quality.gates -contains "tools\smoke-adapter-path.ps1") "gates=$($manifest.quality.gates -join ',')"
+        Add-Check "manifest:privileged-service-readiness-gate" ($manifest.quality.gates -contains "tools\test-privileged-service-readiness.ps1") "gates=$($manifest.quality.gates -join ',')"
         Add-Check "manifest:runtime-bundle-gate" ($manifest.quality.gates -contains "tools\prepare-runtime-bundle.ps1") "gates=$($manifest.quality.gates -join ',')"
         Add-Check "manifest:runtime-bundle-fetch-gate" ($manifest.quality.gates -contains "tools\fetch-runtime-bundle.ps1") "gates=$($manifest.quality.gates -join ',')"
         Add-Check "manifest:release-readiness-status" ($manifest.releaseReadiness.status -eq "release-ready-dev-signed") ([string]$manifest.releaseReadiness.status)
@@ -314,6 +320,11 @@ if ($RunServiceStatus) {
                 Add-Check "service:readiness-identity" (-not [string]::IsNullOrWhiteSpace($serviceState.service_readiness.identity)) ([string]$serviceState.service_readiness.identity)
                 Add-Check "service:readiness-signing" ($null -ne $serviceState.service_readiness.signing_state) ([string]$serviceState.service_readiness.signing_state)
                 Add-Check "service:readiness-policy" ($null -ne $serviceState.service_readiness.privileged_policy_allowed) "allowed=$($serviceState.service_readiness.privileged_policy_allowed)"
+                Add-Check "service:readiness-privileged-ready" ($null -ne $serviceState.service_readiness.privileged_service_ready) "ready=$($serviceState.service_readiness.privileged_service_ready)"
+                Add-Check "service:readiness-tun-path" ($null -ne $serviceState.service_readiness.tun_path_allowed) "allowed=$($serviceState.service_readiness.tun_path_allowed)"
+                Add-Check "service:readiness-adapter-path" ($null -ne $serviceState.service_readiness.adapter_path_allowed) "allowed=$($serviceState.service_readiness.adapter_path_allowed)"
+                Add-Check "service:readiness-identity-source" (-not [string]::IsNullOrWhiteSpace([string]$serviceState.service_readiness.identity_source)) ([string]$serviceState.service_readiness.identity_source)
+                Add-Check "service:readiness-signing-source" (-not [string]::IsNullOrWhiteSpace([string]$serviceState.service_readiness.signing_source)) ([string]$serviceState.service_readiness.signing_source)
                 Add-Check "service:readiness-recovery" ($serviceState.service_readiness.recovery_policy -eq "service-owned") ([string]$serviceState.service_readiness.recovery_policy)
                 Add-Check "service:firewall-evidence" ($null -ne $serviceState.service_readiness.firewall_enforcement_available) "available=$($serviceState.service_readiness.firewall_enforcement_available)"
                 Add-Check "service:app-routing-evidence" ($null -ne $serviceState.service_readiness.app_routing_enforcement_available) "available=$($serviceState.service_readiness.app_routing_enforcement_available)"

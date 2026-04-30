@@ -1,5 +1,5 @@
 param(
-    [string]$Version = "1.4.6",
+    [string]$Version = "1.4.7",
     [string]$Configuration = "Release"
 )
 
@@ -155,6 +155,7 @@ Copy-Item -LiteralPath (Join-Path $RepoRoot "scripts\verify-update-manifest.ps1"
 Copy-Item -LiteralPath (Join-Path $RepoRoot "scripts\write-release-evidence.ps1") -Destination $ToolsOut -Force
 Copy-Item -LiteralPath (Join-Path $RepoRoot "scripts\write-release-notes.ps1") -Destination $ToolsOut -Force
 Copy-Item -LiteralPath (Join-Path $RepoRoot "scripts\test-signing-readiness.ps1") -Destination $ToolsOut -Force
+Copy-Item -LiteralPath (Join-Path $RepoRoot "scripts\test-privileged-service-readiness.ps1") -Destination $ToolsOut -Force
 Copy-Item -LiteralPath (Join-Path $RepoRoot "scripts\write-clean-machine-evidence.ps1") -Destination $ToolsOut -Force
 Copy-Item -LiteralPath (Join-Path $RepoRoot "scripts\prepare-runtime-bundle.ps1") -Destination $ToolsOut -Force
 Copy-Item -LiteralPath (Join-Path $RepoRoot "scripts\fetch-runtime-bundle.ps1") -Destination $ToolsOut -Force
@@ -194,6 +195,9 @@ $manifest = [PSCustomObject]@{
             actions = @("Install", "Repair", "Rollback", "Uninstall", "Status")
             dryRunRequired = $false
             requiresElevation = $true
+            serviceSidType = "unrestricted"
+            storageRoot = "%ProgramData%\SamhainSecurity"
+            readinessScript = "tools\test-privileged-service-readiness.ps1"
         }
         rollback = [PSCustomObject]@{
             owner = "local-ops"
@@ -278,6 +282,7 @@ $manifest = [PSCustomObject]@{
         releaseEvidenceScript = "tools\write-release-evidence.ps1"
         releaseNotesScript = "tools\write-release-notes.ps1"
         signingReadinessScript = "tools\test-signing-readiness.ps1"
+        privilegedServiceReadinessScript = "tools\test-privileged-service-readiness.ps1"
         cleanMachineEvidenceScript = "tools\write-clean-machine-evidence.ps1"
         runtimeBundleScript = "tools\prepare-runtime-bundle.ps1"
         runtimeBundleFetchScript = "tools\fetch-runtime-bundle.ps1"
@@ -301,6 +306,7 @@ $manifest = [PSCustomObject]@{
             "tools\write-release-evidence.ps1",
             "tools\write-release-notes.ps1",
             "tools\test-signing-readiness.ps1",
+            "tools\test-privileged-service-readiness.ps1",
             "tools\write-clean-machine-evidence.ps1",
             "tools\prepare-runtime-bundle.ps1",
             "tools\fetch-runtime-bundle.ps1"
@@ -321,7 +327,7 @@ $manifest = [PSCustomObject]@{
         }
         docs = [PSCustomObject]@{
             stableRelease = "docs\STABLE_RELEASE.md"
-            releaseNotes = "docs\RELEASE_NOTES_1.4.6.md"
+            releaseNotes = "docs\RELEASE_NOTES_1.4.7.md"
             protocolMatrix = "docs\PROTOCOL_MATRIX.md"
             visualQa = "docs\VISUAL_QA.md"
             securityPosture = "docs\SECURITY_POSTURE.md"
@@ -373,6 +379,7 @@ $checksumTargets = @(
     "tools\write-release-evidence.ps1",
     "tools\write-release-notes.ps1",
     "tools\test-signing-readiness.ps1",
+    "tools\test-privileged-service-readiness.ps1",
     "tools\write-clean-machine-evidence.ps1",
     "tools\prepare-runtime-bundle.ps1",
     "tools\fetch-runtime-bundle.ps1",
@@ -468,6 +475,7 @@ $updateManifest = [PSCustomObject]@{
         releaseEvidenceScript = "tools\write-release-evidence.ps1"
         releaseNotesScript = "tools\write-release-notes.ps1"
         signingReadinessScript = "tools\test-signing-readiness.ps1"
+        privilegedServiceReadinessScript = "tools\test-privileged-service-readiness.ps1"
         cleanMachineEvidenceScript = "tools\write-clean-machine-evidence.ps1"
         runtimeBundleScript = "tools\prepare-runtime-bundle.ps1"
         runtimeBundleFetchScript = "tools\fetch-runtime-bundle.ps1"

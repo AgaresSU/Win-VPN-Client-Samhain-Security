@@ -175,6 +175,7 @@ $toolsRoot = Join-Path $PackageRoot "tools"
 $validateScript = Join-Path $toolsRoot "validate-package.ps1"
 $verifyScript = Join-Path $toolsRoot "verify-update-manifest.ps1"
 $signingScript = Join-Path $toolsRoot "test-signing-readiness.ps1"
+$privilegedServiceReadinessScript = Join-Path $toolsRoot "test-privileged-service-readiness.ps1"
 $releaseNotesScript = Join-Path $toolsRoot "write-release-notes.ps1"
 $runtimeBundleScript = Join-Path $toolsRoot "prepare-runtime-bundle.ps1"
 $localOpsScript = Join-Path $toolsRoot "local-ops.ps1"
@@ -234,6 +235,11 @@ else {
 }
 
 Invoke-ScriptStep -Name "signing-readiness" -ScriptPath $signingScript -Parameters @{
+    PackageRoot = $PackageRoot
+    ExpectedVersion = $ExpectedVersion
+    Json = $true
+}
+Invoke-ScriptStep -Name "privileged-service-readiness" -ScriptPath $privilegedServiceReadinessScript -Parameters @{
     PackageRoot = $PackageRoot
     ExpectedVersion = $ExpectedVersion
     Json = $true

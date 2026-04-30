@@ -110,6 +110,7 @@ $proxyPathSmokeScript = Join-Path $toolsRoot "smoke-proxy-path.ps1"
 $tunPathSmokeScript = Join-Path $toolsRoot "smoke-tun-path.ps1"
 $adapterPathSmokeScript = Join-Path $toolsRoot "smoke-adapter-path.ps1"
 $signingScript = Join-Path $toolsRoot "test-signing-readiness.ps1"
+$privilegedServiceReadinessScript = Join-Path $toolsRoot "test-privileged-service-readiness.ps1"
 $cleanMachineScript = Join-Path $toolsRoot "write-clean-machine-evidence.ps1"
 $releaseNotesScript = Join-Path $toolsRoot "write-release-notes.ps1"
 $runtimeBundleScript = Join-Path $toolsRoot "prepare-runtime-bundle.ps1"
@@ -190,6 +191,11 @@ else {
 }
 
 Invoke-GateScript -Name "signing-readiness" -ScriptPath $signingScript -Parameters @{
+    PackageRoot = $PackageRoot
+    ExpectedVersion = $ExpectedVersion
+    Json = $true
+}
+Invoke-GateScript -Name "privileged-service-readiness" -ScriptPath $privilegedServiceReadinessScript -Parameters @{
     PackageRoot = $PackageRoot
     ExpectedVersion = $ExpectedVersion
     Json = $true
