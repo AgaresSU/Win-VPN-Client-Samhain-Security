@@ -1,6 +1,6 @@
 # App Routing Matrix
 
-Version: `1.4.8`
+Version: `1.4.9`
 
 This document is the release contract for the three route modes in Samhain Security. It keeps the daily UI honest: a mode is marked supported only when the current build can actually enforce it.
 

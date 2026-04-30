@@ -1,6 +1,6 @@
 # Roadmap
 
-Current version: `1.4.8`
+Current version: `1.4.9`
 
 This roadmap is the working contract for Samhain Security. Future implementation should follow this order unless a blocker is found and documented in the same commit.
 
@@ -27,6 +27,7 @@ Each release commit should pass:
 - `.\scripts\prepare-runtime-bundle.ps1 -PackageRoot <package-root> -ValidateOnly`
 - `.\scripts\verify-update-manifest.ps1 -RequireStableChannel` for stable tags
 - `.\scripts\test-update-rehearsal.ps1` for stable tags
+- `.\scripts\test-public-updater-rollout.ps1` for stable tags
 - `.\scripts\write-release-evidence.ps1` for stable tags
 - `.\scripts\test-signing-readiness.ps1`
 - `.\scripts\write-clean-machine-evidence.ps1`
@@ -755,7 +756,19 @@ Done when a package can prove its update archive and rollback slot without touch
 
 Status: shipped in `v1.4.8` with `tools\test-update-rehearsal.ps1` and release gate integration.
 
+### 1.4.9 - Public Updater Rollout Boundary
+
+- Add a packaged public updater rollout gate.
+- Keep public publishing blocked while the package is `unsigned-dev`.
+- Declare the signed-installer handoff boundary: the package owns manifest verification, archive hash checks, local update rehearsal, current-user fallback, and release evidence; the future installer owns production signing, elevation, Program Files install, service registration, update apply, and machine rollback.
+- Wire the rollout gate into package manifests, update manifests, validation, smoke-package, clean-machine evidence, release evidence, and release docs.
+- Add release evidence warnings so internal stable archive validation cannot be mistaken for public updater readiness.
+
+Done when the package can prove it is safe for internal stable validation but blocked for public updater publication until production signing and installer handoff are available.
+
+Status: shipped in `v1.4.9` with `tools\test-public-updater-rollout.ps1`, blocked unsigned publishing metadata, and release gate integration.
+
 ## Immediate Next Build Order
 
-1. `1.4.9`: public updater rollout plan and signed-installer handoff boundary.
-2. `1.4.x`: production signing and first public update channel rehearsal on a clean Windows machine.
+1. `1.5.0`: production signing scaffold and signed-installer project skeleton.
+2. `1.5.x`: first public update channel rehearsal on a clean Windows machine.

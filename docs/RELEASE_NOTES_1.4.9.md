@@ -1,8 +1,8 @@
-# Samhain Security Native 1.4.8
+# Samhain Security Native 1.4.9
 
-Version: `1.4.8`
+Version: `1.4.9`
 
-Samhain Security `1.4.8` adds an update rehearsal gate. The package now proves the local archive can be verified, extracted, applied over an isolated previous install, and restored from the rollback snapshot before a release is promoted.
+Samhain Security `1.4.9` adds the public updater rollout boundary. The package now proves that public publishing stays blocked until production signing and signed-installer handoff are available, while internal stable archive verification and rollback rehearsal remain usable.
 
 ## Included
 
@@ -28,17 +28,18 @@ Samhain Security `1.4.8` adds an update rehearsal gate. The package now proves t
 - Privileged service preflight with manifest validation, machine install dry-run, service readiness JSON checks, signature status, Program Files path checks, and optional installed-service validation.
 - Machine service plan evidence for unrestricted service SID policy used by future service-scoped rules.
 - Update rehearsal preflight with local archive hash verification, stable manifest validation, extracted-package validation, isolated previous-package snapshot, candidate apply, and rollback restore proof.
+- Public updater rollout preflight with production-signing requirement, signed-installer handoff boundary, blocked unsigned publishing, and required evidence checks.
 - Smoke validation that a launched desktop process brings up the service IPC endpoint.
 - Release readiness docs for stable gates, protocol coverage, visual QA, security posture, and clean-machine checks.
 
 ## Artifacts
 
-- `dist\SamhainSecurityNative-1.4.8-win-x64`
-- `dist\SamhainSecurityNative-1.4.8-win-x64.zip`
-- `dist\SamhainSecurityNative-1.4.8-win-x64.update-manifest.json`
-- `dist\SamhainSecurityNative-1.4.8-win-x64.release-evidence.json`
-- `dist\SamhainSecurityNative-1.4.8-win-x64.clean-machine-evidence.json`
-- `dist\SamhainSecurityNative-1.4.8-win-x64.release-notes.md`
+- `dist\SamhainSecurityNative-1.4.9-win-x64`
+- `dist\SamhainSecurityNative-1.4.9-win-x64.zip`
+- `dist\SamhainSecurityNative-1.4.9-win-x64.update-manifest.json`
+- `dist\SamhainSecurityNative-1.4.9-win-x64.release-evidence.json`
+- `dist\SamhainSecurityNative-1.4.9-win-x64.clean-machine-evidence.json`
+- `dist\SamhainSecurityNative-1.4.9-win-x64.release-notes.md`
 
 ## Verification
 
@@ -50,18 +51,19 @@ cargo test --workspace
 .\scripts\fetch-runtime-bundle.ps1
 .\scripts\prepare-runtime-bundle.ps1
 .\scripts\package.ps1
-.\scripts\validate-package.ps1 -ExpectedVersion 1.4.8 -RunServiceStatus
-.\scripts\prepare-runtime-bundle.ps1 -PackageRoot .\dist\SamhainSecurityNative-1.4.8-win-x64 -ValidateOnly
-.\scripts\verify-update-manifest.ps1 -ExpectedVersion 1.4.8 -RequireStableChannel
-.\scripts\test-update-rehearsal.ps1 -ExpectedVersion 1.4.8
-.\scripts\test-signing-readiness.ps1 -ExpectedVersion 1.4.8
-.\scripts\test-privileged-service-readiness.ps1 -ExpectedVersion 1.4.8
-.\scripts\write-clean-machine-evidence.ps1 -ExpectedVersion 1.4.8 -SkipLaunch
-.\scripts\smoke-proxy-path.ps1 -ExpectedVersion 1.4.8
-.\scripts\smoke-tun-path.ps1 -ExpectedVersion 1.4.8
-.\scripts\smoke-adapter-path.ps1 -ExpectedVersion 1.4.8
-.\scripts\smoke-package.ps1 -ExpectedVersion 1.4.8
-.\scripts\write-release-evidence.ps1 -ExpectedVersion 1.4.8 -Tag v1.4.8
+.\scripts\validate-package.ps1 -ExpectedVersion 1.4.9 -RunServiceStatus
+.\scripts\prepare-runtime-bundle.ps1 -PackageRoot .\dist\SamhainSecurityNative-1.4.9-win-x64 -ValidateOnly
+.\scripts\verify-update-manifest.ps1 -ExpectedVersion 1.4.9 -RequireStableChannel
+.\scripts\test-update-rehearsal.ps1 -ExpectedVersion 1.4.9
+.\scripts\test-public-updater-rollout.ps1 -ExpectedVersion 1.4.9
+.\scripts\test-signing-readiness.ps1 -ExpectedVersion 1.4.9
+.\scripts\test-privileged-service-readiness.ps1 -ExpectedVersion 1.4.9
+.\scripts\write-clean-machine-evidence.ps1 -ExpectedVersion 1.4.9 -SkipLaunch
+.\scripts\smoke-proxy-path.ps1 -ExpectedVersion 1.4.9
+.\scripts\smoke-tun-path.ps1 -ExpectedVersion 1.4.9
+.\scripts\smoke-adapter-path.ps1 -ExpectedVersion 1.4.9
+.\scripts\smoke-package.ps1 -ExpectedVersion 1.4.9
+.\scripts\write-release-evidence.ps1 -ExpectedVersion 1.4.9 -Tag v1.4.9
 ```
 
 ## Known Limits

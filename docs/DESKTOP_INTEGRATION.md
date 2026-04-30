@@ -1,6 +1,6 @@
 # Desktop Integration
 
-Version: `1.4.8`
+Version: `1.4.9`
 
 Desktop integration is owned by the current-user package operation and the desktop app. The privileged machine service does not silently take over user-facing startup, tray, or link behavior.
 

@@ -233,6 +233,7 @@ $adapterPathSmokeScript = Join-Path $toolsRoot "smoke-adapter-path.ps1"
 $signingScript = Join-Path $toolsRoot "test-signing-readiness.ps1"
 $privilegedServiceReadinessScript = Join-Path $toolsRoot "test-privileged-service-readiness.ps1"
 $updateRehearsalScript = Join-Path $toolsRoot "test-update-rehearsal.ps1"
+$publicUpdaterRolloutScript = Join-Path $toolsRoot "test-public-updater-rollout.ps1"
 $cleanMachineScript = Join-Path $toolsRoot "write-clean-machine-evidence.ps1"
 $releaseNotesScript = Join-Path $toolsRoot "write-release-notes.ps1"
 $runtimeBundleScript = Join-Path $toolsRoot "prepare-runtime-bundle.ps1"
@@ -293,6 +294,12 @@ Invoke-ScriptStep -Name "update-rehearsal" -ScriptPath $updateRehearsalScript -P
     PackageRoot = $PackageRoot
     ManifestPath = $updateManifestPath
     ArchivePath = $archivePath
+    ExpectedVersion = $ExpectedVersion
+    Json = $true
+}
+Invoke-ScriptStep -Name "public-updater-rollout" -ScriptPath $publicUpdaterRolloutScript -Parameters @{
+    PackageRoot = $PackageRoot
+    UpdateManifestPath = $updateManifestPath
     ExpectedVersion = $ExpectedVersion
     Json = $true
 }

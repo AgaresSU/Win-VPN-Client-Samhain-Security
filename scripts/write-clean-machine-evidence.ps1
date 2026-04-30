@@ -175,6 +175,7 @@ $toolsRoot = Join-Path $PackageRoot "tools"
 $validateScript = Join-Path $toolsRoot "validate-package.ps1"
 $verifyScript = Join-Path $toolsRoot "verify-update-manifest.ps1"
 $updateRehearsalScript = Join-Path $toolsRoot "test-update-rehearsal.ps1"
+$publicUpdaterRolloutScript = Join-Path $toolsRoot "test-public-updater-rollout.ps1"
 $signingScript = Join-Path $toolsRoot "test-signing-readiness.ps1"
 $privilegedServiceReadinessScript = Join-Path $toolsRoot "test-privileged-service-readiness.ps1"
 $releaseNotesScript = Join-Path $toolsRoot "write-release-notes.ps1"
@@ -234,6 +235,12 @@ if ((Test-Path $updateManifestPath) -and (Test-Path $archivePath)) {
         PackageRoot = $PackageRoot
         ManifestPath = $updateManifestPath
         ArchivePath = $archivePath
+        ExpectedVersion = $ExpectedVersion
+        Json = $true
+    }
+    Invoke-ScriptStep -Name "public-updater-rollout" -ScriptPath $publicUpdaterRolloutScript -Parameters @{
+        PackageRoot = $PackageRoot
+        UpdateManifestPath = $updateManifestPath
         ExpectedVersion = $ExpectedVersion
         Json = $true
     }

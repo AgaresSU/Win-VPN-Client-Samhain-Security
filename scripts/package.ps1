@@ -1,5 +1,5 @@
 param(
-    [string]$Version = "1.4.8",
+    [string]$Version = "1.4.9",
     [string]$Configuration = "Release"
 )
 
@@ -153,6 +153,7 @@ Copy-Item -LiteralPath (Join-Path $RepoRoot "scripts\smoke-tun-path.ps1") -Desti
 Copy-Item -LiteralPath (Join-Path $RepoRoot "scripts\smoke-adapter-path.ps1") -Destination $ToolsOut -Force
 Copy-Item -LiteralPath (Join-Path $RepoRoot "scripts\verify-update-manifest.ps1") -Destination $ToolsOut -Force
 Copy-Item -LiteralPath (Join-Path $RepoRoot "scripts\test-update-rehearsal.ps1") -Destination $ToolsOut -Force
+Copy-Item -LiteralPath (Join-Path $RepoRoot "scripts\test-public-updater-rollout.ps1") -Destination $ToolsOut -Force
 Copy-Item -LiteralPath (Join-Path $RepoRoot "scripts\write-release-evidence.ps1") -Destination $ToolsOut -Force
 Copy-Item -LiteralPath (Join-Path $RepoRoot "scripts\write-release-notes.ps1") -Destination $ToolsOut -Force
 Copy-Item -LiteralPath (Join-Path $RepoRoot "scripts\test-signing-readiness.ps1") -Destination $ToolsOut -Force
@@ -281,6 +282,7 @@ $manifest = [PSCustomObject]@{
         adapterPathSmokeScript = "tools\smoke-adapter-path.ps1"
         updateManifestVerifier = "tools\verify-update-manifest.ps1"
         updateRehearsalScript = "tools\test-update-rehearsal.ps1"
+        publicUpdaterRolloutScript = "tools\test-public-updater-rollout.ps1"
         releaseEvidenceScript = "tools\write-release-evidence.ps1"
         releaseNotesScript = "tools\write-release-notes.ps1"
         signingReadinessScript = "tools\test-signing-readiness.ps1"
@@ -306,6 +308,7 @@ $manifest = [PSCustomObject]@{
             "tools\smoke-adapter-path.ps1",
             "tools\verify-update-manifest.ps1",
             "tools\test-update-rehearsal.ps1",
+            "tools\test-public-updater-rollout.ps1",
             "tools\write-release-evidence.ps1",
             "tools\write-release-notes.ps1",
             "tools\test-signing-readiness.ps1",
@@ -328,9 +331,41 @@ $manifest = [PSCustomObject]@{
             selectedAppsOnly = "release-supported-proxy-aware"
             exceptSelectedApps = "blocked-until-signed-wfp-layer"
         }
+        publicUpdater = [PSCustomObject]@{
+            status = "blocked-until-production-signed-installer"
+            publishAllowed = $false
+            requiresProductionSigning = $true
+            installerHandoff = "signed-installer-required"
+            rolloutGate = "tools\test-public-updater-rollout.ps1"
+            requiredEvidence = @(
+                "signing-readiness",
+                "privileged-service-readiness",
+                "update-rehearsal",
+                "clean-machine-evidence",
+                "release-evidence"
+            )
+            handoffBoundary = [PSCustomObject]@{
+                packageOwns = @(
+                    "manifest-verification",
+                    "archive-hash",
+                    "local-update-rehearsal",
+                    "current-user-fallback",
+                    "release-evidence"
+                )
+                installerOwns = @(
+                    "production-signing",
+                    "elevation",
+                    "program-files-install",
+                    "service-registration",
+                    "update-apply",
+                    "machine-rollback"
+                )
+                blockedWhenUnsigned = $true
+            }
+        }
         docs = [PSCustomObject]@{
             stableRelease = "docs\STABLE_RELEASE.md"
-            releaseNotes = "docs\RELEASE_NOTES_1.4.8.md"
+            releaseNotes = "docs\RELEASE_NOTES_1.4.9.md"
             protocolMatrix = "docs\PROTOCOL_MATRIX.md"
             visualQa = "docs\VISUAL_QA.md"
             securityPosture = "docs\SECURITY_POSTURE.md"
@@ -353,6 +388,20 @@ $manifest = [PSCustomObject]@{
         archiveFile = "SamhainSecurityNative-$Version-win-x64.zip"
         verifier = "tools\verify-update-manifest.ps1"
         rehearsalScript = "tools\test-update-rehearsal.ps1"
+        publicRollout = [PSCustomObject]@{
+            status = "blocked-until-production-signed-installer"
+            publishAllowed = $false
+            requiresProductionSigning = $true
+            installerHandoff = "signed-installer-required"
+            rolloutGate = "tools\test-public-updater-rollout.ps1"
+            requiredEvidence = @(
+                "signing-readiness",
+                "privileged-service-readiness",
+                "update-rehearsal",
+                "clean-machine-evidence",
+                "release-evidence"
+            )
+        }
         policy = [PSCustomObject]@{
             trustedHashAlgorithm = "SHA256"
             downgradeProtection = $true
@@ -381,6 +430,7 @@ $checksumTargets = @(
     "tools\smoke-adapter-path.ps1",
     "tools\verify-update-manifest.ps1",
     "tools\test-update-rehearsal.ps1",
+    "tools\test-public-updater-rollout.ps1",
     "tools\write-release-evidence.ps1",
     "tools\write-release-notes.ps1",
     "tools\test-signing-readiness.ps1",
@@ -478,6 +528,7 @@ $updateManifest = [PSCustomObject]@{
         adapterPathSmokeScript = "tools\smoke-adapter-path.ps1"
         updateManifestVerifier = "tools\verify-update-manifest.ps1"
         updateRehearsalScript = "tools\test-update-rehearsal.ps1"
+        publicUpdaterRolloutScript = "tools\test-public-updater-rollout.ps1"
         releaseEvidenceScript = "tools\write-release-evidence.ps1"
         releaseNotesScript = "tools\write-release-notes.ps1"
         signingReadinessScript = "tools\test-signing-readiness.ps1"
@@ -494,6 +545,38 @@ $updateManifest = [PSCustomObject]@{
         subscriptionOperationsEvidence = "service.subscription_operations"
         signingStatus = "unsigned-dev"
         expectedPublisher = "Samhain Security"
+    }
+    publicRollout = [PSCustomObject]@{
+        status = "blocked-until-production-signed-installer"
+        publishAllowed = $false
+        requiresProductionSigning = $true
+        installerHandoff = "signed-installer-required"
+        rolloutGate = "tools\test-public-updater-rollout.ps1"
+        requiredEvidence = @(
+            "signing-readiness",
+            "privileged-service-readiness",
+            "update-rehearsal",
+            "clean-machine-evidence",
+            "release-evidence"
+        )
+        handoffBoundary = [PSCustomObject]@{
+            packageOwns = @(
+                "manifest-verification",
+                "archive-hash",
+                "local-update-rehearsal",
+                "current-user-fallback",
+                "release-evidence"
+            )
+            installerOwns = @(
+                "production-signing",
+                "elevation",
+                "program-files-install",
+                "service-registration",
+                "update-apply",
+                "machine-rollback"
+            )
+            blockedWhenUnsigned = $true
+        }
     }
     releaseReadiness = [PSCustomObject]@{
         status = "release-ready-dev-signed"

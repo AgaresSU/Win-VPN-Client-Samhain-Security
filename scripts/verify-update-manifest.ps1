@@ -118,6 +118,7 @@ Add-Check "manifest:tun-path-smoke" ($manifest.verification.tunPathSmokeScript -
 Add-Check "manifest:adapter-path-smoke" ($manifest.verification.adapterPathSmokeScript -eq "tools\smoke-adapter-path.ps1") ([string]$manifest.verification.adapterPathSmokeScript)
 Add-Check "manifest:privileged-service-readiness" ($manifest.verification.privilegedServiceReadinessScript -eq "tools\test-privileged-service-readiness.ps1") ([string]$manifest.verification.privilegedServiceReadinessScript)
 Add-Check "manifest:update-rehearsal" ($manifest.verification.updateRehearsalScript -eq "tools\test-update-rehearsal.ps1") ([string]$manifest.verification.updateRehearsalScript)
+Add-Check "manifest:public-updater-rollout" ($manifest.verification.publicUpdaterRolloutScript -eq "tools\test-public-updater-rollout.ps1") ([string]$manifest.verification.publicUpdaterRolloutScript)
 Add-Check "manifest:release-notes-script" ($manifest.verification.releaseNotesScript -eq "tools\write-release-notes.ps1") ([string]$manifest.verification.releaseNotesScript)
 Add-Check "manifest:release-readiness-status" ($manifest.releaseReadiness.status -eq "release-ready-dev-signed") ([string]$manifest.releaseReadiness.status)
 Add-Check "manifest:release-readiness-protocol-doc" ($manifest.releaseReadiness.protocolMatrix -eq "docs\PROTOCOL_MATRIX.md") ([string]$manifest.releaseReadiness.protocolMatrix)
@@ -132,6 +133,11 @@ Add-Check "manifest:update-policy-explicit-recovery" ([bool]$policy.explicitReco
 Add-Check "manifest:update-policy-rollback-preserve" ([bool]$policy.rollback.preservePreviousPackage) ([string]$policy.rollback.preservePreviousPackage)
 Add-Check "manifest:update-policy-rollback-state" ($policy.rollback.stateFile -eq "rollback-state.json") ([string]$policy.rollback.stateFile)
 Add-Check "manifest:update-policy-rollback-owner" ($policy.rollback.owner -eq "local-ops") ([string]$policy.rollback.owner)
+Add-Check "manifest:public-rollout-status" ($manifest.publicRollout.status -eq "blocked-until-production-signed-installer") ([string]$manifest.publicRollout.status)
+Add-Check "manifest:public-rollout-blocked" (-not [bool]$manifest.publicRollout.publishAllowed) ([string]$manifest.publicRollout.publishAllowed)
+Add-Check "manifest:public-rollout-signing" ([bool]$manifest.publicRollout.requiresProductionSigning) ([string]$manifest.publicRollout.requiresProductionSigning)
+Add-Check "manifest:public-rollout-handoff" ($manifest.publicRollout.installerHandoff -eq "signed-installer-required") ([string]$manifest.publicRollout.installerHandoff)
+Add-Check "manifest:public-rollout-gate" ($manifest.publicRollout.rolloutGate -eq "tools\test-public-updater-rollout.ps1") ([string]$manifest.publicRollout.rolloutGate)
 
 if (-not [string]::IsNullOrWhiteSpace($InstalledVersion)) {
     $comparison = Compare-VersionString -Left ([string]$manifest.version) -Right $InstalledVersion

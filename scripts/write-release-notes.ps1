@@ -89,6 +89,7 @@ $lines = @(
     "- Desktop integration: tray, startup registration, single-instance handoff, and samhain:// link ownership evidence.",
     "- Update safety: stable update manifest, archive SHA256, downgrade guard, explicit recovery override, and previous-package rollback slot.",
     "- Update rehearsal: local archive extraction, isolated previous-package snapshot, candidate apply, and rollback restore validation.",
+    "- Public updater rollout boundary: production signing and signed-installer handoff are required before public publishing is allowed.",
     "- Security posture: bounded IPC payloads, command validation, bundled-only runtime search by default, storage boundary checks, and redacted logs.",
     "- Runtime bundle preparation: locked runtime layout, package state file, validation script, SHA256 evidence when binaries are present, and clear missing-runtime status.",
     "- Privileged service readiness: packaged preflight script, ProgramData machine storage policy, and explicit TUN/adapter gate evidence.",

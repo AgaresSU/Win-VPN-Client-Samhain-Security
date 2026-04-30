@@ -106,6 +106,7 @@ $toolsRoot = Join-Path $PackageRoot "tools"
 $validateScript = Join-Path $toolsRoot "validate-package.ps1"
 $verifyScript = Join-Path $toolsRoot "verify-update-manifest.ps1"
 $updateRehearsalScript = Join-Path $toolsRoot "test-update-rehearsal.ps1"
+$publicUpdaterRolloutScript = Join-Path $toolsRoot "test-public-updater-rollout.ps1"
 $smokeScript = Join-Path $toolsRoot "smoke-package.ps1"
 $proxyPathSmokeScript = Join-Path $toolsRoot "smoke-proxy-path.ps1"
 $tunPathSmokeScript = Join-Path $toolsRoot "smoke-tun-path.ps1"
@@ -164,6 +165,12 @@ Invoke-GateScript -Name "update-rehearsal" -ScriptPath $updateRehearsalScript -P
     PackageRoot = $PackageRoot
     ManifestPath = $updateManifestPath
     ArchivePath = $archivePath
+    ExpectedVersion = $ExpectedVersion
+    Json = $true
+}
+Invoke-GateScript -Name "public-updater-rollout" -ScriptPath $publicUpdaterRolloutScript -Parameters @{
+    PackageRoot = $PackageRoot
+    UpdateManifestPath = $updateManifestPath
     ExpectedVersion = $ExpectedVersion
     Json = $true
 }
@@ -236,6 +243,9 @@ if ($updateManifest) {
 if ($signingStatus -ne "signed-production") {
     $warnings.Add("Production signing certificate is not applied; package remains integrity-verified but unsigned.") | Out-Null
 }
+if ($updateManifest -and (-not [bool]$updateManifest.publicRollout.publishAllowed)) {
+    $warnings.Add("Public updater rollout is blocked until production signing and signed-installer handoff are available.") | Out-Null
+}
 if ([string]::IsNullOrWhiteSpace($Tag)) {
     $warnings.Add("No exact release tag was detected for the current commit.") | Out-Null
 }
@@ -267,6 +277,7 @@ $evidence = [PSCustomObject]@{
         status = $signingStatus
         productionSigned = ($signingStatus -eq "signed-production")
     }
+    publicRollout = if ($updateManifest) { $updateManifest.publicRollout } else { $null }
     updatePolicy = if ($updateManifest) { $updateManifest.updatePolicy } else { $null }
     gates = $gates
     warnings = $warnings

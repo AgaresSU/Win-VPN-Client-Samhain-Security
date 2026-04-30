@@ -1,6 +1,6 @@
 # Stable Release Gates
 
-Version: `1.4.8`
+Version: `1.4.9`
 
 The stable package uses the `stable` update channel, SHA256 package integrity, extracted-package validation, packaged smoke checks, and a release evidence JSON file.
 
@@ -14,41 +14,42 @@ cargo test --workspace
 .\scripts\fetch-runtime-bundle.ps1
 .\scripts\prepare-runtime-bundle.ps1
 .\scripts\package.ps1
-.\scripts\validate-package.ps1 -ExpectedVersion 1.4.8 -RunServiceStatus
-.\scripts\prepare-runtime-bundle.ps1 -PackageRoot .\dist\SamhainSecurityNative-1.4.8-win-x64 -ValidateOnly
-.\scripts\verify-update-manifest.ps1 -ExpectedVersion 1.4.8 -RequireStableChannel
-.\scripts\verify-update-manifest.ps1 -ExpectedVersion 1.4.8 -RequireStableChannel -InstalledVersion 9.9.9 -AllowDowngradeRecovery
-.\scripts\test-update-rehearsal.ps1 -ExpectedVersion 1.4.8
-.\scripts\test-signing-readiness.ps1 -ExpectedVersion 1.4.8
-.\scripts\test-privileged-service-readiness.ps1 -ExpectedVersion 1.4.8
-.\scripts\write-clean-machine-evidence.ps1 -ExpectedVersion 1.4.8 -SkipLaunch
-.\scripts\write-release-notes.ps1 -ExpectedVersion 1.4.8
-.\scripts\smoke-adapter-path.ps1 -ExpectedVersion 1.4.8
-.\scripts\smoke-package.ps1 -ExpectedVersion 1.4.8
+.\scripts\validate-package.ps1 -ExpectedVersion 1.4.9 -RunServiceStatus
+.\scripts\prepare-runtime-bundle.ps1 -PackageRoot .\dist\SamhainSecurityNative-1.4.9-win-x64 -ValidateOnly
+.\scripts\verify-update-manifest.ps1 -ExpectedVersion 1.4.9 -RequireStableChannel
+.\scripts\verify-update-manifest.ps1 -ExpectedVersion 1.4.9 -RequireStableChannel -InstalledVersion 9.9.9 -AllowDowngradeRecovery
+.\scripts\test-update-rehearsal.ps1 -ExpectedVersion 1.4.9
+.\scripts\test-public-updater-rollout.ps1 -ExpectedVersion 1.4.9
+.\scripts\test-signing-readiness.ps1 -ExpectedVersion 1.4.9
+.\scripts\test-privileged-service-readiness.ps1 -ExpectedVersion 1.4.9
+.\scripts\write-clean-machine-evidence.ps1 -ExpectedVersion 1.4.9 -SkipLaunch
+.\scripts\write-release-notes.ps1 -ExpectedVersion 1.4.9
+.\scripts\smoke-adapter-path.ps1 -ExpectedVersion 1.4.9
+.\scripts\smoke-package.ps1 -ExpectedVersion 1.4.9
 ```
 
 After the release commit is tagged, generate release evidence:
 
 ```powershell
-.\scripts\write-release-evidence.ps1 -ExpectedVersion 1.4.8 -Tag v1.4.8
+.\scripts\write-release-evidence.ps1 -ExpectedVersion 1.4.9 -Tag v1.4.9
 ```
 
 The evidence file is written next to the package as:
 
 ```text
-dist\SamhainSecurityNative-1.4.8-win-x64.release-evidence.json
+dist\SamhainSecurityNative-1.4.9-win-x64.release-evidence.json
 ```
 
 Clean-machine evidence is written next to the package as:
 
 ```text
-dist\SamhainSecurityNative-1.4.8-win-x64.clean-machine-evidence.json
+dist\SamhainSecurityNative-1.4.9-win-x64.clean-machine-evidence.json
 ```
 
 Generated release notes are written next to the package as:
 
 ```text
-dist\SamhainSecurityNative-1.4.8-win-x64.release-notes.md
+dist\SamhainSecurityNative-1.4.9-win-x64.release-notes.md
 ```
 
 ## Evidence Contents
@@ -66,6 +67,7 @@ dist\SamhainSecurityNative-1.4.8-win-x64.release-notes.md
 - package validation result;
 - update-manifest verification result;
 - local update rehearsal result;
+- public updater rollout boundary result;
 - update downgrade guard and explicit recovery override result;
 - rollback policy and previous-package preservation evidence;
 - signing readiness result;
@@ -78,7 +80,11 @@ dist\SamhainSecurityNative-1.4.8-win-x64.release-notes.md
 
 ## Signing Status
 
-The `1.4.8` package is stable-channel and integrity-verified, but it remains marked as `unsigned-dev` until a production certificate is available. The package and update manifests keep that status explicit so operator tooling does not mistake it for a signed public installer.
+The `1.4.9` package is stable-channel and integrity-verified, but it remains marked as `unsigned-dev` until a production certificate is available. The package and update manifests keep that status explicit so operator tooling does not mistake it for a signed public installer.
+
+## Public Updater Rollout
+
+Public updater publishing is blocked until production signing and signed-installer handoff are available. The package owns manifest verification, archive hash checks, local update rehearsal, current-user fallback, and release evidence. The future installer owns elevation, Program Files install, service registration, update apply, machine rollback, and production signing.
 
 ## Update And Rollback Policy
 

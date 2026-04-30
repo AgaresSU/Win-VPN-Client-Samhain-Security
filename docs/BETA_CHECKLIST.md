@@ -1,6 +1,6 @@
 # Beta Checklist
 
-Version: `1.4.8`
+Version: `1.4.9`
 
 This checklist keeps beta readiness visible without adding complexity to the desktop UI.
 
@@ -14,16 +14,17 @@ cargo test --workspace
 .\scripts\fetch-runtime-bundle.ps1
 .\scripts\prepare-runtime-bundle.ps1
 .\scripts\package.ps1
-.\scripts\validate-package.ps1 -ExpectedVersion 1.4.8 -RunServiceStatus
-.\scripts\prepare-runtime-bundle.ps1 -PackageRoot .\dist\SamhainSecurityNative-1.4.8-win-x64 -ValidateOnly
-.\scripts\verify-update-manifest.ps1 -ExpectedVersion 1.4.8 -RequireStableChannel
-.\scripts\test-update-rehearsal.ps1 -ExpectedVersion 1.4.8
-.\scripts\test-signing-readiness.ps1 -ExpectedVersion 1.4.8
-.\scripts\test-privileged-service-readiness.ps1 -ExpectedVersion 1.4.8
-.\scripts\write-clean-machine-evidence.ps1 -ExpectedVersion 1.4.8 -SkipLaunch
-.\scripts\write-release-notes.ps1 -ExpectedVersion 1.4.8
-.\scripts\smoke-adapter-path.ps1 -ExpectedVersion 1.4.8
-.\scripts\smoke-package.ps1 -ExpectedVersion 1.4.8
+.\scripts\validate-package.ps1 -ExpectedVersion 1.4.9 -RunServiceStatus
+.\scripts\prepare-runtime-bundle.ps1 -PackageRoot .\dist\SamhainSecurityNative-1.4.9-win-x64 -ValidateOnly
+.\scripts\verify-update-manifest.ps1 -ExpectedVersion 1.4.9 -RequireStableChannel
+.\scripts\test-update-rehearsal.ps1 -ExpectedVersion 1.4.9
+.\scripts\test-public-updater-rollout.ps1 -ExpectedVersion 1.4.9
+.\scripts\test-signing-readiness.ps1 -ExpectedVersion 1.4.9
+.\scripts\test-privileged-service-readiness.ps1 -ExpectedVersion 1.4.9
+.\scripts\write-clean-machine-evidence.ps1 -ExpectedVersion 1.4.9 -SkipLaunch
+.\scripts\write-release-notes.ps1 -ExpectedVersion 1.4.9
+.\scripts\smoke-adapter-path.ps1 -ExpectedVersion 1.4.9
+.\scripts\smoke-package.ps1 -ExpectedVersion 1.4.9
 ```
 
 The smoke script validates package structure, SHA256 hashes, runtime bundle state, service status, current-user operations in dry-run mode, machine-scope service status/dry-runs, and packaged desktop launch.

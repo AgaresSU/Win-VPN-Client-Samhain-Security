@@ -65,6 +65,7 @@ $requiredPaths = @(
     "tools\smoke-adapter-path.ps1",
     "tools\verify-update-manifest.ps1",
     "tools\test-update-rehearsal.ps1",
+    "tools\test-public-updater-rollout.ps1",
     "tools\write-release-evidence.ps1",
     "tools\write-release-notes.ps1",
     "tools\test-signing-readiness.ps1",
@@ -154,6 +155,7 @@ if (Test-Path $manifestPath) {
         Add-Check "manifest:adapter-path-smoke" ($manifest.quality.adapterPathSmokeScript -eq "tools\smoke-adapter-path.ps1") ([string]$manifest.quality.adapterPathSmokeScript)
         Add-Check "manifest:update-verifier" ($manifest.quality.updateManifestVerifier -eq "tools\verify-update-manifest.ps1") ([string]$manifest.quality.updateManifestVerifier)
         Add-Check "manifest:update-rehearsal" ($manifest.quality.updateRehearsalScript -eq "tools\test-update-rehearsal.ps1") ([string]$manifest.quality.updateRehearsalScript)
+        Add-Check "manifest:public-updater-rollout" ($manifest.quality.publicUpdaterRolloutScript -eq "tools\test-public-updater-rollout.ps1") ([string]$manifest.quality.publicUpdaterRolloutScript)
         Add-Check "manifest:release-evidence" ($manifest.quality.releaseEvidenceScript -eq "tools\write-release-evidence.ps1") ([string]$manifest.quality.releaseEvidenceScript)
         Add-Check "manifest:release-notes" ($manifest.quality.releaseNotesScript -eq "tools\write-release-notes.ps1") ([string]$manifest.quality.releaseNotesScript)
         Add-Check "manifest:signing-readiness" ($manifest.quality.signingReadinessScript -eq "tools\test-signing-readiness.ps1") ([string]$manifest.quality.signingReadinessScript)
@@ -165,6 +167,7 @@ if (Test-Path $manifestPath) {
         Add-Check "manifest:adapter-path-smoke-gate" ($manifest.quality.gates -contains "tools\smoke-adapter-path.ps1") "gates=$($manifest.quality.gates -join ',')"
         Add-Check "manifest:privileged-service-readiness-gate" ($manifest.quality.gates -contains "tools\test-privileged-service-readiness.ps1") "gates=$($manifest.quality.gates -join ',')"
         Add-Check "manifest:update-rehearsal-gate" ($manifest.quality.gates -contains "tools\test-update-rehearsal.ps1") "gates=$($manifest.quality.gates -join ',')"
+        Add-Check "manifest:public-updater-rollout-gate" ($manifest.quality.gates -contains "tools\test-public-updater-rollout.ps1") "gates=$($manifest.quality.gates -join ',')"
         Add-Check "manifest:runtime-bundle-gate" ($manifest.quality.gates -contains "tools\prepare-runtime-bundle.ps1") "gates=$($manifest.quality.gates -join ',')"
         Add-Check "manifest:runtime-bundle-fetch-gate" ($manifest.quality.gates -contains "tools\fetch-runtime-bundle.ps1") "gates=$($manifest.quality.gates -join ',')"
         Add-Check "manifest:release-readiness-status" ($manifest.releaseReadiness.status -eq "release-ready-dev-signed") ([string]$manifest.releaseReadiness.status)
@@ -172,6 +175,11 @@ if (Test-Path $manifestPath) {
         Add-Check "manifest:release-readiness-advanced-hidden" ([bool]$manifest.releaseReadiness.dailyUx.advancedSettingsHidden) ([string]$manifest.releaseReadiness.dailyUx.advancedSettingsHidden)
         Add-Check "manifest:release-readiness-selected-apps" ($manifest.releaseReadiness.routing.selectedAppsOnly -eq "release-supported-proxy-aware") ([string]$manifest.releaseReadiness.routing.selectedAppsOnly)
         Add-Check "manifest:release-readiness-except-selected" ($manifest.releaseReadiness.routing.exceptSelectedApps -eq "blocked-until-signed-wfp-layer") ([string]$manifest.releaseReadiness.routing.exceptSelectedApps)
+        Add-Check "manifest:public-updater-status" ($manifest.releaseReadiness.publicUpdater.status -eq "blocked-until-production-signed-installer") ([string]$manifest.releaseReadiness.publicUpdater.status)
+        Add-Check "manifest:public-updater-blocked" (-not [bool]$manifest.releaseReadiness.publicUpdater.publishAllowed) ([string]$manifest.releaseReadiness.publicUpdater.publishAllowed)
+        Add-Check "manifest:public-updater-signing" ([bool]$manifest.releaseReadiness.publicUpdater.requiresProductionSigning) ([string]$manifest.releaseReadiness.publicUpdater.requiresProductionSigning)
+        Add-Check "manifest:public-updater-handoff" ($manifest.releaseReadiness.publicUpdater.installerHandoff -eq "signed-installer-required") ([string]$manifest.releaseReadiness.publicUpdater.installerHandoff)
+        Add-Check "manifest:public-updater-gate" ($manifest.releaseReadiness.publicUpdater.rolloutGate -eq "tools\test-public-updater-rollout.ps1") ([string]$manifest.releaseReadiness.publicUpdater.rolloutGate)
         Add-Check "manifest:release-readiness-protocol-doc" ($manifest.releaseReadiness.docs.protocolMatrix -eq "docs\PROTOCOL_MATRIX.md") ([string]$manifest.releaseReadiness.docs.protocolMatrix)
         Add-Check "manifest:release-readiness-visual-doc" ($manifest.releaseReadiness.docs.visualQa -eq "docs\VISUAL_QA.md") ([string]$manifest.releaseReadiness.docs.visualQa)
         Add-Check "manifest:signing" ($manifest.signing.digestAlgorithm -eq "SHA256") ([string]$manifest.signing.digestAlgorithm)
@@ -182,6 +190,8 @@ if (Test-Path $manifestPath) {
         Add-Check "manifest:update-policy-rollback" ([bool]$manifest.updates.policy.rollback.preservePreviousPackage) ([string]$manifest.updates.policy.rollback.preservePreviousPackage)
         Add-Check "manifest:update-policy-rollback-owner" ($manifest.updates.policy.rollback.owner -eq "local-ops") ([string]$manifest.updates.policy.rollback.owner)
         Add-Check "manifest:update-rehearsal-script" ($manifest.updates.rehearsalScript -eq "tools\test-update-rehearsal.ps1") ([string]$manifest.updates.rehearsalScript)
+        Add-Check "manifest:public-rollout-script" ($manifest.updates.publicRollout.rolloutGate -eq "tools\test-public-updater-rollout.ps1") ([string]$manifest.updates.publicRollout.rolloutGate)
+        Add-Check "manifest:public-rollout-blocked" (-not [bool]$manifest.updates.publicRollout.publishAllowed) ([string]$manifest.updates.publicRollout.publishAllowed)
     }
     catch {
         Add-Check "manifest:json" $false $_.Exception.Message
