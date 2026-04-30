@@ -1,6 +1,6 @@
 # Samhain Security Native
 
-Version: `1.4.2`
+Version: `1.4.3`
 
 Native Windows secure tunneling client prototype built from a clean base.
 
@@ -16,7 +16,7 @@ Native Windows secure tunneling client prototype built from a clean base.
 
 This release is the native foundation. It focuses on the product shell, simple daily UX, local models, persistence, and build/package flow.
 
-Implemented through `1.4.2`:
+Implemented through `1.4.3`:
 
 - Happ-inspired Qt/QML shell with servers, add, settings, statistics, logs, and about sections.
 - Compact subscription group and server rows without technical clutter.
@@ -97,7 +97,7 @@ Not implemented yet:
 The package is written to:
 
 ```text
-dist\SamhainSecurityNative-1.4.2-win-x64
+dist\SamhainSecurityNative-1.4.3-win-x64
 ```
 
 ## Local Operations
@@ -126,14 +126,14 @@ Prepare the expected runtime folders before packaging:
 Validate a built package:
 
 ```powershell
-.\scripts\prepare-runtime-bundle.ps1 -PackageRoot .\dist\SamhainSecurityNative-1.4.2-win-x64 -ValidateOnly
+.\scripts\prepare-runtime-bundle.ps1 -PackageRoot .\dist\SamhainSecurityNative-1.4.3-win-x64 -ValidateOnly
 ```
 
 ## Package Checks
 
 ```powershell
-.\scripts\validate-package.ps1 -ExpectedVersion 1.4.2 -RunServiceStatus
-.\scripts\smoke-package.ps1 -ExpectedVersion 1.4.2
+.\scripts\validate-package.ps1 -ExpectedVersion 1.4.3 -RunServiceStatus
+.\scripts\smoke-package.ps1 -ExpectedVersion 1.4.3
 ```
 
 See `docs\BETA_CHECKLIST.md` for the manual Windows and protocol matrix.
@@ -141,12 +141,12 @@ See `docs\BETA_CHECKLIST.md` for the manual Windows and protocol matrix.
 ## Stable Checks
 
 ```powershell
-.\scripts\verify-update-manifest.ps1 -ExpectedVersion 1.4.2 -RequireStableChannel
-.\scripts\verify-update-manifest.ps1 -ExpectedVersion 1.4.2 -RequireStableChannel -InstalledVersion 9.9.9 -AllowDowngradeRecovery
-.\scripts\test-signing-readiness.ps1 -ExpectedVersion 1.4.2
-.\scripts\write-clean-machine-evidence.ps1 -ExpectedVersion 1.4.2 -SkipLaunch
-.\scripts\write-release-notes.ps1 -ExpectedVersion 1.4.2
-.\scripts\write-release-evidence.ps1 -ExpectedVersion 1.4.2
+.\scripts\verify-update-manifest.ps1 -ExpectedVersion 1.4.3 -RequireStableChannel
+.\scripts\verify-update-manifest.ps1 -ExpectedVersion 1.4.3 -RequireStableChannel -InstalledVersion 9.9.9 -AllowDowngradeRecovery
+.\scripts\test-signing-readiness.ps1 -ExpectedVersion 1.4.3
+.\scripts\write-clean-machine-evidence.ps1 -ExpectedVersion 1.4.3 -SkipLaunch
+.\scripts\write-release-notes.ps1 -ExpectedVersion 1.4.3
+.\scripts\write-release-evidence.ps1 -ExpectedVersion 1.4.3
 ```
 
 See `docs\STABLE_RELEASE.md`, `docs\CLEAN_MACHINE_EVIDENCE.md`, `docs\PROTOCOL_MATRIX.md`, and `docs\VISUAL_QA.md` for the stable release checklist, protocol coverage, visual checks, and external test evidence flow.

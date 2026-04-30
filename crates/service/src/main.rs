@@ -21,12 +21,13 @@ use std::io::{BufRead, BufReader, Read};
 use std::net::{IpAddr, SocketAddr, TcpStream, ToSocketAddrs};
 use std::path::{Path, PathBuf};
 use std::process::{Child, Command, Stdio};
-use std::sync::{Arc, Mutex, OnceLock};
+use std::sync::{Arc, Mutex, OnceLock, mpsc};
 use std::thread;
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 static STORE: OnceLock<Mutex<ServiceStore>> = OnceLock::new();
 const PROBE_TIMEOUT: Duration = Duration::from_millis(260);
+const PROBE_RESOLVE_TIMEOUT: Duration = Duration::from_millis(260);
 const SUBSCRIPTION_FETCH_TIMEOUT: Duration = Duration::from_secs(8);
 const LOCAL_PROXY_HOST: &str = "127.0.0.1";
 const LOCAL_PROXY_PORT: u16 = 20808;
@@ -110,10 +111,6 @@ fn print_self_check() -> Result<()> {
 }
 
 fn run_service() -> Result<()> {
-    println!(
-        "Samhain Security service IPC listening on {}",
-        samhain_ipc::NAMED_PIPE_NAME
-    );
     named_pipe::run(handle_payload)
 }
 
@@ -2060,33 +2057,18 @@ fn probe_server(server: &Server) -> PingProbeResult {
         };
     };
 
-    let endpoint = match server.host.parse::<IpAddr>() {
-        Ok(ip) => SocketAddr::new(ip, port),
-        Err(_) => match (server.host.as_str(), port).to_socket_addrs() {
-            Ok(mut addrs) => match addrs.next() {
-                Some(endpoint) => endpoint,
-                None => {
-                    return PingProbeResult {
-                        server_id: server.id.clone(),
-                        ping_ms: None,
-                        status: "unresolved".to_string(),
-                        checked_at,
-                        source: "tcp-connect".to_string(),
-                        stale: false,
-                    };
-                }
-            },
-            Err(_) => {
-                return PingProbeResult {
-                    server_id: server.id.clone(),
-                    ping_ms: None,
-                    status: "unresolved".to_string(),
-                    checked_at,
-                    source: "tcp-connect".to_string(),
-                    stale: false,
-                };
-            }
-        },
+    let endpoint = match resolve_probe_endpoint(&server.host, port) {
+        Some(endpoint) => endpoint,
+        None => {
+            return PingProbeResult {
+                server_id: server.id.clone(),
+                ping_ms: None,
+                status: "unresolved".to_string(),
+                checked_at,
+                source: "tcp-connect".to_string(),
+                stale: false,
+            };
+        }
     };
     let started = Instant::now();
     match TcpStream::connect_timeout(&endpoint, PROBE_TIMEOUT) {
@@ -2118,6 +2100,33 @@ fn probe_server(server: &Server) -> PingProbeResult {
             }
         }
     }
+}
+
+fn resolve_probe_endpoint(host: &str, port: u16) -> Option<SocketAddr> {
+    if let Ok(ip) = host.parse::<IpAddr>() {
+        return Some(SocketAddr::new(ip, port));
+    }
+
+    let host = host.to_string();
+    let (sender, receiver) = mpsc::channel();
+    thread::spawn(move || {
+        let result = (host.as_str(), port)
+            .to_socket_addrs()
+            .ok()
+            .and_then(|addrs| {
+                let mut fallback = None;
+                for address in addrs {
+                    if address.is_ipv4() {
+                        return Some(address);
+                    }
+                    fallback.get_or_insert(address);
+                }
+                fallback
+            });
+        let _ = sender.send(result);
+    });
+
+    receiver.recv_timeout(PROBE_RESOLVE_TIMEOUT).ok().flatten()
 }
 
 #[derive(Debug, Clone)]

@@ -1,6 +1,6 @@
 # Roadmap
 
-Current version: `1.4.2`
+Current version: `1.4.3`
 
 This roadmap is the working contract for Samhain Security. Future implementation should follow this order unless a blocker is found and documented in the same commit.
 
@@ -684,6 +684,20 @@ Done when a clean checkout can fetch the official runtime set, package it, and s
 
 Status: shipped in `v1.4.2` with pinned archive metadata, `tools\fetch-runtime-bundle.ps1`, verified local extraction, package/service runtime inventories, and updated AmneziaWG lifecycle support.
 
+### 1.4.3 - Managed User Service Startup
+
+- Start the packaged user-mode service automatically from the desktop shell when the named pipe is not already available.
+- Keep the service process scoped to the app session and stop it during normal desktop shutdown.
+- Make desktop commands retry through the managed service instead of falling back to local UI-only state.
+- Extend smoke checks so launch validation proves that the service IPC pipe is actually reachable.
+
+Done when a packaged app launch can import subscriptions, run latency checks, and send connect/disconnect commands through the live service without requiring the user to start a separate console process.
+
+Status: shipped in `v1.4.3` with desktop-managed service startup, packaged service path discovery, named-pipe readiness waiting, managed service cleanup, and launch smoke evidence for the service IPC.
+
 ## Immediate Next Build Order
 
-1. `1.4.x`: external protocol smoke, installer signing, and public updater rollout.
+1. `1.4.4`: external proxy-path protocol smoke on imported live subscriptions.
+2. `1.4.5`: whole-computer TUN elevation and rollback validation.
+3. `1.4.6`: WireGuard and AmneziaWG live adapter validation.
+4. `1.4.x`: installer signing and public updater rollout.

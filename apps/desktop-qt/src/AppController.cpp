@@ -25,6 +25,7 @@
 #define NOMINMAX
 #endif
 #include <windows.h>
+#include <shellapi.h>
 #endif
 
 namespace {
@@ -43,6 +44,19 @@ QString quotedExecutablePath()
 QString startupCommand()
 {
     return quotedExecutablePath() + " --background";
+}
+
+QStringList serviceExecutableCandidates()
+{
+    const QDir appDir(QCoreApplication::applicationDirPath());
+    return {
+        appDir.filePath("../service/samhain-service.exe"),
+        appDir.filePath("samhain-service.exe"),
+        appDir.filePath("../../target/release/samhain-service.exe"),
+        appDir.filePath("../../target/debug/samhain-service.exe"),
+        appDir.filePath("../target/release/samhain-service.exe"),
+        appDir.filePath("../target/debug/samhain-service.exe"),
+    };
 }
 
 #ifdef Q_OS_WIN
@@ -495,6 +509,7 @@ AppController::AppController(QObject *parent)
 {
     m_autostartEnabled = startupShortcutEnabled();
     setupTray();
+    ensureUserServiceRunning(5000);
 
     connect(&m_statsTimer, &QTimer::timeout, this, &AppController::refreshTrafficStats);
     m_statsTimer.setInterval(1000);
@@ -517,6 +532,16 @@ AppController::AppController(QObject *parent)
     }
     QTimer::singleShot(1200, this, &AppController::testAllPings);
     updateTrayState();
+}
+
+AppController::~AppController()
+{
+    if (m_serviceProcessHandle) {
+        const auto handle = static_cast<HANDLE>(m_serviceProcessHandle);
+        TerminateProcess(handle, 0);
+        WaitForSingleObject(handle, 1500);
+        CloseHandle(handle);
+    }
 }
 
 QAbstractListModel *AppController::serverModel()
@@ -895,7 +920,7 @@ void AppController::testPing()
     QJsonObject command;
     command["type"] = "test-ping";
     command["server_id"] = serverId;
-    const auto response = requestService(command, IpcRequestTimeoutMs);
+    const auto response = requestService(command, IpcEngineTimeoutMs);
 
     m_serverModel.setPing(row, "...");
     if (!response.isEmpty()) {
@@ -2413,10 +2438,14 @@ void AppController::loadSampleSubscription()
     m_subscriptionMeta = subscription.meta;
 }
 
-QString AppController::requestService(const QJsonObject &command, int timeoutMs) const
+QString AppController::requestService(const QJsonObject &command, int timeoutMs)
 {
 #ifdef Q_OS_WIN
-    if (!WaitNamedPipeW(IpcPipeName, static_cast<DWORD>(timeoutMs))) {
+    if (!servicePipeAvailable(timeoutMs) && !ensureUserServiceRunning(timeoutMs)) {
+        return {};
+    }
+
+    if (!WaitNamedPipeW(IpcPipeName, static_cast<DWORD>(std::max(1, timeoutMs)))) {
         return {};
     }
 
@@ -2477,6 +2506,75 @@ QString AppController::requestService(const QJsonObject &command, int timeoutMs)
     Q_UNUSED(timeoutMs)
     return {};
 #endif
+}
+
+bool AppController::ensureUserServiceRunning(int timeoutMs)
+{
+#ifdef Q_OS_WIN
+    if (servicePipeAvailable(25)) {
+        return true;
+    }
+
+    if (m_serviceProcessHandle) {
+        return servicePipeAvailable(timeoutMs);
+    }
+
+    if (m_serviceStartAttempted) {
+        return servicePipeAvailable(timeoutMs);
+    }
+
+    m_serviceStartAttempted = true;
+    m_servicePath = serviceExecutablePath();
+    if (m_servicePath.isEmpty()) {
+        appendLog("Сервис: исполняемый файл не найден");
+        return false;
+    }
+
+    const auto nativePath = QDir::toNativeSeparators(m_servicePath);
+    const auto nativeDir = QDir::toNativeSeparators(QFileInfo(m_servicePath).absolutePath());
+    const auto parameters = QStringLiteral("run");
+    SHELLEXECUTEINFOW executeInfo = {};
+    executeInfo.cbSize = sizeof(executeInfo);
+    executeInfo.fMask = SEE_MASK_NOCLOSEPROCESS | SEE_MASK_NOASYNC;
+    executeInfo.lpVerb = L"open";
+    executeInfo.lpFile = reinterpret_cast<LPCWSTR>(nativePath.utf16());
+    executeInfo.lpParameters = reinterpret_cast<LPCWSTR>(parameters.utf16());
+    executeInfo.lpDirectory = reinterpret_cast<LPCWSTR>(nativeDir.utf16());
+    executeInfo.nShow = SW_HIDE;
+
+    if (ShellExecuteExW(&executeInfo) == 0 || !executeInfo.hProcess) {
+        appendLog(QString("Сервис: не удалось запустить user-mode процесс (%1)").arg(GetLastError()));
+        return false;
+    }
+
+    m_serviceProcessHandle = executeInfo.hProcess;
+    appendLog(QString("Сервис: user-mode процесс запущен (%1)").arg(GetProcessId(executeInfo.hProcess)));
+    return servicePipeAvailable(std::max(1, timeoutMs));
+#else
+    Q_UNUSED(timeoutMs)
+    return false;
+#endif
+}
+
+bool AppController::servicePipeAvailable(int timeoutMs) const
+{
+#ifdef Q_OS_WIN
+    return WaitNamedPipeW(IpcPipeName, static_cast<DWORD>(std::max(1, timeoutMs))) != 0;
+#else
+    Q_UNUSED(timeoutMs)
+    return false;
+#endif
+}
+
+QString AppController::serviceExecutablePath() const
+{
+    for (const auto &candidate : serviceExecutableCandidates()) {
+        const QFileInfo info(candidate);
+        if (info.isFile()) {
+            return info.absoluteFilePath();
+        }
+    }
+    return {};
 }
 
 QString AppController::protocolLabel(const QString &wireProtocol) const

@@ -144,6 +144,86 @@ function Invoke-DesktopIntegrationStatusCheck {
     }
 }
 
+function Stop-PackageProcesses {
+    param([string]$PackageRoot)
+
+    foreach ($name in @("SamhainSecurityNative", "samhain-service")) {
+        Get-Process -Name $name -ErrorAction SilentlyContinue | ForEach-Object {
+            $path = $_.Path
+            if ($path -and [System.IO.Path]::GetFullPath($path).StartsWith($PackageRoot, [System.StringComparison]::OrdinalIgnoreCase)) {
+                Stop-Process -Id $_.Id -Force -ErrorAction SilentlyContinue
+            }
+        }
+    }
+}
+
+function Test-ServicePipe {
+    param([int]$TimeoutMs = 1500)
+
+    try {
+        $client = [System.IO.Pipes.NamedPipeClientStream]::new(".", "SamhainSecurity.Native.Ipc", [System.IO.Pipes.PipeDirection]::InOut)
+        $client.Connect($TimeoutMs)
+        $client.ReadMode = [System.IO.Pipes.PipeTransmissionMode]::Message
+
+        $request = @{
+            protocol_version = 1
+            request_id = "smoke-managed-service"
+            command = @{ type = "ping" }
+        } | ConvertTo-Json -Compress
+        $requestBytes = [System.Text.Encoding]::UTF8.GetBytes($request)
+        $client.Write($requestBytes, 0, $requestBytes.Length)
+        $client.Flush()
+
+        $buffer = [byte[]]::new(65536)
+        $read = $client.Read($buffer, 0, $buffer.Length)
+        if ($read -le 0) {
+            $client.Dispose()
+            return $false
+        }
+
+        $responseText = [System.Text.Encoding]::UTF8.GetString($buffer, 0, $read)
+        $response = $responseText | ConvertFrom-Json
+        $client.Dispose()
+        return (($response.ok -eq $true) -and ($response.event.type -eq "pong"))
+    }
+    catch {
+        return $false
+    }
+}
+
+function Wait-PackageServiceReady {
+    param(
+        [string]$PackageRoot,
+        [int]$TimeoutMs = 10000
+    )
+
+    $deadline = [DateTime]::UtcNow.AddMilliseconds($TimeoutMs)
+    $serviceProcess = $null
+    $pipeReady = $false
+
+    while ([DateTime]::UtcNow -lt $deadline) {
+        $serviceProcess = Get-Process -Name "samhain-service" -ErrorAction SilentlyContinue |
+            Where-Object {
+                $_.Path -and [System.IO.Path]::GetFullPath($_.Path).StartsWith($PackageRoot, [System.StringComparison]::OrdinalIgnoreCase)
+            } |
+            Select-Object -First 1
+
+        if ($null -ne $serviceProcess) {
+            $pipeReady = Test-ServicePipe -TimeoutMs 1000
+            if ($pipeReady) {
+                break
+            }
+        }
+
+        Start-Sleep -Milliseconds 250
+    }
+
+    [pscustomobject]@{
+        Process = $serviceProcess
+        PipeReady = $pipeReady
+    }
+}
+
 $toolsRoot = Join-Path $PackageRoot "tools"
 $validateScript = Join-Path $toolsRoot "validate-package.ps1"
 $updateVerifierScript = Join-Path $toolsRoot "verify-update-manifest.ps1"
@@ -294,6 +374,7 @@ else {
 if (-not $SkipLaunch) {
     $process = $null
     try {
+        Stop-PackageProcesses -PackageRoot $PackageRoot
         if (-not (Test-Path $appExe)) {
             Add-Step "desktop:launch" $false "missing=$appExe"
         }
@@ -310,6 +391,10 @@ if (-not $SkipLaunch) {
 
             if ($alive) {
                 Add-Step "desktop:launch" $true "pid=$($process.Id)"
+                $serviceReady = Wait-PackageServiceReady -PackageRoot $PackageRoot -TimeoutMs 10000
+                $serviceProcess = $serviceReady.Process
+                $pipeReady = $serviceReady.PipeReady
+                Add-Step "desktop:managed-service" (($null -ne $serviceProcess) -and $pipeReady) "pid=$($serviceProcess.Id) pipe=$pipeReady"
             }
             else {
                 Add-Step "desktop:launch" $false "exit=$($process.ExitCode)"
@@ -336,6 +421,7 @@ if (-not $SkipLaunch) {
                 Stop-Process -Id $_.Id -Force -ErrorAction SilentlyContinue
             }
         }
+        Stop-PackageProcesses -PackageRoot $PackageRoot
     }
 }
 

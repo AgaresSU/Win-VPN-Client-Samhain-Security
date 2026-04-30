@@ -2,7 +2,7 @@
   "schema": "samhain.runtimeBundleLock",
   "schemaVersion": 1,
   "product": "Samhain Security Native",
-  "version": "1.4.2",
+  "version": "1.4.3",
   "layout": {
     "packageRoot": "app\\engines",
     "stateFile": "app\\engines\\runtime-bundle-state.json"

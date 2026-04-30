@@ -144,6 +144,7 @@ class AppController final : public QObject {
 
 public:
     explicit AppController(QObject *parent = nullptr);
+    ~AppController() override;
 
     QAbstractListModel *serverModel();
     QString page() const;
@@ -269,7 +270,10 @@ private:
         QVector<ServerItem> servers,
         const QString &sourceUrl = {}) const;
     QVector<ServerItem> buildServersForUrl(const QString &url) const;
-    QString requestService(const QJsonObject &command, int timeoutMs) const;
+    QString requestService(const QJsonObject &command, int timeoutMs);
+    bool ensureUserServiceRunning(int timeoutMs);
+    bool servicePipeAvailable(int timeoutMs) const;
+    QString serviceExecutablePath() const;
     QString protocolLabel(const QString &wireProtocol) const;
     QString flagForCountry(const QString &countryCode) const;
     QString routeModeWireValue() const;
@@ -348,6 +352,9 @@ private:
     QAction *m_trayShowAction = nullptr;
     QAction *m_trayConnectAction = nullptr;
     QAction *m_trayQuitAction = nullptr;
+    void *m_serviceProcessHandle = nullptr;
+    bool m_serviceStartAttempted = false;
+    QString m_servicePath;
     QTimer m_statsTimer;
     QTimer m_probeTimer;
     QDateTime m_connectedAt;

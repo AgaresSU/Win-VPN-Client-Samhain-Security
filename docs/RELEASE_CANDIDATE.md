@@ -1,6 +1,6 @@
 # Release Candidate Gates
 
-Version: `1.4.2`
+Version: `1.4.3`
 
 The release candidate build adds update-manifest verification and repeatable evidence for package integrity.
 
@@ -14,13 +14,13 @@ cargo test --workspace
 .\scripts\fetch-runtime-bundle.ps1
 .\scripts\prepare-runtime-bundle.ps1
 .\scripts\package.ps1
-.\scripts\validate-package.ps1 -ExpectedVersion 1.4.2 -RunServiceStatus
-.\scripts\prepare-runtime-bundle.ps1 -PackageRoot .\dist\SamhainSecurityNative-1.4.2-win-x64 -ValidateOnly
-.\scripts\verify-update-manifest.ps1 -ExpectedVersion 1.4.2 -RequireStableChannel
-.\scripts\test-signing-readiness.ps1 -ExpectedVersion 1.4.2
-.\scripts\write-clean-machine-evidence.ps1 -ExpectedVersion 1.4.2 -SkipLaunch
-.\scripts\write-release-notes.ps1 -ExpectedVersion 1.4.2
-.\scripts\smoke-package.ps1 -ExpectedVersion 1.4.2
+.\scripts\validate-package.ps1 -ExpectedVersion 1.4.3 -RunServiceStatus
+.\scripts\prepare-runtime-bundle.ps1 -PackageRoot .\dist\SamhainSecurityNative-1.4.3-win-x64 -ValidateOnly
+.\scripts\verify-update-manifest.ps1 -ExpectedVersion 1.4.3 -RequireStableChannel
+.\scripts\test-signing-readiness.ps1 -ExpectedVersion 1.4.3
+.\scripts\write-clean-machine-evidence.ps1 -ExpectedVersion 1.4.3 -SkipLaunch
+.\scripts\write-release-notes.ps1 -ExpectedVersion 1.4.3
+.\scripts\smoke-package.ps1 -ExpectedVersion 1.4.3
 ```
 
 The update manifest verifier checks the published zip hash and size, extracts the archive into a temporary folder, and runs package validation against the extracted files.

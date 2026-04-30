@@ -1,5 +1,5 @@
 param(
-    [string]$Version = "1.4.2",
+    [string]$Version = "1.4.3",
     [string]$Configuration = "Release"
 )
 
@@ -312,7 +312,7 @@ $manifest = [PSCustomObject]@{
         }
         docs = [PSCustomObject]@{
             stableRelease = "docs\STABLE_RELEASE.md"
-            releaseNotes = "docs\RELEASE_NOTES_1.4.2.md"
+            releaseNotes = "docs\RELEASE_NOTES_1.4.3.md"
             protocolMatrix = "docs\PROTOCOL_MATRIX.md"
             visualQa = "docs\VISUAL_QA.md"
             securityPosture = "docs\SECURITY_POSTURE.md"
