@@ -12,3 +12,5 @@ dist/
 *.log
 *.tmp
 engines/runtime-bundle-state.json
+engines/**/*.dat
+engines/**/LICENSE

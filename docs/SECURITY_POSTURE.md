@@ -1,6 +1,6 @@
 # Security Posture
 
-Version: `1.4.1`
+Version: `1.4.2`
 
 Samhain Security is hardened for a current-user package plus an installer-owned privileged service path. The visible desktop stays simple, while risky network, routing, and recovery operations remain service-owned and gated by identity, elevation, signing state, and explicit policy.
 
@@ -35,4 +35,4 @@ Service storage is expected under user profile data roots or temp during tests. 
 - Production code signing is still pending.
 - The privileged service identity remains gated until installed and signed.
 - Transparent per-process routing still requires the signed WFP layer.
-- Runtime binaries must be supplied and validated on clean Windows machines before public release.
+- Fetched runtime binaries must be validated on clean Windows machines before public release.

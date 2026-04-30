@@ -1,5 +1,5 @@
 param(
-    [string]$Version = "1.4.1",
+    [string]$Version = "1.4.2",
     [string]$Configuration = "Release"
 )
 
@@ -61,9 +61,9 @@ $EngineContracts = @(
         runtimeId = "amneziawg"
         name = "AmneziaWG"
         kind = "amnezia-wg"
-        bundledPath = "app\engines\amneziawg\awg-quick.exe"
+        bundledPath = "app\engines\amneziawg\amneziawg.exe"
         protocols = @("amneziawg")
-        versionArgs = @("--version")
+        versionArgs = @("/?")
     }
 )
 
@@ -154,6 +154,7 @@ Copy-Item -LiteralPath (Join-Path $RepoRoot "scripts\write-release-notes.ps1") -
 Copy-Item -LiteralPath (Join-Path $RepoRoot "scripts\test-signing-readiness.ps1") -Destination $ToolsOut -Force
 Copy-Item -LiteralPath (Join-Path $RepoRoot "scripts\write-clean-machine-evidence.ps1") -Destination $ToolsOut -Force
 Copy-Item -LiteralPath (Join-Path $RepoRoot "scripts\prepare-runtime-bundle.ps1") -Destination $ToolsOut -Force
+Copy-Item -LiteralPath (Join-Path $RepoRoot "scripts\fetch-runtime-bundle.ps1") -Destination $ToolsOut -Force
 Copy-Item -LiteralPath (Join-Path $RepoRoot "runtime-bundle.lock.json") -Destination $PackageRoot -Force
 Copy-Item -LiteralPath (Join-Path $RepoRoot "assets") -Destination $PackageRoot -Recurse -Force
 if (Test-Path (Join-Path $RepoRoot "engines")) {
@@ -247,6 +248,7 @@ $manifest = [PSCustomObject]@{
             lock = "runtime-bundle.lock.json"
             state = "app\engines\runtime-bundle-state.json"
             prepareScript = "tools\prepare-runtime-bundle.ps1"
+            fetchScript = "tools\fetch-runtime-bundle.ps1"
             availabilitySource = "package-inventory"
             layout = @($EngineContracts | ForEach-Object {
                 [PSCustomObject]@{
@@ -272,6 +274,7 @@ $manifest = [PSCustomObject]@{
         signingReadinessScript = "tools\test-signing-readiness.ps1"
         cleanMachineEvidenceScript = "tools\write-clean-machine-evidence.ps1"
         runtimeBundleScript = "tools\prepare-runtime-bundle.ps1"
+        runtimeBundleFetchScript = "tools\fetch-runtime-bundle.ps1"
         serviceSelfCheckCommand = "service\samhain-service.exe self-check"
         enforcementTransactionEvidence = "service.protection_policy.transaction"
         engineInventory = "engine-inventory.json"
@@ -290,7 +293,8 @@ $manifest = [PSCustomObject]@{
             "tools\write-release-notes.ps1",
             "tools\test-signing-readiness.ps1",
             "tools\write-clean-machine-evidence.ps1",
-            "tools\prepare-runtime-bundle.ps1"
+            "tools\prepare-runtime-bundle.ps1",
+            "tools\fetch-runtime-bundle.ps1"
         )
     }
     releaseReadiness = [PSCustomObject]@{
@@ -308,7 +312,7 @@ $manifest = [PSCustomObject]@{
         }
         docs = [PSCustomObject]@{
             stableRelease = "docs\STABLE_RELEASE.md"
-            releaseNotes = "docs\RELEASE_NOTES_1.4.1.md"
+            releaseNotes = "docs\RELEASE_NOTES_1.4.2.md"
             protocolMatrix = "docs\PROTOCOL_MATRIX.md"
             visualQa = "docs\VISUAL_QA.md"
             securityPosture = "docs\SECURITY_POSTURE.md"
@@ -359,6 +363,7 @@ $checksumTargets = @(
     "tools\test-signing-readiness.ps1",
     "tools\write-clean-machine-evidence.ps1",
     "tools\prepare-runtime-bundle.ps1",
+    "tools\fetch-runtime-bundle.ps1",
     "release-manifest.json",
     "engine-inventory.json",
     "runtime-bundle.lock.json",
@@ -423,6 +428,7 @@ $updateManifest = [PSCustomObject]@{
             lock = "runtime-bundle.lock.json"
             state = "app\engines\runtime-bundle-state.json"
             prepareScript = "tools\prepare-runtime-bundle.ps1"
+            fetchScript = "tools\fetch-runtime-bundle.ps1"
             availabilitySource = "package-inventory"
         }
         securityPosture = [PSCustomObject]@{
@@ -449,6 +455,7 @@ $updateManifest = [PSCustomObject]@{
         signingReadinessScript = "tools\test-signing-readiness.ps1"
         cleanMachineEvidenceScript = "tools\write-clean-machine-evidence.ps1"
         runtimeBundleScript = "tools\prepare-runtime-bundle.ps1"
+        runtimeBundleFetchScript = "tools\fetch-runtime-bundle.ps1"
         serviceSelfCheckCommand = "service\samhain-service.exe self-check"
         enforcementTransactionEvidence = "service.protection_policy.transaction"
         engineInventory = "engine-inventory.json"

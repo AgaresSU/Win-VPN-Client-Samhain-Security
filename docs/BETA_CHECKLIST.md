@@ -1,6 +1,6 @@
 # Beta Checklist
 
-Version: `1.4.1`
+Version: `1.4.2`
 
 This checklist keeps beta readiness visible without adding complexity to the desktop UI.
 
@@ -11,15 +11,16 @@ Run before tagging a release:
 ```powershell
 cargo test --workspace
 .\scripts\build.ps1
+.\scripts\fetch-runtime-bundle.ps1
 .\scripts\prepare-runtime-bundle.ps1
 .\scripts\package.ps1
-.\scripts\validate-package.ps1 -ExpectedVersion 1.4.1 -RunServiceStatus
-.\scripts\prepare-runtime-bundle.ps1 -PackageRoot .\dist\SamhainSecurityNative-1.4.1-win-x64 -ValidateOnly
-.\scripts\verify-update-manifest.ps1 -ExpectedVersion 1.4.1 -RequireStableChannel
-.\scripts\test-signing-readiness.ps1 -ExpectedVersion 1.4.1
-.\scripts\write-clean-machine-evidence.ps1 -ExpectedVersion 1.4.1 -SkipLaunch
-.\scripts\write-release-notes.ps1 -ExpectedVersion 1.4.1
-.\scripts\smoke-package.ps1 -ExpectedVersion 1.4.1
+.\scripts\validate-package.ps1 -ExpectedVersion 1.4.2 -RunServiceStatus
+.\scripts\prepare-runtime-bundle.ps1 -PackageRoot .\dist\SamhainSecurityNative-1.4.2-win-x64 -ValidateOnly
+.\scripts\verify-update-manifest.ps1 -ExpectedVersion 1.4.2 -RequireStableChannel
+.\scripts\test-signing-readiness.ps1 -ExpectedVersion 1.4.2
+.\scripts\write-clean-machine-evidence.ps1 -ExpectedVersion 1.4.2 -SkipLaunch
+.\scripts\write-release-notes.ps1 -ExpectedVersion 1.4.2
+.\scripts\smoke-package.ps1 -ExpectedVersion 1.4.2
 ```
 
 The smoke script validates package structure, SHA256 hashes, runtime bundle state, service status, current-user operations in dry-run mode, machine-scope service status/dry-runs, and packaged desktop launch.
@@ -48,7 +49,7 @@ Detailed release rules live in `docs\PROTOCOL_MATRIX.md`.
 ## Beta Blockers
 
 - Production signing certificate and certificate-backed service identity.
-- Production runtime bundle for engines and adapters.
+- External runtime protocol smoke with the fetched engines and adapters.
 - Production WFP app-routing enforcement.
 - Production-signed update manifest verification.
 - External Windows 10/11 matrix evidence from clean machines.

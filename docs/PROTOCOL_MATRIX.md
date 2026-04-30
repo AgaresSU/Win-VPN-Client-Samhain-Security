@@ -1,6 +1,6 @@
 # Protocol Matrix
 
-Version: `1.4.1`
+Version: `1.4.2`
 
 This matrix keeps protocol readiness honest. The desktop shows only the compact server list; these details stay in docs, diagnostics, and advanced tooling.
 
@@ -14,7 +14,7 @@ This matrix keeps protocol readiness honest. The desktop shows only the compact 
 | Hysteria2 | sing-box | `app\engines\sing-box\sing-box.exe` | Supported when the runtime binary is bundled and the subscription record is valid |
 | TUIC | sing-box | `app\engines\sing-box\sing-box.exe` | Supported when the runtime binary is bundled and the subscription record is valid |
 | WireGuard | WireGuard tools | `app\engines\wireguard\wireguard.exe` | Adapter profile generation and diagnostics are release-ready; production runtime validation is required |
-| AmneziaWG | AmneziaWG tools | `app\engines\amneziawg\awg-quick.exe` | Adapter profile generation and diagnostics are release-ready; production runtime validation is required |
+| AmneziaWG | AmneziaWG tools | `app\engines\amneziawg\amneziawg.exe` | Adapter profile generation and diagnostics are release-ready; production runtime validation is required |
 
 ## Required Checks
 

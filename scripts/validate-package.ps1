@@ -66,6 +66,7 @@ $requiredPaths = @(
     "tools\test-signing-readiness.ps1",
     "tools\write-clean-machine-evidence.ps1",
     "tools\prepare-runtime-bundle.ps1",
+    "tools\fetch-runtime-bundle.ps1",
     "assets",
     "docs",
     "README.md",
@@ -130,9 +131,11 @@ if (Test-Path $manifestPath) {
         Add-Check "manifest:runtime-lock" ($manifest.operations.runtimeContract.lock -eq "runtime-bundle.lock.json") ([string]$manifest.operations.runtimeContract.lock)
         Add-Check "manifest:runtime-state" ($manifest.operations.runtimeContract.state -eq "app\engines\runtime-bundle-state.json") ([string]$manifest.operations.runtimeContract.state)
         Add-Check "manifest:runtime-prepare-script" ($manifest.operations.runtimeContract.prepareScript -eq "tools\prepare-runtime-bundle.ps1") ([string]$manifest.operations.runtimeContract.prepareScript)
+        Add-Check "manifest:runtime-fetch-script" ($manifest.operations.runtimeContract.fetchScript -eq "tools\fetch-runtime-bundle.ps1") ([string]$manifest.operations.runtimeContract.fetchScript)
         Add-Check "manifest:runtime-source" ($manifest.operations.runtimeContract.availabilitySource -eq "package-inventory") ([string]$manifest.operations.runtimeContract.availabilitySource)
         Add-Check "manifest:runtime-layout" ($manifest.operations.runtimeContract.layout.Count -ge 4) "entries=$($manifest.operations.runtimeContract.layout.Count)"
         Add-Check "manifest:runtime-bundle-script" ($manifest.quality.runtimeBundleScript -eq "tools\prepare-runtime-bundle.ps1") ([string]$manifest.quality.runtimeBundleScript)
+        Add-Check "manifest:runtime-bundle-fetch-script" ($manifest.quality.runtimeBundleFetchScript -eq "tools\fetch-runtime-bundle.ps1") ([string]$manifest.quality.runtimeBundleFetchScript)
         Add-Check "manifest:runtime-bundle-lock" ($manifest.quality.runtimeBundleLock -eq "runtime-bundle.lock.json") ([string]$manifest.quality.runtimeBundleLock)
         Add-Check "manifest:runtime-bundle-state" ($manifest.quality.runtimeBundleState -eq "app\engines\runtime-bundle-state.json") ([string]$manifest.quality.runtimeBundleState)
         Add-Check "manifest:runtime-health" ($manifest.quality.runtimeHealthEvidence -eq "service.runtime_health") ([string]$manifest.quality.runtimeHealthEvidence)
@@ -145,6 +148,7 @@ if (Test-Path $manifestPath) {
         Add-Check "manifest:clean-machine-evidence" ($manifest.quality.cleanMachineEvidenceScript -eq "tools\write-clean-machine-evidence.ps1") ([string]$manifest.quality.cleanMachineEvidenceScript)
         Add-Check "manifest:release-notes-gate" ($manifest.quality.gates -contains "tools\write-release-notes.ps1") "gates=$($manifest.quality.gates -join ',')"
         Add-Check "manifest:runtime-bundle-gate" ($manifest.quality.gates -contains "tools\prepare-runtime-bundle.ps1") "gates=$($manifest.quality.gates -join ',')"
+        Add-Check "manifest:runtime-bundle-fetch-gate" ($manifest.quality.gates -contains "tools\fetch-runtime-bundle.ps1") "gates=$($manifest.quality.gates -join ',')"
         Add-Check "manifest:release-readiness-status" ($manifest.releaseReadiness.status -eq "release-ready-dev-signed") ([string]$manifest.releaseReadiness.status)
         Add-Check "manifest:release-readiness-daily-flow" ([bool]$manifest.releaseReadiness.dailyUx.simpleMainFlow) ([string]$manifest.releaseReadiness.dailyUx.simpleMainFlow)
         Add-Check "manifest:release-readiness-advanced-hidden" ([bool]$manifest.releaseReadiness.dailyUx.advancedSettingsHidden) ([string]$manifest.releaseReadiness.dailyUx.advancedSettingsHidden)
@@ -209,7 +213,15 @@ if (Test-Path $runtimeLockPath) {
             $runtimeId = [string]$runtime.runtimeId
             $expectedPackagePath = [string]$runtime.bundle.packagePath
             $inventoryEntry = $inventory | Where-Object { $_.runtimeId -eq $runtimeId } | Select-Object -First 1
+            $hasDirectDownload = -not [string]::IsNullOrWhiteSpace([string]$runtime.source.downloadUrl)
+            $hasDerivedDownload = @($runtime.source.githubOwnerCodePoints).Count -gt 0 -and
+                -not [string]::IsNullOrWhiteSpace([string]$runtime.source.githubRepository) -and
+                -not [string]::IsNullOrWhiteSpace([string]$runtime.source.githubReleaseTag) -and
+                -not [string]::IsNullOrWhiteSpace([string]$runtime.source.archiveName)
+            $downloadMode = if ($hasDirectDownload) { "direct" } elseif ($hasDerivedDownload) { "derived" } else { "missing" }
             Add-Check "runtime-bundle-lock:${runtimeId}-inventory" ($null -ne $inventoryEntry) "present=$($null -ne $inventoryEntry)"
+            Add-Check "runtime-bundle-lock:${runtimeId}-download" ($hasDirectDownload -or $hasDerivedDownload) $downloadMode
+            Add-Check "runtime-bundle-lock:${runtimeId}-sha256" (([string]$runtime.source.archiveSha256) -match '^[a-f0-9]{64}$') ([string]$runtime.source.archiveSha256)
             if ($null -ne $inventoryEntry) {
                 Add-Check "runtime-bundle-lock:${runtimeId}-path" ($inventoryEntry.bundledPath -eq $expectedPackagePath) "lock=$expectedPackagePath inventory=$($inventoryEntry.bundledPath)"
             }

@@ -1,6 +1,6 @@
 # Roadmap
 
-Current version: `1.4.1`
+Current version: `1.4.2`
 
 This roadmap is the working contract for Samhain Security. Future implementation should follow this order unless a blocker is found and documented in the same commit.
 
@@ -20,6 +20,7 @@ Each release commit should pass:
 
 - `cargo test --workspace`
 - `.\scripts\build.ps1`
+- `.\scripts\fetch-runtime-bundle.ps1`
 - `.\scripts\prepare-runtime-bundle.ps1`
 - `.\scripts\package.ps1` before release tags
 - `.\scripts\validate-package.ps1 -RunServiceStatus`
@@ -672,6 +673,17 @@ Done when a package can explain exactly which runtime binaries are present, whic
 
 Status: shipped in `v1.4.1` with `runtime-bundle.lock.json`, packaged `tools\prepare-runtime-bundle.ps1`, `app\engines\runtime-bundle-state.json`, runtime bundle validation gates, and updated release docs.
 
+### 1.4.2 - Verified Runtime Fetch
+
+- Pin official Windows x64 runtime archives for sing-box, Xray, WireGuard, and AmneziaWG.
+- Add a fetch script that downloads archives, verifies locked SHA256 and size, extracts only mapped runtime files, and writes bundle state.
+- Switch the AmneziaWG adapter contract to the real Windows `amneziawg.exe` tunnel-service lifecycle.
+- Include the fetch script and runtime source policy in package manifests, update manifests, docs, and release gates.
+
+Done when a clean checkout can fetch the official runtime set, package it, and show runtime availability through package validation without committing binaries to git.
+
+Status: shipped in `v1.4.2` with pinned archive metadata, `tools\fetch-runtime-bundle.ps1`, verified local extraction, package/service runtime inventories, and updated AmneziaWG lifecycle support.
+
 ## Immediate Next Build Order
 
-1. `1.4.x`: installer signing, production runtime bundle validation, and public updater rollout.
+1. `1.4.x`: external protocol smoke, installer signing, and public updater rollout.

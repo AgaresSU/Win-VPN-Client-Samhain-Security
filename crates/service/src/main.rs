@@ -4113,6 +4113,17 @@ fn adapter_command_set(
         });
     }
 
+    if kind == EngineKind::AmneziaWg && exe_name.contains("amneziawg") && !exe_name.contains("go") {
+        return Ok(AdapterCommandSet {
+            start_args: vec!["/installtunnelservice".to_string(), config],
+            stop_args: vec![
+                "/uninstalltunnelservice".to_string(),
+                adapter_name.to_string(),
+            ],
+            strategy: "AmneziaWG tunnel service".to_string(),
+        });
+    }
+
     if exe_name.contains("wg-quick") || exe_name.contains("awg-quick") {
         return Ok(AdapterCommandSet {
             start_args: vec!["up".to_string(), config.clone()],
@@ -4122,7 +4133,7 @@ fn adapter_command_set(
     }
 
     Err(anyhow!(
-        "{} найден, но это не lifecycle-инструмент. Нужен wireguard.exe, wg-quick.exe или awg-quick.exe.",
+        "{} найден, но это не lifecycle-инструмент. Нужен wireguard.exe, amneziawg.exe, wg-quick.exe или awg-quick.exe.",
         executable_path.display()
     ))
 }
@@ -5203,7 +5214,7 @@ fn engine_primary_binary_name(kind: EngineKind) -> &'static str {
         EngineKind::SingBox => "sing-box.exe",
         EngineKind::Xray => "xray.exe",
         EngineKind::WireGuard => "wireguard.exe",
-        EngineKind::AmneziaWg => "awg-quick.exe",
+        EngineKind::AmneziaWg => "amneziawg.exe",
         EngineKind::Unknown => "",
     }
 }
@@ -5213,7 +5224,7 @@ fn engine_bundle_relative_path(kind: EngineKind) -> &'static str {
         EngineKind::SingBox => "app\\engines\\sing-box\\sing-box.exe",
         EngineKind::Xray => "app\\engines\\xray\\xray.exe",
         EngineKind::WireGuard => "app\\engines\\wireguard\\wireguard.exe",
-        EngineKind::AmneziaWg => "app\\engines\\amneziawg\\awg-quick.exe",
+        EngineKind::AmneziaWg => "app\\engines\\amneziawg\\amneziawg.exe",
         EngineKind::Unknown => "app\\engines\\unknown",
     }
 }
@@ -5297,7 +5308,8 @@ fn probe_engine_version(kind: EngineKind, path: &Path) -> (Option<String>, Strin
 fn engine_version_probe_args(kind: EngineKind) -> &'static [&'static str] {
     match kind {
         EngineKind::SingBox | EngineKind::Xray => &["version"],
-        EngineKind::WireGuard | EngineKind::AmneziaWg => &["--version"],
+        EngineKind::WireGuard => &["--version"],
+        EngineKind::AmneziaWg => &["/?"],
         EngineKind::Unknown => &[],
     }
 }
@@ -6532,7 +6544,7 @@ mod tests {
             ("sing-box", "app\\engines\\sing-box\\sing-box.exe"),
             ("xray", "app\\engines\\xray\\xray.exe"),
             ("wireguard", "app\\engines\\wireguard\\wireguard.exe"),
-            ("amneziawg", "app\\engines\\amneziawg\\awg-quick.exe"),
+            ("amneziawg", "app\\engines\\amneziawg\\amneziawg.exe"),
         ];
 
         for (runtime_id, bundled_path) in expected {

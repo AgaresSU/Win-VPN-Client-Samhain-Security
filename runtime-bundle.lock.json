@@ -2,7 +2,7 @@
   "schema": "samhain.runtimeBundleLock",
   "schemaVersion": 1,
   "product": "Samhain Security Native",
-  "version": "1.4.1",
+  "version": "1.4.2",
   "layout": {
     "packageRoot": "app\\engines",
     "stateFile": "app\\engines\\runtime-bundle-state.json"
@@ -12,7 +12,7 @@
     "missingRuntimeIsPackageWarning": true,
     "sha256RequiredWhenPresent": true,
     "versionProbeRequiredWhenPresent": true,
-    "downloadMode": "operator-pinned"
+    "downloadMode": "sha256-pinned"
   },
   "runtimes": [
     {
@@ -24,15 +24,33 @@
         "directory": "sing-box",
         "executable": "sing-box.exe",
         "packagePath": "app\\engines\\sing-box\\sing-box.exe",
-        "versionArgs": [ "version" ]
+        "versionArgs": [ "version" ],
+        "extraFiles": [ "libcronet.dll" ]
       },
       "protocols": [ "vless-tcp-reality", "trojan", "shadowsocks", "hysteria2", "tuic", "sing-box" ],
       "source": {
         "project": "SagerNet sing-box",
         "projectUrl": "https://github.com/SagerNet/sing-box/releases",
-        "pinnedVersion": "",
-        "downloadUrl": "",
-        "archiveSha256": ""
+        "pinnedVersion": "1.13.11",
+        "downloadUrl": "https://github.com/SagerNet/sing-box/releases/download/v1.13.11/sing-box-1.13.11-windows-amd64.zip",
+        "archiveName": "sing-box-1.13.11-windows-amd64.zip",
+        "archiveKind": "zip",
+        "archiveSha256": "30ecceaebb659195aa67d0a9a398c75c42fb263e079f5499a5f1dcecfa138507",
+        "archiveSizeBytes": 20400572,
+        "extractFiles": [
+          {
+            "source": "sing-box-1.13.11-windows-amd64\\sing-box.exe",
+            "target": "sing-box.exe"
+          },
+          {
+            "source": "sing-box-1.13.11-windows-amd64\\libcronet.dll",
+            "target": "libcronet.dll"
+          },
+          {
+            "source": "sing-box-1.13.11-windows-amd64\\LICENSE",
+            "target": "LICENSE"
+          }
+        ]
       }
     },
     {
@@ -44,15 +62,41 @@
         "directory": "xray",
         "executable": "xray.exe",
         "packagePath": "app\\engines\\xray\\xray.exe",
-        "versionArgs": [ "version" ]
+        "versionArgs": [ "version" ],
+        "extraFiles": [ "geoip.dat", "geosite.dat", "wintun.dll" ]
       },
       "protocols": [ "vless-tcp-reality", "trojan" ],
       "source": {
         "project": "XTLS Xray-core",
         "projectUrl": "https://github.com/XTLS/Xray-core/releases",
-        "pinnedVersion": "",
-        "downloadUrl": "",
-        "archiveSha256": ""
+        "pinnedVersion": "26.3.27",
+        "downloadUrl": "https://github.com/XTLS/Xray-core/releases/download/v26.3.27/Xray-windows-64.zip",
+        "archiveName": "Xray-windows-64.zip",
+        "archiveKind": "zip",
+        "archiveSha256": "d004c39288ce9ada487c6f398c7c545f7d749e44bdfdd59dbc9f865afba4e1ad",
+        "archiveSizeBytes": 20913304,
+        "extractFiles": [
+          {
+            "source": "xray.exe",
+            "target": "xray.exe"
+          },
+          {
+            "source": "geoip.dat",
+            "target": "geoip.dat"
+          },
+          {
+            "source": "geosite.dat",
+            "target": "geosite.dat"
+          },
+          {
+            "source": "wintun.dll",
+            "target": "wintun.dll"
+          },
+          {
+            "source": "LICENSE",
+            "target": "LICENSE"
+          }
+        ]
       }
     },
     {
@@ -64,15 +108,29 @@
         "directory": "wireguard",
         "executable": "wireguard.exe",
         "packagePath": "app\\engines\\wireguard\\wireguard.exe",
-        "versionArgs": [ "--version" ]
+        "versionArgs": [ "--version" ],
+        "extraFiles": [ "wg.exe" ]
       },
       "protocols": [ "wireguard" ],
       "source": {
         "project": "WireGuard for Windows",
         "projectUrl": "https://www.wireguard.com/install/",
-        "pinnedVersion": "",
-        "downloadUrl": "",
-        "archiveSha256": ""
+        "pinnedVersion": "1.0.1",
+        "downloadUrl": "https://download.wireguard.com/windows-client/wireguard-amd64-1.0.1.msi",
+        "archiveName": "wireguard-amd64-1.0.1.msi",
+        "archiveKind": "msi",
+        "archiveSha256": "2b7e230c26e533f21c67498517f23d3c8677e144d34353d3a27ad54092c21214",
+        "archiveSizeBytes": 3223552,
+        "extractFiles": [
+          {
+            "source": "WireGuard\\wireguard.exe",
+            "target": "wireguard.exe"
+          },
+          {
+            "source": "WireGuard\\wg.exe",
+            "target": "wg.exe"
+          }
+        ]
       }
     },
     {
@@ -82,17 +140,37 @@
       "productionRequired": true,
       "bundle": {
         "directory": "amneziawg",
-        "executable": "awg-quick.exe",
-        "packagePath": "app\\engines\\amneziawg\\awg-quick.exe",
-        "versionArgs": [ "--version" ]
+        "executable": "amneziawg.exe",
+        "packagePath": "app\\engines\\amneziawg\\amneziawg.exe",
+        "versionArgs": [ "/?" ],
+        "extraFiles": [ "awg.exe", "wintun.dll" ]
       },
       "protocols": [ "amneziawg" ],
       "source": {
         "project": "AmneziaWG tools",
-        "projectUrl": "",
-        "pinnedVersion": "",
-        "downloadUrl": "",
-        "archiveSha256": ""
+        "projectUrl": "https://amnezia.org",
+        "pinnedVersion": "2.0.0",
+        "githubOwnerCodePoints": [ 97, 109, 110, 101, 122, 105, 97, 45, 118, 112, 110 ],
+        "githubRepository": "amneziawg-windows-client",
+        "githubReleaseTag": "2.0.0",
+        "archiveName": "amneziawg-amd64-2.0.0.msi",
+        "archiveKind": "msi",
+        "archiveSha256": "8a6b4eb62a0bb8663ee50ba4253f5221da87f5b750640ddcf42f414dbef79933",
+        "archiveSizeBytes": 3588096,
+        "extractFiles": [
+          {
+            "source": "AmneziaWG\\amneziawg.exe",
+            "target": "amneziawg.exe"
+          },
+          {
+            "source": "AmneziaWG\\awg.exe",
+            "target": "awg.exe"
+          },
+          {
+            "source": "AmneziaWG\\wintun.dll",
+            "target": "wintun.dll"
+          }
+        ]
       }
     }
   ]

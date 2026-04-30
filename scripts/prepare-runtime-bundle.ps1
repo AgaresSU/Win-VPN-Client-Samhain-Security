@@ -216,6 +216,8 @@ foreach ($runtime in @($lock.runtimes)) {
         sourceProject = [string]$runtime.source.project
         sourceUrl = [string]$runtime.source.projectUrl
         pinnedVersion = [string]$runtime.source.pinnedVersion
+        archiveName = [string]$runtime.source.archiveName
+        archiveSha256 = [string]$runtime.source.archiveSha256
     }) | Out-Null
 }
 
