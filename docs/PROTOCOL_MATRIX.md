@@ -1,6 +1,6 @@
 # Protocol Matrix
 
-Version: `1.4.3`
+Version: `1.4.4`
 
 This matrix keeps protocol readiness honest. The desktop shows only the compact server list; these details stay in docs, diagnostics, and advanced tooling.
 

@@ -1,8 +1,8 @@
-# Samhain Security Native 1.4.3
+# Samhain Security Native 1.4.4
 
-Version: `1.4.3`
+Version: `1.4.4`
 
-Samhain Security `1.4.3` turns the packaged desktop shell into a real service-backed app session. The desktop now starts the bundled user-mode service automatically when the IPC pipe is missing, waits for readiness, and sends subscription, latency, and connection commands through the live service instead of dropping into UI-only fallback.
+Samhain Security `1.4.4` proves the proxy-path runtime loop end to end. A package smoke can now import a proxy-capable subscription, start the bundled runtime through selected-apps proxy path, verify the local mixed proxy endpoint at `127.0.0.1:20808`, inspect runtime health, and stop the engine cleanly.
 
 ## Included
 
@@ -17,17 +17,19 @@ Samhain Security `1.4.3` turns the packaged desktop shell into a real service-ba
 - Runtime bundle lock, package runtime state, packaged validation script, and SHA256/version evidence for staged runtime binaries.
 - Desktop-managed user-mode service startup with packaged service path discovery and named-pipe readiness waiting.
 - Bounded hostname resolution for service-backed latency checks so resolvable hosts get real TCP-connect timing without letting slow DNS block startup.
+- Current sing-box DNS config format so proxy-path startup works with the bundled runtime instead of crashing on deprecated DNS fields.
+- Isolated proxy-path smoke with optional operator-supplied subscription URL and deterministic fallback profile for offline package gates.
 - Smoke validation that a launched desktop process brings up the service IPC endpoint.
 - Release readiness docs for stable gates, protocol coverage, visual QA, security posture, and clean-machine checks.
 
 ## Artifacts
 
-- `dist\SamhainSecurityNative-1.4.3-win-x64`
-- `dist\SamhainSecurityNative-1.4.3-win-x64.zip`
-- `dist\SamhainSecurityNative-1.4.3-win-x64.update-manifest.json`
-- `dist\SamhainSecurityNative-1.4.3-win-x64.release-evidence.json`
-- `dist\SamhainSecurityNative-1.4.3-win-x64.clean-machine-evidence.json`
-- `dist\SamhainSecurityNative-1.4.3-win-x64.release-notes.md`
+- `dist\SamhainSecurityNative-1.4.4-win-x64`
+- `dist\SamhainSecurityNative-1.4.4-win-x64.zip`
+- `dist\SamhainSecurityNative-1.4.4-win-x64.update-manifest.json`
+- `dist\SamhainSecurityNative-1.4.4-win-x64.release-evidence.json`
+- `dist\SamhainSecurityNative-1.4.4-win-x64.clean-machine-evidence.json`
+- `dist\SamhainSecurityNative-1.4.4-win-x64.release-notes.md`
 
 ## Verification
 
@@ -39,13 +41,14 @@ cargo test --workspace
 .\scripts\fetch-runtime-bundle.ps1
 .\scripts\prepare-runtime-bundle.ps1
 .\scripts\package.ps1
-.\scripts\validate-package.ps1 -ExpectedVersion 1.4.3 -RunServiceStatus
-.\scripts\prepare-runtime-bundle.ps1 -PackageRoot .\dist\SamhainSecurityNative-1.4.3-win-x64 -ValidateOnly
-.\scripts\verify-update-manifest.ps1 -ExpectedVersion 1.4.3 -RequireStableChannel
-.\scripts\test-signing-readiness.ps1 -ExpectedVersion 1.4.3
-.\scripts\write-clean-machine-evidence.ps1 -ExpectedVersion 1.4.3 -SkipLaunch
-.\scripts\smoke-package.ps1 -ExpectedVersion 1.4.3
-.\scripts\write-release-evidence.ps1 -ExpectedVersion 1.4.3 -Tag v1.4.3
+.\scripts\validate-package.ps1 -ExpectedVersion 1.4.4 -RunServiceStatus
+.\scripts\prepare-runtime-bundle.ps1 -PackageRoot .\dist\SamhainSecurityNative-1.4.4-win-x64 -ValidateOnly
+.\scripts\verify-update-manifest.ps1 -ExpectedVersion 1.4.4 -RequireStableChannel
+.\scripts\test-signing-readiness.ps1 -ExpectedVersion 1.4.4
+.\scripts\write-clean-machine-evidence.ps1 -ExpectedVersion 1.4.4 -SkipLaunch
+.\scripts\smoke-proxy-path.ps1 -ExpectedVersion 1.4.4
+.\scripts\smoke-package.ps1 -ExpectedVersion 1.4.4
+.\scripts\write-release-evidence.ps1 -ExpectedVersion 1.4.4 -Tag v1.4.4
 ```
 
 ## Known Limits

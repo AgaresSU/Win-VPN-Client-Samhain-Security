@@ -41,6 +41,7 @@ const PROTECTION_DRY_RUN_ENV: &str = "SAMHAIN_PROTECTION_DRY_RUN";
 const PROTECTION_ENFORCE_ENV: &str = "SAMHAIN_PROTECTION_ENFORCE";
 const SERVICE_SIGNED_ENV: &str = "SAMHAIN_SERVICE_SIGNED";
 const DEV_ENGINE_DIR_ENV: &str = "SAMHAIN_ALLOW_DEV_ENGINE_DIR";
+const STORAGE_PATH_ENV: &str = "SAMHAIN_STORAGE_PATH";
 const AUDIT_EVENT_LIMIT: usize = 120;
 const MAX_RECONNECT_ATTEMPTS: u8 = 3;
 const RECONNECT_BACKOFF_BASE_MS: u64 = 250;
@@ -1932,6 +1933,10 @@ fn discover_subscription_api_urls(source_url: &str) -> Vec<String> {
 }
 
 fn storage_path() -> PathBuf {
+    if let Some(path) = std::env::var_os(STORAGE_PATH_ENV) {
+        return PathBuf::from(path);
+    }
+
     std::env::var_os("APPDATA")
         .map(PathBuf::from)
         .unwrap_or_else(std::env::temp_dir)
@@ -4001,17 +4006,12 @@ fn build_sing_box_config(
         "dns": {
             "servers": [
                 {
-                    "tag": "samhain-dns",
-                    "address": format!("https://{}/dns-query", TUN_DNS[0]),
-                    "detour": "selected"
-                },
-                {
+                    "type": "local",
                     "tag": "local-dns",
-                    "address": "local",
                     "detour": "direct"
                 }
             ],
-            "final": "samhain-dns",
+            "final": "local-dns",
             "strategy": "prefer_ipv4"
         },
         "inbounds": inbounds,
@@ -6619,6 +6619,19 @@ mod tests {
                 .iter()
                 .any(|warning| warning.contains("точная маршрутизация"))
         );
+    }
+
+    #[test]
+    fn proxy_path_config_uses_current_dns_server_format() {
+        let raw_url = "trojan://secret@example.com:443?sni=front.example#Samhain";
+        let server = parse_server_url(raw_url, 1).expect("server");
+        let generated =
+            generate_engine_config(&server, raw_url, RouteMode::SelectedAppsOnly).expect("config");
+
+        assert_eq!(generated.path, EnginePath::Proxy);
+        assert!(generated.full_config.contains("\"type\": \"local\""));
+        assert!(generated.full_config.contains("\"final\": \"local-dns\""));
+        assert!(!generated.full_config.contains("\"address\": \"local\""));
     }
 
     #[test]

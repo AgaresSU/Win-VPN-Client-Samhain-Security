@@ -113,6 +113,7 @@ Add-Check "manifest:runtime-bundle-script" ($manifest.verification.runtimeBundle
 Add-Check "manifest:runtime-bundle-fetch-script" ($manifest.verification.runtimeBundleFetchScript -eq "tools\fetch-runtime-bundle.ps1") ([string]$manifest.verification.runtimeBundleFetchScript)
 Add-Check "manifest:runtime-health" ($manifest.verification.runtimeHealthEvidence -eq "service.runtime_health") ([string]$manifest.verification.runtimeHealthEvidence)
 Add-Check "manifest:subscription-operations" ($manifest.verification.subscriptionOperationsEvidence -eq "service.subscription_operations") ([string]$manifest.verification.subscriptionOperationsEvidence)
+Add-Check "manifest:proxy-path-smoke" ($manifest.verification.proxyPathSmokeScript -eq "tools\smoke-proxy-path.ps1") ([string]$manifest.verification.proxyPathSmokeScript)
 Add-Check "manifest:release-notes-script" ($manifest.verification.releaseNotesScript -eq "tools\write-release-notes.ps1") ([string]$manifest.verification.releaseNotesScript)
 Add-Check "manifest:release-readiness-status" ($manifest.releaseReadiness.status -eq "release-ready-dev-signed") ([string]$manifest.releaseReadiness.status)
 Add-Check "manifest:release-readiness-protocol-doc" ($manifest.releaseReadiness.protocolMatrix -eq "docs\PROTOCOL_MATRIX.md") ([string]$manifest.releaseReadiness.protocolMatrix)

@@ -1,6 +1,6 @@
 # Roadmap
 
-Current version: `1.4.3`
+Current version: `1.4.4`
 
 This roadmap is the working contract for Samhain Security. Future implementation should follow this order unless a blocker is found and documented in the same commit.
 
@@ -695,9 +695,19 @@ Done when a packaged app launch can import subscriptions, run latency checks, an
 
 Status: shipped in `v1.4.3` with desktop-managed service startup, packaged service path discovery, named-pipe readiness waiting, managed service cleanup, and launch smoke evidence for the service IPC.
 
+### 1.4.4 - Proxy Path Runtime Smoke
+
+- Validate the package can import a proxy-capable subscription, pick a server, start the bundled runtime through selected-apps proxy path, expose `127.0.0.1:20808`, report runtime health, and stop cleanly.
+- Keep smoke storage isolated so operator checks do not modify saved user subscriptions.
+- Keep system proxy writes dry-run during the smoke while still proving the local mixed proxy endpoint is alive.
+- Allow an operator-supplied subscription URL through `-SubscriptionUrl` or `SAMHAIN_SMOKE_SUBSCRIPTION_URL`, while keeping a deterministic fallback profile for offline package gates.
+
+Done when a clean package can prove the proxy path with real runtime startup and local endpoint readiness instead of only checking config generation.
+
+Status: shipped in `v1.4.4` with current sing-box DNS config generation, isolated service storage override, `tools\smoke-proxy-path.ps1`, package smoke integration, update-manifest verification, and release evidence gates.
+
 ## Immediate Next Build Order
 
-1. `1.4.4`: external proxy-path protocol smoke on imported live subscriptions.
-2. `1.4.5`: whole-computer TUN elevation and rollback validation.
-3. `1.4.6`: WireGuard and AmneziaWG live adapter validation.
-4. `1.4.x`: installer signing and public updater rollout.
+1. `1.4.5`: whole-computer TUN elevation and rollback validation.
+2. `1.4.6`: WireGuard and AmneziaWG live adapter validation.
+3. `1.4.x`: installer signing and public updater rollout.

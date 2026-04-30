@@ -1,6 +1,6 @@
 # Support Diagnostics
 
-Version: `1.4.3`
+Version: `1.4.4`
 
 The support export is a redacted diagnostic package created by the service and surfaced from the desktop app. Its goal is to explain common failures without exposing subscription links, tokens, private keys, generated raw configs, or passwords.
 
