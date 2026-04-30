@@ -1,8 +1,8 @@
-# Samhain Security Native 1.4.4
+# Samhain Security Native 1.4.5
 
-Version: `1.4.4`
+Version: `1.4.5`
 
-Samhain Security `1.4.4` proves the proxy-path runtime loop end to end. A package smoke can now import a proxy-capable subscription, start the bundled runtime through selected-apps proxy path, verify the local mixed proxy endpoint at `127.0.0.1:20808`, inspect runtime health, and stop the engine cleanly.
+Samhain Security `1.4.5` hardens the whole-computer TUN path. Current-user packages now fail closed before creating routes, expose clear elevation/readiness evidence, and prove restore/emergency-restore cleanup through a dedicated package smoke.
 
 ## Included
 
@@ -19,17 +19,19 @@ Samhain Security `1.4.4` proves the proxy-path runtime loop end to end. A packag
 - Bounded hostname resolution for service-backed latency checks so resolvable hosts get real TCP-connect timing without letting slow DNS block startup.
 - Current sing-box DNS config format so proxy-path startup works with the bundled runtime instead of crashing on deprecated DNS fields.
 - Isolated proxy-path smoke with optional operator-supplied subscription URL and deterministic fallback profile for offline package gates.
+- TUN-path start gate for current-user packages without elevated installer-owned trusted service identity.
+- TUN-path smoke with safe preview validation, elevation-gate proof, runtime-health gated status, restore, emergency restore, and package-scoped cleanup checks.
 - Smoke validation that a launched desktop process brings up the service IPC endpoint.
 - Release readiness docs for stable gates, protocol coverage, visual QA, security posture, and clean-machine checks.
 
 ## Artifacts
 
-- `dist\SamhainSecurityNative-1.4.4-win-x64`
-- `dist\SamhainSecurityNative-1.4.4-win-x64.zip`
-- `dist\SamhainSecurityNative-1.4.4-win-x64.update-manifest.json`
-- `dist\SamhainSecurityNative-1.4.4-win-x64.release-evidence.json`
-- `dist\SamhainSecurityNative-1.4.4-win-x64.clean-machine-evidence.json`
-- `dist\SamhainSecurityNative-1.4.4-win-x64.release-notes.md`
+- `dist\SamhainSecurityNative-1.4.5-win-x64`
+- `dist\SamhainSecurityNative-1.4.5-win-x64.zip`
+- `dist\SamhainSecurityNative-1.4.5-win-x64.update-manifest.json`
+- `dist\SamhainSecurityNative-1.4.5-win-x64.release-evidence.json`
+- `dist\SamhainSecurityNative-1.4.5-win-x64.clean-machine-evidence.json`
+- `dist\SamhainSecurityNative-1.4.5-win-x64.release-notes.md`
 
 ## Verification
 
@@ -41,19 +43,21 @@ cargo test --workspace
 .\scripts\fetch-runtime-bundle.ps1
 .\scripts\prepare-runtime-bundle.ps1
 .\scripts\package.ps1
-.\scripts\validate-package.ps1 -ExpectedVersion 1.4.4 -RunServiceStatus
-.\scripts\prepare-runtime-bundle.ps1 -PackageRoot .\dist\SamhainSecurityNative-1.4.4-win-x64 -ValidateOnly
-.\scripts\verify-update-manifest.ps1 -ExpectedVersion 1.4.4 -RequireStableChannel
-.\scripts\test-signing-readiness.ps1 -ExpectedVersion 1.4.4
-.\scripts\write-clean-machine-evidence.ps1 -ExpectedVersion 1.4.4 -SkipLaunch
-.\scripts\smoke-proxy-path.ps1 -ExpectedVersion 1.4.4
-.\scripts\smoke-package.ps1 -ExpectedVersion 1.4.4
-.\scripts\write-release-evidence.ps1 -ExpectedVersion 1.4.4 -Tag v1.4.4
+.\scripts\validate-package.ps1 -ExpectedVersion 1.4.5 -RunServiceStatus
+.\scripts\prepare-runtime-bundle.ps1 -PackageRoot .\dist\SamhainSecurityNative-1.4.5-win-x64 -ValidateOnly
+.\scripts\verify-update-manifest.ps1 -ExpectedVersion 1.4.5 -RequireStableChannel
+.\scripts\test-signing-readiness.ps1 -ExpectedVersion 1.4.5
+.\scripts\write-clean-machine-evidence.ps1 -ExpectedVersion 1.4.5 -SkipLaunch
+.\scripts\smoke-proxy-path.ps1 -ExpectedVersion 1.4.5
+.\scripts\smoke-tun-path.ps1 -ExpectedVersion 1.4.5
+.\scripts\smoke-package.ps1 -ExpectedVersion 1.4.5
+.\scripts\write-release-evidence.ps1 -ExpectedVersion 1.4.5 -Tag v1.4.5
 ```
 
 ## Known Limits
 
 - Production code signing certificate is not applied yet; the package remains `unsigned-dev`.
 - Fetched runtime binaries still need live protocol validation for each protocol family before public installer rollout.
+- Live TUN route creation remains opt-in through `smoke-tun-path.ps1 -AllowLiveTun` and requires a privileged trusted service environment.
 - Transparent except-selected application routing remains blocked until the signed WFP layer is ready.
 - Machine-scope writes require an elevated installer path; current-user operation remains the fallback.

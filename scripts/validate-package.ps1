@@ -61,6 +61,7 @@ $requiredPaths = @(
     "tools\validate-package.ps1",
     "tools\smoke-package.ps1",
     "tools\smoke-proxy-path.ps1",
+    "tools\smoke-tun-path.ps1",
     "tools\verify-update-manifest.ps1",
     "tools\write-release-evidence.ps1",
     "tools\write-release-notes.ps1",
@@ -143,6 +144,7 @@ if (Test-Path $manifestPath) {
         Add-Check "manifest:subscription-operations" ($manifest.quality.subscriptionOperationsEvidence -eq "service.subscription_operations") ([string]$manifest.quality.subscriptionOperationsEvidence)
         Add-Check "manifest:smoke" ($manifest.quality.smokeScript -eq "tools\smoke-package.ps1") ([string]$manifest.quality.smokeScript)
         Add-Check "manifest:proxy-path-smoke" ($manifest.quality.proxyPathSmokeScript -eq "tools\smoke-proxy-path.ps1") ([string]$manifest.quality.proxyPathSmokeScript)
+        Add-Check "manifest:tun-path-smoke" ($manifest.quality.tunPathSmokeScript -eq "tools\smoke-tun-path.ps1") ([string]$manifest.quality.tunPathSmokeScript)
         Add-Check "manifest:update-verifier" ($manifest.quality.updateManifestVerifier -eq "tools\verify-update-manifest.ps1") ([string]$manifest.quality.updateManifestVerifier)
         Add-Check "manifest:release-evidence" ($manifest.quality.releaseEvidenceScript -eq "tools\write-release-evidence.ps1") ([string]$manifest.quality.releaseEvidenceScript)
         Add-Check "manifest:release-notes" ($manifest.quality.releaseNotesScript -eq "tools\write-release-notes.ps1") ([string]$manifest.quality.releaseNotesScript)
@@ -150,6 +152,7 @@ if (Test-Path $manifestPath) {
         Add-Check "manifest:clean-machine-evidence" ($manifest.quality.cleanMachineEvidenceScript -eq "tools\write-clean-machine-evidence.ps1") ([string]$manifest.quality.cleanMachineEvidenceScript)
         Add-Check "manifest:release-notes-gate" ($manifest.quality.gates -contains "tools\write-release-notes.ps1") "gates=$($manifest.quality.gates -join ',')"
         Add-Check "manifest:proxy-path-smoke-gate" ($manifest.quality.gates -contains "tools\smoke-proxy-path.ps1") "gates=$($manifest.quality.gates -join ',')"
+        Add-Check "manifest:tun-path-smoke-gate" ($manifest.quality.gates -contains "tools\smoke-tun-path.ps1") "gates=$($manifest.quality.gates -join ',')"
         Add-Check "manifest:runtime-bundle-gate" ($manifest.quality.gates -contains "tools\prepare-runtime-bundle.ps1") "gates=$($manifest.quality.gates -join ',')"
         Add-Check "manifest:runtime-bundle-fetch-gate" ($manifest.quality.gates -contains "tools\fetch-runtime-bundle.ps1") "gates=$($manifest.quality.gates -join ',')"
         Add-Check "manifest:release-readiness-status" ($manifest.releaseReadiness.status -eq "release-ready-dev-signed") ([string]$manifest.releaseReadiness.status)

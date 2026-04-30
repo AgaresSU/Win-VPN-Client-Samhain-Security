@@ -3105,6 +3105,8 @@ impl EngineManager {
             "runtime-metrics"
         } else if running {
             "fallback-telemetry"
+        } else if self.state.status == "blocked" {
+            "gated"
         } else if self.state.status == "missing" {
             "missing-runtime"
         } else if self.state.status == "crashed" {
@@ -3118,6 +3120,7 @@ impl EngineManager {
                 "Runtime metrics are not exposed; using service-session counters.".to_string()
             }
             "runtime-metrics" => "Runtime metrics are active.".to_string(),
+            "gated" => redact_support_text(&self.state.message),
             "missing-runtime" => redact_support_text(&self.state.message),
             "unhealthy" => redact_support_text(&self.state.message),
             _ => "Runtime health is idle.".to_string(),
@@ -3219,6 +3222,34 @@ impl EngineManager {
         self.stop()?;
 
         let generated = generate_engine_config(server, raw_url, route_mode)?;
+        if generated.path == EnginePath::Tun && !tun_path_allowed() {
+            let message = tun_gate_message();
+            let _ = self.proxy.restore();
+            let _ = self.tun.restore();
+            self.app_routing.restore();
+            self.protection.restore();
+            self.traffic.stop();
+            self.state = EngineLifecycleState {
+                status: "blocked".to_string(),
+                engine: generated.engine,
+                server_id: Some(server.id.clone()),
+                pid: None,
+                started_at: None,
+                stopped_at: Some(now_engine_label()),
+                last_exit_code: None,
+                restart_attempts: 0,
+                config_path: Some(
+                    engine_config_path(&server.id, generated.engine)
+                        .display()
+                        .to_string(),
+                ),
+                message: message.clone(),
+                log_tail: self.log_tail(),
+            };
+            push_engine_log(&self.logs, "warn", "tun", &message);
+            return Err(anyhow!("{}", message));
+        }
+
         self.traffic.start(server, generated.path);
         let catalog = discover_engines();
         let engine_entry = catalog
@@ -3629,6 +3660,9 @@ fn generate_engine_config(
     if path == EnginePath::Tun {
         warnings
             .push("TUN требует прав администратора и доступного TUN-драйвера движка.".to_string());
+        if !tun_path_allowed() {
+            warnings.push(tun_gate_message());
+        }
     }
 
     if path == EnginePath::Adapter {
@@ -4070,6 +4104,15 @@ fn path_name(path: EnginePath) -> &'static str {
         EnginePath::Tun => "TUN path",
         EnginePath::Adapter => "adapter path",
     }
+}
+
+fn tun_path_allowed() -> bool {
+    privileged_policy_allows_network_actions()
+}
+
+fn tun_gate_message() -> String {
+    "TUN path is gated until Samhain Security runs as an elevated, installer-owned, trusted service."
+        .to_string()
 }
 
 fn engine_name(kind: EngineKind) -> &'static str {
@@ -4569,6 +4612,16 @@ fn service_self_check_state(storage_path: &Path) -> ServiceSelfCheckState {
             "requires installer-owned signed service identity",
         ),
         check_item(
+            "tun-path",
+            tun_path_allowed(),
+            if tun_path_allowed() {
+                "available"
+            } else {
+                "gated"
+            },
+            "requires elevated installer-owned trusted service identity and packaged runtime",
+        ),
+        check_item(
             "firewall",
             readiness.firewall_enforcement_available,
             if readiness.firewall_enforcement_available {
@@ -4665,6 +4718,7 @@ fn service_readiness_state() -> ServiceReadinessState {
     checks.push(format!("firewall_available={firewall_available}"));
     checks.push(format!("app_routing_requested={app_routing_requested}"));
     checks.push(format!("app_routing_available={app_routing_available}"));
+    checks.push(format!("tun_path_allowed={}", tun_path_allowed()));
     checks.push(format!("service_identity={identity}"));
     checks.push("required_identity=signed-privileged-service".to_string());
     checks.push("ipc_command_surface=hardened".to_string());
@@ -6602,6 +6656,31 @@ mod tests {
         assert!(generated.redacted_config.contains("\"type\": \"tun\""));
         assert!(generated.redacted_config.contains("\"auto_route\": true"));
         assert!(!generated.redacted_config.contains("\"type\": \"mixed\""));
+    }
+
+    #[test]
+    fn whole_computer_start_is_gated_without_privileged_identity() {
+        if tun_path_allowed() {
+            return;
+        }
+
+        let raw_url = "vless://00000000-0000-4000-8000-000000000001@example.com:443?type=tcp&security=reality&pbk=public-secret&sid=short-secret&sni=front.example&fp=chrome#Samhain";
+        let server = parse_server_url(raw_url, 1).expect("server");
+        let mut manager = EngineManager::new();
+        let result = manager.start(&server, raw_url, RouteMode::WholeComputer);
+
+        assert!(result.is_err());
+        let state = manager.snapshot();
+        assert_eq!(state.status, "blocked");
+        assert_eq!(state.engine, EngineKind::SingBox);
+        assert!(state.message.contains("TUN path is gated"));
+        let tun = manager.tun_snapshot();
+        assert!(!tun.enabled);
+        assert_eq!(tun.status, "restored");
+        let health = manager.runtime_health_snapshot();
+        assert_eq!(health.status, "gated");
+        assert_eq!(health.route_path, "idle");
+        assert!(health.message.contains("TUN path is gated"));
     }
 
     #[test]

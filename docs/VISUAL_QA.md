@@ -1,6 +1,6 @@
 # Visual QA
 
-Version: `1.4.4`
+Version: `1.4.5`
 
 The target style is dark red, graphite, compact, and calm. The UI can be inspired by clean commercial clients, but branding, artwork, and icon shapes must remain Samhain Security's own.
 

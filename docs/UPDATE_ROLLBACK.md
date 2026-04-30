@@ -1,6 +1,6 @@
 # Update And Rollback
 
-Version: `1.4.4`
+Version: `1.4.5`
 
 Samhain Security stable packages use a sibling update manifest and archive. The manifest must declare the stable channel, target runtime, archive size, archive SHA256, package validation scripts, signing status, and update policy.
 
@@ -39,7 +39,7 @@ The rollback slot stores executable package content, tools, docs, assets, manife
 Use recovery downgrade only when intentionally backing out a bad release:
 
 ```powershell
-.\tools\verify-update-manifest.ps1 -ExpectedVersion 1.4.4 -RequireStableChannel -InstalledVersion 9.9.9 -AllowDowngradeRecovery
+.\tools\verify-update-manifest.ps1 -ExpectedVersion 1.4.5 -RequireStableChannel -InstalledVersion 9.9.9 -AllowDowngradeRecovery
 ```
 
 Normal release verification should omit `-AllowDowngradeRecovery` so accidental downgrades fail.

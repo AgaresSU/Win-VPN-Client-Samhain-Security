@@ -228,6 +228,7 @@ $toolsRoot = Join-Path $PackageRoot "tools"
 $validateScript = Join-Path $toolsRoot "validate-package.ps1"
 $updateVerifierScript = Join-Path $toolsRoot "verify-update-manifest.ps1"
 $proxyPathSmokeScript = Join-Path $toolsRoot "smoke-proxy-path.ps1"
+$tunPathSmokeScript = Join-Path $toolsRoot "smoke-tun-path.ps1"
 $signingScript = Join-Path $toolsRoot "test-signing-readiness.ps1"
 $cleanMachineScript = Join-Path $toolsRoot "write-clean-machine-evidence.ps1"
 $releaseNotesScript = Join-Path $toolsRoot "write-release-notes.ps1"
@@ -250,6 +251,11 @@ Invoke-ScriptStep -Name "runtime-bundle" -ScriptPath $runtimeBundleScript -Param
     Json = $true
 }
 Invoke-ScriptStep -Name "proxy-path-smoke" -ScriptPath $proxyPathSmokeScript -Parameters @{
+    PackageRoot = $PackageRoot
+    ExpectedVersion = $ExpectedVersion
+    Json = $true
+}
+Invoke-ScriptStep -Name "tun-path-smoke" -ScriptPath $tunPathSmokeScript -Parameters @{
     PackageRoot = $PackageRoot
     ExpectedVersion = $ExpectedVersion
     Json = $true

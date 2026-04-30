@@ -1,6 +1,6 @@
 # Roadmap
 
-Current version: `1.4.4`
+Current version: `1.4.5`
 
 This roadmap is the working contract for Samhain Security. Future implementation should follow this order unless a blocker is found and documented in the same commit.
 
@@ -706,8 +706,19 @@ Done when a clean package can prove the proxy path with real runtime startup and
 
 Status: shipped in `v1.4.4` with current sing-box DNS config generation, isolated service storage override, `tools\smoke-proxy-path.ps1`, package smoke integration, update-manifest verification, and release evidence gates.
 
+### 1.4.5 - Whole-Computer TUN Elevation And Rollback Validation
+
+- Block TUN-path starts early when the package is not running as an elevated, installer-owned, trusted service.
+- Keep generated TUN previews available so the app can explain what would run without creating routes in a current-user package.
+- Prove blocked TUN starts leave no bundled engine process behind and keep TUN state restored/inactive.
+- Add a package smoke that imports a TUN-capable proxy profile, checks preview warnings, verifies the elevation gate, runs restore/emergency restore, and records cleanup.
+- Wire the TUN-path smoke into package manifests, update manifests, smoke-package, release evidence, and validation gates.
+
+Done when current-user packages fail closed for whole-computer TUN, privileged environments can opt into a live TUN smoke, and rollback evidence is collected automatically.
+
+Status: shipped in `v1.4.5` with TUN start gating, runtime-health gated status, `tools\smoke-tun-path.ps1`, release evidence integration, and package validation checks.
+
 ## Immediate Next Build Order
 
-1. `1.4.5`: whole-computer TUN elevation and rollback validation.
-2. `1.4.6`: WireGuard and AmneziaWG live adapter validation.
-3. `1.4.x`: installer signing and public updater rollout.
+1. `1.4.6`: WireGuard and AmneziaWG live adapter validation.
+2. `1.4.x`: installer signing and public updater rollout.
