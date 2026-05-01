@@ -1,0 +1,29 @@
+{
+  "schema": "samhain.installerBuildPlan",
+  "version": "1.5.1",
+  "product": "Samhain Security",
+  "status": "toolchain-preflight-unsigned-msi-dry-run",
+  "toolchain": {
+    "tool": "wix",
+    "preferredVersion": "6.0.2",
+    "minimumDotnetSdkMajor": 6,
+    "installCommand": "dotnet tool install --tool-path .tools\\wix wix --version 6.0.2 --add-source https://api.nuget.org/v3/index.json",
+    "versionCommand": "wix --version",
+    "buildCommand": "wix build installer\\SamhainSecurityInstaller.wxs -arch x64 -d ProductVersion=<version> -d PackageRoot=<package-root> -out <temp>\\SamhainSecurityInstaller-<version>-win-x64-unsigned.msi -pdbtype none"
+  },
+  "unsignedDryRun": {
+    "script": "tools\\test-installer-toolchain.ps1",
+    "source": "installer\\SamhainSecurityInstaller.wxs",
+    "outputName": "SamhainSecurityInstaller-1.5.1-win-x64-unsigned.msi",
+    "outputScope": "temporary-local-build",
+    "installAllowed": false,
+    "publishAllowed": false,
+    "requiresProductionSigning": true,
+    "validatesMsiWhenToolchainExists": true
+  },
+  "publicRelease": {
+    "productionSigningRequired": true,
+    "publishAllowed": false,
+    "blockedReason": "production-signing-certificate-pending"
+  }
+}

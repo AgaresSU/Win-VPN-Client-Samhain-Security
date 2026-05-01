@@ -1,6 +1,6 @@
 # Update And Rollback
 
-Version: `1.5.0`
+Version: `1.5.1`
 
 Samhain Security stable packages use a sibling update manifest and archive. The manifest must declare the stable channel, target runtime, archive size, archive SHA256, package validation scripts, signing status, and update policy.
 
@@ -41,7 +41,7 @@ The rollback slot stores executable package content, tools, docs, assets, manife
 Use recovery downgrade only when intentionally backing out a bad release:
 
 ```powershell
-.\tools\verify-update-manifest.ps1 -ExpectedVersion 1.5.0 -RequireStableChannel -InstalledVersion 9.9.9 -AllowDowngradeRecovery
+.\tools\verify-update-manifest.ps1 -ExpectedVersion 1.5.1 -RequireStableChannel -InstalledVersion 9.9.9 -AllowDowngradeRecovery
 ```
 
 Normal release verification should omit `-AllowDowngradeRecovery` so accidental downgrades fail.
@@ -49,17 +49,18 @@ Normal release verification should omit `-AllowDowngradeRecovery` so accidental 
 Run the packaged rehearsal before promoting an archive:
 
 ```powershell
-.\tools\test-update-rehearsal.ps1 -ExpectedVersion 1.5.0
+.\tools\test-update-rehearsal.ps1 -ExpectedVersion 1.5.1
 ```
 
 Confirm the public rollout boundary before publishing:
 
 ```powershell
-.\tools\test-public-updater-rollout.ps1 -ExpectedVersion 1.5.0
+.\tools\test-public-updater-rollout.ps1 -ExpectedVersion 1.5.1
 ```
 
-Validate the signed-installer handoff skeleton before public rollout:
+Validate the signed-installer handoff skeleton and local toolchain dry-run before public rollout:
 
 ```powershell
-.\tools\test-installer-skeleton.ps1 -ExpectedVersion 1.5.0
+.\tools\test-installer-skeleton.ps1 -ExpectedVersion 1.5.1
+.\tools\test-installer-toolchain.ps1 -ExpectedVersion 1.5.1
 ```

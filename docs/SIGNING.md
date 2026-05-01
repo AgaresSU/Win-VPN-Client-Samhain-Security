@@ -1,6 +1,6 @@
 # Signing And Integrity
 
-Version: `1.5.0`
+Version: `1.5.1`
 
 Current status: `unsigned-dev`.
 
@@ -14,6 +14,7 @@ Public updater publishing stays blocked until the production signing pipeline an
 - `checksums.txt`
 - `SamhainSecurityNative-<version>-win-x64.update-manifest.json`
 - `installer\signing-policy.json`
+- `installer\installer-build-plan.json`
 - `installer\installer-handoff.json`
 
 `checksums.txt` covers:
@@ -27,6 +28,7 @@ Public updater publishing stays blocked until the production signing pipeline an
 - `tools\test-update-rehearsal.ps1`
 - `tools\test-public-updater-rollout.ps1`
 - `tools\test-installer-skeleton.ps1`
+- `tools\test-installer-toolchain.ps1`
 - `tools\write-release-evidence.ps1`
 - `tools\write-release-notes.ps1`
 - `tools\test-signing-readiness.ps1`
@@ -39,6 +41,7 @@ Public updater publishing stays blocked until the production signing pipeline an
 - `app\engines\runtime-bundle-state.json`
 - `installer\README.md`
 - `installer\SamhainSecurityInstaller.wxs`
+- `installer\installer-build-plan.json`
 - `installer\signing-policy.json`
 - `installer\installer-handoff.json`
 - `release-manifest.json`
@@ -54,9 +57,12 @@ The stable installer should:
 - verify update manifests before applying updates;
 - run the public updater rollout gate before public publishing;
 - run the signed-installer skeleton gate before public publishing;
+- run the installer toolchain gate and keep unsigned MSI output local-only;
 - display publisher information as `Samhain Security`;
 - refuse rollback to a lower trusted version unless recovery mode is explicit.
 
 ## Signing Scaffold
 
 `installer\signing-policy.json` declares the expected publisher, digest algorithm, timestamp requirement, secure certificate inputs, and the desktop, service, and installer signing targets. It intentionally keeps `publishAllowed` false until the production certificate is supplied.
+
+`installer\installer-build-plan.json` declares the WiX 6.x local build path and `tools\test-installer-toolchain.ps1` performs the unsigned MSI dry-run when the toolchain is available. That MSI is evidence only; it is not public-release material until production signing is applied.

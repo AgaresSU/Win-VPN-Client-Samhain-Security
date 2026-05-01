@@ -79,6 +79,7 @@ $updateManifestPath = "$PackageRoot.update-manifest.json"
 $installerRoot = Join-Path $PackageRoot "installer"
 $readmePath = Join-Path $installerRoot "README.md"
 $wixPath = Join-Path $installerRoot "SamhainSecurityInstaller.wxs"
+$buildPlanPath = Join-Path $installerRoot "installer-build-plan.json"
 $signingPolicyPath = Join-Path $installerRoot "signing-policy.json"
 $handoffPath = Join-Path $installerRoot "installer-handoff.json"
 $packageVersion = (Get-Content -LiteralPath $versionPath -Raw).Trim()
@@ -99,6 +100,7 @@ $requiredPackageOwns = @(
 )
 $requiredEvidence = @(
     "installer-skeleton",
+    "installer-toolchain",
     "signing-readiness",
     "privileged-service-readiness",
     "update-rehearsal",
@@ -110,6 +112,7 @@ Add-Check "version:expected" ($packageVersion -eq $ExpectedVersion) "expected=$E
 Add-Check "installer:root" (Test-Path -LiteralPath $installerRoot) $installerRoot
 Add-Check "installer:readme" (Test-Path -LiteralPath $readmePath) $readmePath
 Add-Check "installer:wix" (Test-Path -LiteralPath $wixPath) $wixPath
+Add-Check "installer:build-plan" (Test-Path -LiteralPath $buildPlanPath) $buildPlanPath
 Add-Check "installer:signing-policy" (Test-Path -LiteralPath $signingPolicyPath) $signingPolicyPath
 Add-Check "installer:handoff" (Test-Path -LiteralPath $handoffPath) $handoffPath
 Add-Check "manifest:exists" (Test-Path -LiteralPath $manifestPath) $manifestPath
@@ -121,10 +124,13 @@ if (Test-Path -LiteralPath $manifestPath) {
     Add-Check "manifest:version" ($manifest.version -eq $ExpectedVersion) "expected=$ExpectedVersion actual=$($manifest.version)"
     Add-Check "manifest:installer-script" ($manifest.quality.installerSkeletonScript -eq "tools\test-installer-skeleton.ps1") ([string]$manifest.quality.installerSkeletonScript)
     Add-Check "manifest:installer-gate" ($manifest.quality.gates -contains "tools\test-installer-skeleton.ps1") "gates=$($manifest.quality.gates -join ',')"
-    Add-Check "manifest:installer-status" ($manifest.releaseReadiness.installer.status -eq "skeleton-ready-production-signing-pending") ([string]$manifest.releaseReadiness.installer.status)
+    Add-Check "manifest:installer-status" ($manifest.releaseReadiness.installer.status -eq "toolchain-preflight-unsigned-msi-dry-run") ([string]$manifest.releaseReadiness.installer.status)
     Add-Check "manifest:installer-project" ($manifest.releaseReadiness.installer.project -eq "installer\SamhainSecurityInstaller.wxs") ([string]$manifest.releaseReadiness.installer.project)
     Add-Check "manifest:installer-signing-policy" ($manifest.releaseReadiness.installer.signingPolicy -eq "installer\signing-policy.json") ([string]$manifest.releaseReadiness.installer.signingPolicy)
-    Add-Check "manifest:installer-preflight" ($manifest.releaseReadiness.installer.preflight -eq "tools\test-installer-skeleton.ps1") ([string]$manifest.releaseReadiness.installer.preflight)
+    Add-Check "manifest:installer-build-plan" ($manifest.releaseReadiness.installer.buildPlan -eq "installer\installer-build-plan.json") ([string]$manifest.releaseReadiness.installer.buildPlan)
+    Add-Check "manifest:installer-preflight" ($manifest.releaseReadiness.installer.preflight -eq "tools\test-installer-toolchain.ps1") ([string]$manifest.releaseReadiness.installer.preflight)
+    Add-Check "manifest:installer-skeleton-preflight" ($manifest.releaseReadiness.installer.skeletonPreflight -eq "tools\test-installer-skeleton.ps1") ([string]$manifest.releaseReadiness.installer.skeletonPreflight)
+    Add-Check "manifest:installer-toolchain-preflight" ($manifest.releaseReadiness.installer.toolchainPreflight -eq "tools\test-installer-toolchain.ps1") ([string]$manifest.releaseReadiness.installer.toolchainPreflight)
     Add-Check "manifest:installer-publish-blocked" (-not [bool]$manifest.releaseReadiness.installer.publishAllowed) ([string]$manifest.releaseReadiness.installer.publishAllowed)
     Add-Check "manifest:installer-production-signing" ([bool]$manifest.releaseReadiness.installer.requiresProductionSigning) ([string]$manifest.releaseReadiness.installer.requiresProductionSigning)
 }
@@ -134,9 +140,13 @@ if (Test-Path -LiteralPath $updateManifestPath) {
     $updateManifest = Get-Content -LiteralPath $updateManifestPath -Raw | ConvertFrom-Json
     Add-Check "update-manifest:version" ($updateManifest.version -eq $ExpectedVersion) "expected=$ExpectedVersion actual=$($updateManifest.version)"
     Add-Check "update-manifest:installer-script" ($updateManifest.verification.installerSkeletonScript -eq "tools\test-installer-skeleton.ps1") ([string]$updateManifest.verification.installerSkeletonScript)
-    Add-Check "update-manifest:installer-status" ($updateManifest.signedInstaller.status -eq "skeleton-ready-production-signing-pending") ([string]$updateManifest.signedInstaller.status)
+    Add-Check "update-manifest:installer-status" ($updateManifest.signedInstaller.status -eq "toolchain-preflight-unsigned-msi-dry-run") ([string]$updateManifest.signedInstaller.status)
     Add-Check "update-manifest:installer-project" ($updateManifest.signedInstaller.project -eq "installer\SamhainSecurityInstaller.wxs") ([string]$updateManifest.signedInstaller.project)
     Add-Check "update-manifest:installer-signing-policy" ($updateManifest.signedInstaller.signingPolicy -eq "installer\signing-policy.json") ([string]$updateManifest.signedInstaller.signingPolicy)
+    Add-Check "update-manifest:installer-build-plan" ($updateManifest.signedInstaller.buildPlan -eq "installer\installer-build-plan.json") ([string]$updateManifest.signedInstaller.buildPlan)
+    Add-Check "update-manifest:installer-preflight" ($updateManifest.signedInstaller.preflight -eq "tools\test-installer-toolchain.ps1") ([string]$updateManifest.signedInstaller.preflight)
+    Add-Check "update-manifest:installer-skeleton-preflight" ($updateManifest.signedInstaller.skeletonPreflight -eq "tools\test-installer-skeleton.ps1") ([string]$updateManifest.signedInstaller.skeletonPreflight)
+    Add-Check "update-manifest:installer-toolchain-preflight" ($updateManifest.signedInstaller.toolchainPreflight -eq "tools\test-installer-toolchain.ps1") ([string]$updateManifest.signedInstaller.toolchainPreflight)
     Add-Check "update-manifest:installer-publish-blocked" (-not [bool]$updateManifest.signedInstaller.publishAllowed) ([string]$updateManifest.signedInstaller.publishAllowed)
     Add-Check "update-manifest:installer-production-signing" ([bool]$updateManifest.signedInstaller.requiresProductionSigning) ([string]$updateManifest.signedInstaller.requiresProductionSigning)
 }
@@ -152,6 +162,22 @@ if (Test-Path -LiteralPath $wixPath) {
     }
     catch {
         Add-Check "wix:xml" $false $_.Exception.Message
+    }
+}
+
+$buildPlan = $null
+if (Test-Path -LiteralPath $buildPlanPath) {
+    try {
+        $buildPlan = Get-Content -LiteralPath $buildPlanPath -Raw | ConvertFrom-Json
+        Add-Check "build-plan:schema" ($buildPlan.schema -eq "samhain.installerBuildPlan") ([string]$buildPlan.schema)
+        Add-Check "build-plan:version" ($buildPlan.version -eq $ExpectedVersion) "expected=$ExpectedVersion actual=$($buildPlan.version)"
+        Add-Check "build-plan:status" ($buildPlan.status -eq "toolchain-preflight-unsigned-msi-dry-run") ([string]$buildPlan.status)
+        Add-Check "build-plan:script" ($buildPlan.unsignedDryRun.script -eq "tools\test-installer-toolchain.ps1") ([string]$buildPlan.unsignedDryRun.script)
+        Add-Check "build-plan:publish-blocked" (-not [bool]$buildPlan.unsignedDryRun.publishAllowed) ([string]$buildPlan.unsignedDryRun.publishAllowed)
+        Add-Check "build-plan:requires-production" ([bool]$buildPlan.unsignedDryRun.requiresProductionSigning) ([string]$buildPlan.unsignedDryRun.requiresProductionSigning)
+    }
+    catch {
+        Add-Check "build-plan:json" $false $_.Exception.Message
     }
 }
 
@@ -180,10 +206,13 @@ if (Test-Path -LiteralPath $handoffPath) {
         $handoff = Get-Content -LiteralPath $handoffPath -Raw | ConvertFrom-Json
         Add-Check "handoff:schema" ($handoff.schema -eq "samhain.installerHandoff") ([string]$handoff.schema)
         Add-Check "handoff:version" ($handoff.version -eq $ExpectedVersion) "expected=$ExpectedVersion actual=$($handoff.version)"
-        Add-Check "handoff:status" ($handoff.status -eq "skeleton-ready-production-signing-pending") ([string]$handoff.status)
+        Add-Check "handoff:status" ($handoff.status -eq "toolchain-preflight-unsigned-msi-dry-run") ([string]$handoff.status)
         Add-Check "handoff:project" ($handoff.installerProject -eq "installer\SamhainSecurityInstaller.wxs") ([string]$handoff.installerProject)
         Add-Check "handoff:policy" ($handoff.signingPolicy -eq "installer\signing-policy.json") ([string]$handoff.signingPolicy)
-        Add-Check "handoff:preflight" ($handoff.preflight -eq "tools\test-installer-skeleton.ps1") ([string]$handoff.preflight)
+        Add-Check "handoff:build-plan" ($handoff.buildPlan -eq "installer\installer-build-plan.json") ([string]$handoff.buildPlan)
+        Add-Check "handoff:preflight" ($handoff.preflight -eq "tools\test-installer-toolchain.ps1") ([string]$handoff.preflight)
+        Add-Check "handoff:skeleton-preflight" ($handoff.skeletonPreflight -eq "tools\test-installer-skeleton.ps1") ([string]$handoff.skeletonPreflight)
+        Add-Check "handoff:toolchain-preflight" ($handoff.toolchainPreflight -eq "tools\test-installer-toolchain.ps1") ([string]$handoff.toolchainPreflight)
         Add-Check "handoff:publish-blocked" (-not [bool]$handoff.publishAllowed) ([string]$handoff.publishAllowed)
         Add-Check "handoff:requires-production" ([bool]$handoff.requiresProductionSigning) ([string]$handoff.requiresProductionSigning)
         Add-Check "handoff:installer-owns" (Test-ContainsAll -Values @($handoff.installerOwns) -Required $requiredInstallerOwns) "installer=$($handoff.installerOwns -join ',')"

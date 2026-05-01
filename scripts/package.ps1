@@ -1,5 +1,5 @@
 param(
-    [string]$Version = "1.5.0",
+    [string]$Version = "1.5.1",
     [string]$Configuration = "Release"
 )
 
@@ -157,6 +157,7 @@ Copy-Item -LiteralPath (Join-Path $RepoRoot "scripts\verify-update-manifest.ps1"
 Copy-Item -LiteralPath (Join-Path $RepoRoot "scripts\test-update-rehearsal.ps1") -Destination $ToolsOut -Force
 Copy-Item -LiteralPath (Join-Path $RepoRoot "scripts\test-public-updater-rollout.ps1") -Destination $ToolsOut -Force
 Copy-Item -LiteralPath (Join-Path $RepoRoot "scripts\test-installer-skeleton.ps1") -Destination $ToolsOut -Force
+Copy-Item -LiteralPath (Join-Path $RepoRoot "scripts\test-installer-toolchain.ps1") -Destination $ToolsOut -Force
 Copy-Item -LiteralPath (Join-Path $RepoRoot "scripts\write-release-evidence.ps1") -Destination $ToolsOut -Force
 Copy-Item -LiteralPath (Join-Path $RepoRoot "scripts\write-release-notes.ps1") -Destination $ToolsOut -Force
 Copy-Item -LiteralPath (Join-Path $RepoRoot "scripts\test-signing-readiness.ps1") -Destination $ToolsOut -Force
@@ -205,11 +206,14 @@ $manifest = [PSCustomObject]@{
             readinessScript = "tools\test-privileged-service-readiness.ps1"
         }
         signedInstaller = [PSCustomObject]@{
-            status = "skeleton-ready-production-signing-pending"
+            status = "toolchain-preflight-unsigned-msi-dry-run"
             project = "installer\SamhainSecurityInstaller.wxs"
             signingPolicy = "installer\signing-policy.json"
             handoff = "installer\installer-handoff.json"
-            preflight = "tools\test-installer-skeleton.ps1"
+            buildPlan = "installer\installer-build-plan.json"
+            preflight = "tools\test-installer-toolchain.ps1"
+            skeletonPreflight = "tools\test-installer-skeleton.ps1"
+            toolchainPreflight = "tools\test-installer-toolchain.ps1"
             requiresElevation = $true
             requiresProductionSigning = $true
             publishAllowed = $false
@@ -301,6 +305,7 @@ $manifest = [PSCustomObject]@{
         updateRehearsalScript = "tools\test-update-rehearsal.ps1"
         publicUpdaterRolloutScript = "tools\test-public-updater-rollout.ps1"
         installerSkeletonScript = "tools\test-installer-skeleton.ps1"
+        installerToolchainScript = "tools\test-installer-toolchain.ps1"
         releaseEvidenceScript = "tools\write-release-evidence.ps1"
         releaseNotesScript = "tools\write-release-notes.ps1"
         signingReadinessScript = "tools\test-signing-readiness.ps1"
@@ -328,6 +333,7 @@ $manifest = [PSCustomObject]@{
             "tools\test-update-rehearsal.ps1",
             "tools\test-public-updater-rollout.ps1",
             "tools\test-installer-skeleton.ps1",
+            "tools\test-installer-toolchain.ps1",
             "tools\write-release-evidence.ps1",
             "tools\write-release-notes.ps1",
             "tools\test-signing-readiness.ps1",
@@ -358,6 +364,7 @@ $manifest = [PSCustomObject]@{
             rolloutGate = "tools\test-public-updater-rollout.ps1"
             requiredEvidence = @(
                 "installer-skeleton",
+                "installer-toolchain",
                 "signing-readiness",
                 "privileged-service-readiness",
                 "update-rehearsal",
@@ -384,11 +391,15 @@ $manifest = [PSCustomObject]@{
             }
         }
         installer = [PSCustomObject]@{
-            status = "skeleton-ready-production-signing-pending"
+            status = "toolchain-preflight-unsigned-msi-dry-run"
             project = "installer\SamhainSecurityInstaller.wxs"
             signingPolicy = "installer\signing-policy.json"
             handoff = "installer\installer-handoff.json"
-            preflight = "tools\test-installer-skeleton.ps1"
+            buildPlan = "installer\installer-build-plan.json"
+            preflight = "tools\test-installer-toolchain.ps1"
+            skeletonPreflight = "tools\test-installer-skeleton.ps1"
+            toolchainPreflight = "tools\test-installer-toolchain.ps1"
+            unsignedDryRun = "temporary-local-build"
             publishAllowed = $false
             requiresProductionSigning = $true
             owns = @(
@@ -402,7 +413,7 @@ $manifest = [PSCustomObject]@{
         }
         docs = [PSCustomObject]@{
             stableRelease = "docs\STABLE_RELEASE.md"
-            releaseNotes = "docs\RELEASE_NOTES_1.5.0.md"
+            releaseNotes = "docs\RELEASE_NOTES_1.5.1.md"
             protocolMatrix = "docs\PROTOCOL_MATRIX.md"
             visualQa = "docs\VISUAL_QA.md"
             securityPosture = "docs\SECURITY_POSTURE.md"
@@ -433,6 +444,7 @@ $manifest = [PSCustomObject]@{
             rolloutGate = "tools\test-public-updater-rollout.ps1"
             requiredEvidence = @(
                 "installer-skeleton",
+                "installer-toolchain",
                 "signing-readiness",
                 "privileged-service-readiness",
                 "update-rehearsal",
@@ -470,6 +482,7 @@ $checksumTargets = @(
     "tools\test-update-rehearsal.ps1",
     "tools\test-public-updater-rollout.ps1",
     "tools\test-installer-skeleton.ps1",
+    "tools\test-installer-toolchain.ps1",
     "tools\write-release-evidence.ps1",
     "tools\write-release-notes.ps1",
     "tools\test-signing-readiness.ps1",
@@ -483,6 +496,7 @@ $checksumTargets = @(
     "app\engines\runtime-bundle-state.json",
     "installer\README.md",
     "installer\SamhainSecurityInstaller.wxs",
+    "installer\installer-build-plan.json",
     "installer\signing-policy.json",
     "installer\installer-handoff.json",
     "README.md",
@@ -536,11 +550,14 @@ $updateManifest = [PSCustomObject]@{
             requiresElevation = $true
         }
         signedInstaller = [PSCustomObject]@{
-            status = "skeleton-ready-production-signing-pending"
+            status = "toolchain-preflight-unsigned-msi-dry-run"
             project = "installer\SamhainSecurityInstaller.wxs"
             signingPolicy = "installer\signing-policy.json"
             handoff = "installer\installer-handoff.json"
-            preflight = "tools\test-installer-skeleton.ps1"
+            buildPlan = "installer\installer-build-plan.json"
+            preflight = "tools\test-installer-toolchain.ps1"
+            skeletonPreflight = "tools\test-installer-skeleton.ps1"
+            toolchainPreflight = "tools\test-installer-toolchain.ps1"
             requiresElevation = $true
             requiresProductionSigning = $true
             publishAllowed = $false
@@ -583,6 +600,7 @@ $updateManifest = [PSCustomObject]@{
         updateRehearsalScript = "tools\test-update-rehearsal.ps1"
         publicUpdaterRolloutScript = "tools\test-public-updater-rollout.ps1"
         installerSkeletonScript = "tools\test-installer-skeleton.ps1"
+        installerToolchainScript = "tools\test-installer-toolchain.ps1"
         releaseEvidenceScript = "tools\write-release-evidence.ps1"
         releaseNotesScript = "tools\write-release-notes.ps1"
         signingReadinessScript = "tools\test-signing-readiness.ps1"
@@ -603,11 +621,15 @@ $updateManifest = [PSCustomObject]@{
         installerHandoff = "installer\installer-handoff.json"
     }
     signedInstaller = [PSCustomObject]@{
-        status = "skeleton-ready-production-signing-pending"
+        status = "toolchain-preflight-unsigned-msi-dry-run"
         project = "installer\SamhainSecurityInstaller.wxs"
         signingPolicy = "installer\signing-policy.json"
         handoff = "installer\installer-handoff.json"
-        preflight = "tools\test-installer-skeleton.ps1"
+        buildPlan = "installer\installer-build-plan.json"
+        preflight = "tools\test-installer-toolchain.ps1"
+        skeletonPreflight = "tools\test-installer-skeleton.ps1"
+        toolchainPreflight = "tools\test-installer-toolchain.ps1"
+        unsignedDryRun = "temporary-local-build"
         publishAllowed = $false
         requiresProductionSigning = $true
         handoffBoundary = [PSCustomObject]@{
@@ -636,6 +658,7 @@ $updateManifest = [PSCustomObject]@{
         rolloutGate = "tools\test-public-updater-rollout.ps1"
         requiredEvidence = @(
             "installer-skeleton",
+            "installer-toolchain",
             "signing-readiness",
             "privileged-service-readiness",
             "update-rehearsal",
@@ -667,10 +690,14 @@ $updateManifest = [PSCustomObject]@{
         protocolMatrix = "docs\PROTOCOL_MATRIX.md"
         visualQa = "docs\VISUAL_QA.md"
         signedInstaller = [PSCustomObject]@{
-            status = "skeleton-ready-production-signing-pending"
+            status = "toolchain-preflight-unsigned-msi-dry-run"
             project = "installer\SamhainSecurityInstaller.wxs"
             signingPolicy = "installer\signing-policy.json"
-            preflight = "tools\test-installer-skeleton.ps1"
+            buildPlan = "installer\installer-build-plan.json"
+            preflight = "tools\test-installer-toolchain.ps1"
+            skeletonPreflight = "tools\test-installer-skeleton.ps1"
+            toolchainPreflight = "tools\test-installer-toolchain.ps1"
+            unsignedDryRun = "temporary-local-build"
             publishAllowed = $false
             requiresProductionSigning = $true
         }

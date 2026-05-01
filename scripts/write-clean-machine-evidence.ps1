@@ -177,6 +177,7 @@ $verifyScript = Join-Path $toolsRoot "verify-update-manifest.ps1"
 $updateRehearsalScript = Join-Path $toolsRoot "test-update-rehearsal.ps1"
 $publicUpdaterRolloutScript = Join-Path $toolsRoot "test-public-updater-rollout.ps1"
 $installerSkeletonScript = Join-Path $toolsRoot "test-installer-skeleton.ps1"
+$installerToolchainScript = Join-Path $toolsRoot "test-installer-toolchain.ps1"
 $signingScript = Join-Path $toolsRoot "test-signing-readiness.ps1"
 $privilegedServiceReadinessScript = Join-Path $toolsRoot "test-privileged-service-readiness.ps1"
 $releaseNotesScript = Join-Path $toolsRoot "write-release-notes.ps1"
@@ -246,6 +247,11 @@ if ((Test-Path $updateManifestPath) -and (Test-Path $archivePath)) {
         Json = $true
     }
     Invoke-ScriptStep -Name "installer-skeleton" -ScriptPath $installerSkeletonScript -Parameters @{
+        PackageRoot = $PackageRoot
+        ExpectedVersion = $ExpectedVersion
+        Json = $true
+    }
+    Invoke-ScriptStep -Name "installer-toolchain" -ScriptPath $installerToolchainScript -Parameters @{
         PackageRoot = $PackageRoot
         ExpectedVersion = $ExpectedVersion
         Json = $true

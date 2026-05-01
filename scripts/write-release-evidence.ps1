@@ -108,6 +108,7 @@ $verifyScript = Join-Path $toolsRoot "verify-update-manifest.ps1"
 $updateRehearsalScript = Join-Path $toolsRoot "test-update-rehearsal.ps1"
 $publicUpdaterRolloutScript = Join-Path $toolsRoot "test-public-updater-rollout.ps1"
 $installerSkeletonScript = Join-Path $toolsRoot "test-installer-skeleton.ps1"
+$installerToolchainScript = Join-Path $toolsRoot "test-installer-toolchain.ps1"
 $smokeScript = Join-Path $toolsRoot "smoke-package.ps1"
 $proxyPathSmokeScript = Join-Path $toolsRoot "smoke-proxy-path.ps1"
 $tunPathSmokeScript = Join-Path $toolsRoot "smoke-tun-path.ps1"
@@ -176,6 +177,11 @@ Invoke-GateScript -Name "public-updater-rollout" -ScriptPath $publicUpdaterRollo
     Json = $true
 }
 Invoke-GateScript -Name "installer-skeleton" -ScriptPath $installerSkeletonScript -Parameters @{
+    PackageRoot = $PackageRoot
+    ExpectedVersion = $ExpectedVersion
+    Json = $true
+}
+Invoke-GateScript -Name "installer-toolchain" -ScriptPath $installerToolchainScript -Parameters @{
     PackageRoot = $PackageRoot
     ExpectedVersion = $ExpectedVersion
     Json = $true

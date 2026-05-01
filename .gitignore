@@ -3,12 +3,15 @@ build/
 dist/
 .vs/
 .vscode/
+.tools/
 *.user
 *.obj
 *.pdb
 *.ilk
 *.exe
 *.dll
+*.msi
+*.wixpdb
 *.log
 *.tmp
 engines/runtime-bundle-state.json

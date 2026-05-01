@@ -1,6 +1,6 @@
 {
   "schema": "samhain.signingPolicy",
-  "version": "1.5.0",
+  "version": "1.5.1",
   "product": "Samhain Security",
   "status": "scaffold",
   "expectedPublisher": "Samhain Security",

@@ -1,6 +1,6 @@
 # Roadmap
 
-Current version: `1.5.0`
+Current version: `1.5.1`
 
 This roadmap is the working contract for Samhain Security. Future implementation should follow this order unless a blocker is found and documented in the same commit.
 
@@ -29,6 +29,7 @@ Each release commit should pass:
 - `.\scripts\test-update-rehearsal.ps1` for stable tags
 - `.\scripts\test-public-updater-rollout.ps1` for stable tags
 - `.\scripts\test-installer-skeleton.ps1` for stable tags
+- `.\scripts\test-installer-toolchain.ps1` for stable tags
 - `.\scripts\write-release-evidence.ps1` for stable tags
 - `.\scripts\test-signing-readiness.ps1`
 - `.\scripts\write-clean-machine-evidence.ps1`
@@ -782,7 +783,19 @@ Done when the package can prove the signed-installer boundary exists, the future
 
 Status: shipped in `v1.5.0` with `installer\SamhainSecurityInstaller.wxs`, `installer\signing-policy.json`, `installer\installer-handoff.json`, `tools\test-installer-skeleton.ps1`, and release gate integration.
 
+### 1.5.1 - Installer Toolchain Preflight And Unsigned MSI Dry-Run
+
+- Add an installer build plan that pins the local unsigned MSI dry-run contract.
+- Add a packaged toolchain preflight gate that detects .NET SDK and WiX.
+- Build a temporary unsigned MSI when a supported WiX toolchain is available.
+- Keep the unsigned MSI non-installable for public release and keep publishing blocked until production signing exists.
+- Wire the installer toolchain gate into package manifests, update manifests, validation, smoke-package, clean-machine evidence, release evidence, and release docs.
+
+Done when the package can prove the installer source is buildable locally into an unsigned MSI dry-run when WiX is available, while still blocking public installer publishing until production signing and clean-machine rehearsal are complete.
+
+Status: shipped in `v1.5.1` with `installer\installer-build-plan.json`, `tools\test-installer-toolchain.ps1`, WiX 6.x dry-run support, and release gate integration.
+
 ## Immediate Next Build Order
 
-1. `1.5.1`: installer build toolchain preflight and unsigned local MSI dry-run.
+1. `1.5.2`: clean-machine signed-installer rehearsal plan and MSI install/uninstall dry-run evidence.
 2. `1.5.x`: first public update channel rehearsal on a clean Windows machine.

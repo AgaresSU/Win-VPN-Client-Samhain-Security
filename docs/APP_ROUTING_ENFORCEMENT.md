@@ -1,6 +1,6 @@
 # App Routing Enforcement
 
-Version: `1.5.0`
+Version: `1.5.1`
 
 Samhain Security now has one release-supported per-application route path:
 

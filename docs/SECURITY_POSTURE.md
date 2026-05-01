@@ -1,6 +1,6 @@
 # Security Posture
 
-Version: `1.5.0`
+Version: `1.5.1`
 
 Samhain Security is hardened for a current-user package plus an installer-owned privileged service path. The visible desktop stays simple, while risky network, routing, and recovery operations remain service-owned and gated by identity, elevation, signing state, and explicit policy.
 

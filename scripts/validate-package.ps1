@@ -67,6 +67,7 @@ $requiredPaths = @(
     "tools\test-update-rehearsal.ps1",
     "tools\test-public-updater-rollout.ps1",
     "tools\test-installer-skeleton.ps1",
+    "tools\test-installer-toolchain.ps1",
     "tools\write-release-evidence.ps1",
     "tools\write-release-notes.ps1",
     "tools\test-signing-readiness.ps1",
@@ -85,6 +86,7 @@ $requiredPaths = @(
     "installer",
     "installer\README.md",
     "installer\SamhainSecurityInstaller.wxs",
+    "installer\installer-build-plan.json",
     "installer\signing-policy.json",
     "installer\installer-handoff.json",
     "checksums.txt"
@@ -128,10 +130,13 @@ if (Test-Path $manifestPath) {
         Add-Check "manifest:privileged-service-sid" ($manifest.operations.privilegedService.serviceSidType -eq "unrestricted") ([string]$manifest.operations.privilegedService.serviceSidType)
         Add-Check "manifest:privileged-service-storage" ($manifest.operations.privilegedService.storageRoot -eq "%ProgramData%\SamhainSecurity") ([string]$manifest.operations.privilegedService.storageRoot)
         Add-Check "manifest:privileged-service-readiness-script" ($manifest.operations.privilegedService.readinessScript -eq "tools\test-privileged-service-readiness.ps1") ([string]$manifest.operations.privilegedService.readinessScript)
-        Add-Check "manifest:signed-installer-status" ($manifest.operations.signedInstaller.status -eq "skeleton-ready-production-signing-pending") ([string]$manifest.operations.signedInstaller.status)
+        Add-Check "manifest:signed-installer-status" ($manifest.operations.signedInstaller.status -eq "toolchain-preflight-unsigned-msi-dry-run") ([string]$manifest.operations.signedInstaller.status)
         Add-Check "manifest:signed-installer-project" ($manifest.operations.signedInstaller.project -eq "installer\SamhainSecurityInstaller.wxs") ([string]$manifest.operations.signedInstaller.project)
         Add-Check "manifest:signed-installer-policy" ($manifest.operations.signedInstaller.signingPolicy -eq "installer\signing-policy.json") ([string]$manifest.operations.signedInstaller.signingPolicy)
-        Add-Check "manifest:signed-installer-preflight" ($manifest.operations.signedInstaller.preflight -eq "tools\test-installer-skeleton.ps1") ([string]$manifest.operations.signedInstaller.preflight)
+        Add-Check "manifest:signed-installer-build-plan" ($manifest.operations.signedInstaller.buildPlan -eq "installer\installer-build-plan.json") ([string]$manifest.operations.signedInstaller.buildPlan)
+        Add-Check "manifest:signed-installer-preflight" ($manifest.operations.signedInstaller.preflight -eq "tools\test-installer-toolchain.ps1") ([string]$manifest.operations.signedInstaller.preflight)
+        Add-Check "manifest:signed-installer-skeleton-preflight" ($manifest.operations.signedInstaller.skeletonPreflight -eq "tools\test-installer-skeleton.ps1") ([string]$manifest.operations.signedInstaller.skeletonPreflight)
+        Add-Check "manifest:signed-installer-toolchain-preflight" ($manifest.operations.signedInstaller.toolchainPreflight -eq "tools\test-installer-toolchain.ps1") ([string]$manifest.operations.signedInstaller.toolchainPreflight)
         Add-Check "manifest:signed-installer-blocked" (-not [bool]$manifest.operations.signedInstaller.publishAllowed) ([string]$manifest.operations.signedInstaller.publishAllowed)
         Add-Check "manifest:service-self-check" ($manifest.operations.serviceSelfCheck.command -eq "service\samhain-service.exe self-check") ([string]$manifest.operations.serviceSelfCheck.command)
         Add-Check "manifest:desktop-integration-owner" ($manifest.operations.desktopIntegration.owner -eq "local-ops") ([string]$manifest.operations.desktopIntegration.owner)
@@ -168,6 +173,7 @@ if (Test-Path $manifestPath) {
         Add-Check "manifest:update-rehearsal" ($manifest.quality.updateRehearsalScript -eq "tools\test-update-rehearsal.ps1") ([string]$manifest.quality.updateRehearsalScript)
         Add-Check "manifest:public-updater-rollout" ($manifest.quality.publicUpdaterRolloutScript -eq "tools\test-public-updater-rollout.ps1") ([string]$manifest.quality.publicUpdaterRolloutScript)
         Add-Check "manifest:installer-skeleton" ($manifest.quality.installerSkeletonScript -eq "tools\test-installer-skeleton.ps1") ([string]$manifest.quality.installerSkeletonScript)
+        Add-Check "manifest:installer-toolchain" ($manifest.quality.installerToolchainScript -eq "tools\test-installer-toolchain.ps1") ([string]$manifest.quality.installerToolchainScript)
         Add-Check "manifest:release-evidence" ($manifest.quality.releaseEvidenceScript -eq "tools\write-release-evidence.ps1") ([string]$manifest.quality.releaseEvidenceScript)
         Add-Check "manifest:release-notes" ($manifest.quality.releaseNotesScript -eq "tools\write-release-notes.ps1") ([string]$manifest.quality.releaseNotesScript)
         Add-Check "manifest:signing-readiness" ($manifest.quality.signingReadinessScript -eq "tools\test-signing-readiness.ps1") ([string]$manifest.quality.signingReadinessScript)
@@ -181,6 +187,7 @@ if (Test-Path $manifestPath) {
         Add-Check "manifest:update-rehearsal-gate" ($manifest.quality.gates -contains "tools\test-update-rehearsal.ps1") "gates=$($manifest.quality.gates -join ',')"
         Add-Check "manifest:public-updater-rollout-gate" ($manifest.quality.gates -contains "tools\test-public-updater-rollout.ps1") "gates=$($manifest.quality.gates -join ',')"
         Add-Check "manifest:installer-skeleton-gate" ($manifest.quality.gates -contains "tools\test-installer-skeleton.ps1") "gates=$($manifest.quality.gates -join ',')"
+        Add-Check "manifest:installer-toolchain-gate" ($manifest.quality.gates -contains "tools\test-installer-toolchain.ps1") "gates=$($manifest.quality.gates -join ',')"
         Add-Check "manifest:runtime-bundle-gate" ($manifest.quality.gates -contains "tools\prepare-runtime-bundle.ps1") "gates=$($manifest.quality.gates -join ',')"
         Add-Check "manifest:runtime-bundle-fetch-gate" ($manifest.quality.gates -contains "tools\fetch-runtime-bundle.ps1") "gates=$($manifest.quality.gates -join ',')"
         Add-Check "manifest:release-readiness-status" ($manifest.releaseReadiness.status -eq "release-ready-dev-signed") ([string]$manifest.releaseReadiness.status)
@@ -193,8 +200,9 @@ if (Test-Path $manifestPath) {
         Add-Check "manifest:public-updater-signing" ([bool]$manifest.releaseReadiness.publicUpdater.requiresProductionSigning) ([string]$manifest.releaseReadiness.publicUpdater.requiresProductionSigning)
         Add-Check "manifest:public-updater-handoff" ($manifest.releaseReadiness.publicUpdater.installerHandoff -eq "signed-installer-required") ([string]$manifest.releaseReadiness.publicUpdater.installerHandoff)
         Add-Check "manifest:public-updater-gate" ($manifest.releaseReadiness.publicUpdater.rolloutGate -eq "tools\test-public-updater-rollout.ps1") ([string]$manifest.releaseReadiness.publicUpdater.rolloutGate)
-        Add-Check "manifest:installer-readiness-status" ($manifest.releaseReadiness.installer.status -eq "skeleton-ready-production-signing-pending") ([string]$manifest.releaseReadiness.installer.status)
+        Add-Check "manifest:installer-readiness-status" ($manifest.releaseReadiness.installer.status -eq "toolchain-preflight-unsigned-msi-dry-run") ([string]$manifest.releaseReadiness.installer.status)
         Add-Check "manifest:installer-readiness-project" ($manifest.releaseReadiness.installer.project -eq "installer\SamhainSecurityInstaller.wxs") ([string]$manifest.releaseReadiness.installer.project)
+        Add-Check "manifest:installer-readiness-build-plan" ($manifest.releaseReadiness.installer.buildPlan -eq "installer\installer-build-plan.json") ([string]$manifest.releaseReadiness.installer.buildPlan)
         Add-Check "manifest:installer-readiness-blocked" (-not [bool]$manifest.releaseReadiness.installer.publishAllowed) ([string]$manifest.releaseReadiness.installer.publishAllowed)
         Add-Check "manifest:release-readiness-protocol-doc" ($manifest.releaseReadiness.docs.protocolMatrix -eq "docs\PROTOCOL_MATRIX.md") ([string]$manifest.releaseReadiness.docs.protocolMatrix)
         Add-Check "manifest:release-readiness-visual-doc" ($manifest.releaseReadiness.docs.visualQa -eq "docs\VISUAL_QA.md") ([string]$manifest.releaseReadiness.docs.visualQa)

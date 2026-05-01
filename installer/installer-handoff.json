@@ -1,11 +1,15 @@
 {
   "schema": "samhain.installerHandoff",
-  "version": "1.5.0",
+  "version": "1.5.1",
   "product": "Samhain Security",
-  "status": "skeleton-ready-production-signing-pending",
+  "status": "toolchain-preflight-unsigned-msi-dry-run",
   "installerProject": "installer\\SamhainSecurityInstaller.wxs",
   "signingPolicy": "installer\\signing-policy.json",
-  "preflight": "tools\\test-installer-skeleton.ps1",
+  "buildPlan": "installer\\installer-build-plan.json",
+  "preflight": "tools\\test-installer-toolchain.ps1",
+  "skeletonPreflight": "tools\\test-installer-skeleton.ps1",
+  "toolchainPreflight": "tools\\test-installer-toolchain.ps1",
+  "unsignedDryRun": "temporary-local-build",
   "publishAllowed": false,
   "requiresProductionSigning": true,
   "packageOwns": [
@@ -36,6 +40,7 @@
     "publishAllowed": false,
     "requiredEvidence": [
       "installer-skeleton",
+      "installer-toolchain",
       "signing-readiness",
       "privileged-service-readiness",
       "update-rehearsal",

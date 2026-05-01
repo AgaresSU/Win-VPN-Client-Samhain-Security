@@ -1,6 +1,6 @@
 # Samhain Security Native
 
-Version: `1.5.0`
+Version: `1.5.1`
 
 Native Windows secure tunneling client prototype built from a clean base.
 
@@ -16,7 +16,7 @@ Native Windows secure tunneling client prototype built from a clean base.
 
 This release is the native foundation. It focuses on the product shell, simple daily UX, local models, persistence, and build/package flow.
 
-Implemented through `1.5.0`:
+Implemented through `1.5.1`:
 
 - Happ-inspired Qt/QML shell with servers, add, settings, statistics, logs, and about sections.
 - Compact subscription group and server rows without technical clutter.
@@ -45,7 +45,7 @@ Implemented through `1.5.0`:
 - Privileged service readiness preflight: ProgramData machine storage policy, service SID plan evidence, explicit TUN/adapter gate fields, and packaged installer dry-run checks.
 - Update rehearsal: local archive validation, isolated previous-package snapshot, candidate apply, and rollback restore proof.
 - Public updater rollout gate: production signing and signed-installer handoff are required before public publishing is allowed.
-- Signed installer skeleton: WiX project scaffold, signing policy, installer handoff contract, and packaged preflight gate.
+- Signed installer skeleton and toolchain preflight: WiX project scaffold, signing policy, installer handoff contract, build plan, and optional unsigned MSI dry-run gate.
 - Protection layer foundation: service-owned kill switch/DNS/IPv6/watchdog policy state, emergency restore IPC, rollback on stop/crash, scoped firewall command planning, and explicit enforcement gating for privileged service runs.
 - Desktop integration: tray status/menu, minimize-to-tray behavior, single-instance handoff, Windows startup toggle, and `samhain://` import handler registration.
 - Desktop integration ownership: package operations now report expected and actual autostart/link-handler commands, detect drift from old installs, copy tools into the install root, and write `desktop-integration.json` during install/repair.
@@ -104,7 +104,7 @@ Not implemented yet:
 The package is written to:
 
 ```text
-dist\SamhainSecurityNative-1.5.0-win-x64
+dist\SamhainSecurityNative-1.5.1-win-x64
 ```
 
 ## Local Operations
@@ -133,21 +133,22 @@ Prepare the expected runtime folders before packaging:
 Validate a built package:
 
 ```powershell
-.\scripts\prepare-runtime-bundle.ps1 -PackageRoot .\dist\SamhainSecurityNative-1.5.0-win-x64 -ValidateOnly
+.\scripts\prepare-runtime-bundle.ps1 -PackageRoot .\dist\SamhainSecurityNative-1.5.1-win-x64 -ValidateOnly
 ```
 
 ## Package Checks
 
 ```powershell
-.\scripts\validate-package.ps1 -ExpectedVersion 1.5.0 -RunServiceStatus
-.\scripts\smoke-proxy-path.ps1 -ExpectedVersion 1.5.0
-.\scripts\smoke-tun-path.ps1 -ExpectedVersion 1.5.0
-.\scripts\smoke-adapter-path.ps1 -ExpectedVersion 1.5.0
-.\scripts\test-privileged-service-readiness.ps1 -ExpectedVersion 1.5.0
-.\scripts\test-update-rehearsal.ps1 -ExpectedVersion 1.5.0
-.\scripts\test-public-updater-rollout.ps1 -ExpectedVersion 1.5.0
-.\scripts\test-installer-skeleton.ps1 -ExpectedVersion 1.5.0
-.\scripts\smoke-package.ps1 -ExpectedVersion 1.5.0
+.\scripts\validate-package.ps1 -ExpectedVersion 1.5.1 -RunServiceStatus
+.\scripts\smoke-proxy-path.ps1 -ExpectedVersion 1.5.1
+.\scripts\smoke-tun-path.ps1 -ExpectedVersion 1.5.1
+.\scripts\smoke-adapter-path.ps1 -ExpectedVersion 1.5.1
+.\scripts\test-privileged-service-readiness.ps1 -ExpectedVersion 1.5.1
+.\scripts\test-update-rehearsal.ps1 -ExpectedVersion 1.5.1
+.\scripts\test-public-updater-rollout.ps1 -ExpectedVersion 1.5.1
+.\scripts\test-installer-skeleton.ps1 -ExpectedVersion 1.5.1
+.\scripts\test-installer-toolchain.ps1 -ExpectedVersion 1.5.1
+.\scripts\smoke-package.ps1 -ExpectedVersion 1.5.1
 ```
 
 See `docs\BETA_CHECKLIST.md` for the manual Windows and protocol matrix.
@@ -155,16 +156,17 @@ See `docs\BETA_CHECKLIST.md` for the manual Windows and protocol matrix.
 ## Stable Checks
 
 ```powershell
-.\scripts\verify-update-manifest.ps1 -ExpectedVersion 1.5.0 -RequireStableChannel
-.\scripts\verify-update-manifest.ps1 -ExpectedVersion 1.5.0 -RequireStableChannel -InstalledVersion 9.9.9 -AllowDowngradeRecovery
-.\scripts\test-update-rehearsal.ps1 -ExpectedVersion 1.5.0
-.\scripts\test-public-updater-rollout.ps1 -ExpectedVersion 1.5.0
-.\scripts\test-installer-skeleton.ps1 -ExpectedVersion 1.5.0
-.\scripts\test-signing-readiness.ps1 -ExpectedVersion 1.5.0
-.\scripts\test-privileged-service-readiness.ps1 -ExpectedVersion 1.5.0
-.\scripts\write-clean-machine-evidence.ps1 -ExpectedVersion 1.5.0 -SkipLaunch
-.\scripts\write-release-notes.ps1 -ExpectedVersion 1.5.0
-.\scripts\write-release-evidence.ps1 -ExpectedVersion 1.5.0
+.\scripts\verify-update-manifest.ps1 -ExpectedVersion 1.5.1 -RequireStableChannel
+.\scripts\verify-update-manifest.ps1 -ExpectedVersion 1.5.1 -RequireStableChannel -InstalledVersion 9.9.9 -AllowDowngradeRecovery
+.\scripts\test-update-rehearsal.ps1 -ExpectedVersion 1.5.1
+.\scripts\test-public-updater-rollout.ps1 -ExpectedVersion 1.5.1
+.\scripts\test-installer-skeleton.ps1 -ExpectedVersion 1.5.1
+.\scripts\test-installer-toolchain.ps1 -ExpectedVersion 1.5.1
+.\scripts\test-signing-readiness.ps1 -ExpectedVersion 1.5.1
+.\scripts\test-privileged-service-readiness.ps1 -ExpectedVersion 1.5.1
+.\scripts\write-clean-machine-evidence.ps1 -ExpectedVersion 1.5.1 -SkipLaunch
+.\scripts\write-release-notes.ps1 -ExpectedVersion 1.5.1
+.\scripts\write-release-evidence.ps1 -ExpectedVersion 1.5.1
 ```
 
 See `docs\STABLE_RELEASE.md`, `docs\CLEAN_MACHINE_EVIDENCE.md`, `docs\PROTOCOL_MATRIX.md`, and `docs\VISUAL_QA.md` for the stable release checklist, protocol coverage, visual checks, and external test evidence flow.

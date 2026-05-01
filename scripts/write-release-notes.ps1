@@ -91,6 +91,7 @@ $lines = @(
     "- Update rehearsal: local archive extraction, isolated previous-package snapshot, candidate apply, and rollback restore validation.",
     "- Public updater rollout boundary: production signing and signed-installer handoff are required before public publishing is allowed.",
     "- Signed installer skeleton: WiX project scaffold, signing policy, installer handoff contract, and preflight gate.",
+    "- Installer toolchain preflight: WiX build plan, optional unsigned MSI dry-run, and public publishing blocked while unsigned.",
     "- Security posture: bounded IPC payloads, command validation, bundled-only runtime search by default, storage boundary checks, and redacted logs.",
     "- Runtime bundle preparation: locked runtime layout, package state file, validation script, SHA256 evidence when binaries are present, and clear missing-runtime status.",
     "- Privileged service readiness: packaged preflight script, ProgramData machine storage policy, and explicit TUN/adapter gate evidence.",
@@ -119,6 +120,7 @@ $lines = @(
     "",
     "- Production code signing certificate is not applied yet; package remains unsigned-dev.",
     "- Signed installer publishing remains blocked until the production certificate and clean-machine rehearsal are complete.",
+    "- Unsigned MSI dry-run output is local-only and must not be published or installed as a production release.",
     "- Production runtime binaries must be supplied and validated on clean Windows machines for each protocol family.",
     "- Transparent except-selected application routing remains blocked until the signed WFP layer is ready.",
     "- Machine-scope writes require an elevated installer path; current-user operation remains the fallback."

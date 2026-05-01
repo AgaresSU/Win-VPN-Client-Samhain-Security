@@ -114,6 +114,7 @@ $toolsRoot = Join-Path $PackageRoot "tools"
 $signingScript = Join-Path $toolsRoot "test-signing-readiness.ps1"
 $privilegedServiceReadinessScript = Join-Path $toolsRoot "test-privileged-service-readiness.ps1"
 $updateRehearsalScript = Join-Path $toolsRoot "test-update-rehearsal.ps1"
+$installerToolchainScript = Join-Path $toolsRoot "test-installer-toolchain.ps1"
 $checks = New-Object System.Collections.Generic.List[object]
 $warnings = New-Object System.Collections.Generic.List[string]
 $failed = $false
@@ -125,6 +126,7 @@ $publicRollout = $updateManifest.publicRollout
 $rolloutGate = "tools\test-public-updater-rollout.ps1"
 $requiredEvidence = @(
     "installer-skeleton",
+    "installer-toolchain",
     "signing-readiness",
     "privileged-service-readiness",
     "update-rehearsal",
@@ -197,6 +199,11 @@ Invoke-Tool -Name "gate:signing-readiness" -ScriptPath $signingScript -Parameter
     Json = $true
 }
 Invoke-Tool -Name "gate:privileged-service-readiness" -ScriptPath $privilegedServiceReadinessScript -Parameters @{
+    PackageRoot = $PackageRoot
+    ExpectedVersion = $ExpectedVersion
+    Json = $true
+}
+Invoke-Tool -Name "gate:installer-toolchain" -ScriptPath $installerToolchainScript -Parameters @{
     PackageRoot = $PackageRoot
     ExpectedVersion = $ExpectedVersion
     Json = $true
