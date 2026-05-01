@@ -1,0 +1,38 @@
+{
+  "schema": "samhain.signingPolicy",
+  "version": "1.5.0",
+  "product": "Samhain Security",
+  "status": "scaffold",
+  "expectedPublisher": "Samhain Security",
+  "digestAlgorithm": "SHA256",
+  "timestampRequired": true,
+  "timestampServer": "https://timestamp.digicert.com",
+  "certificate": {
+    "source": "environment-or-secure-ci-secret",
+    "thumbprintVariable": "SAMHAIN_SIGN_CERT_THUMBPRINT",
+    "pfxPathVariable": "SAMHAIN_SIGN_PFX_PATH",
+    "pfxPasswordVariable": "SAMHAIN_SIGN_PFX_PASSWORD"
+  },
+  "targets": [
+    {
+      "id": "desktop",
+      "path": "app\\SamhainSecurityNative.exe",
+      "required": true
+    },
+    {
+      "id": "service",
+      "path": "service\\samhain-service.exe",
+      "required": true
+    },
+    {
+      "id": "installer",
+      "path": "installer\\SamhainSecurityInstaller.msi",
+      "required": true
+    }
+  ],
+  "publicRelease": {
+    "productionSigningRequired": true,
+    "publishAllowed": false,
+    "blockedReason": "production-signing-certificate-pending"
+  }
+}

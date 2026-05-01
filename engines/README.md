@@ -19,7 +19,7 @@ Use this command before packaging to create the expected folders and write local
 Use this command when validating a package:
 
 ```powershell
-.\scripts\prepare-runtime-bundle.ps1 -PackageRoot .\dist\SamhainSecurityNative-1.4.9-win-x64 -ValidateOnly
+.\scripts\prepare-runtime-bundle.ps1 -PackageRoot .\dist\SamhainSecurityNative-1.5.0-win-x64 -ValidateOnly
 ```
 
 `runtime-bundle.lock.json` is the source of truth for runtime ids, executable paths, version probes, and protocol coverage. Do not place subscriptions, private keys, generated configs, or credentials in this folder.

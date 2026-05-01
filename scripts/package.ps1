@@ -1,5 +1,5 @@
 param(
-    [string]$Version = "1.4.9",
+    [string]$Version = "1.5.0",
     [string]$Configuration = "Release"
 )
 
@@ -16,6 +16,7 @@ $AppOut = Join-Path $PackageRoot "app"
 $ServiceOut = Join-Path $PackageRoot "service"
 $DocsOut = Join-Path $PackageRoot "docs"
 $ToolsOut = Join-Path $PackageRoot "tools"
+$InstallerOut = Join-Path $PackageRoot "installer"
 $EnginesOut = Join-Path $AppOut "engines"
 $QtExe = Join-Path $RepoRoot "build\desktop-qt\SamhainSecurityNative.exe"
 $ServiceExe = Join-Path $RepoRoot "target\release\samhain-service.exe"
@@ -139,12 +140,13 @@ if (Test-Path $PackageRoot) {
     Remove-Item -LiteralPath $PackageRoot -Recurse -Force
 }
 
-New-Item -ItemType Directory -Force -Path $AppOut, $ServiceOut, $DocsOut, $ToolsOut, $EnginesOut | Out-Null
+New-Item -ItemType Directory -Force -Path $AppOut, $ServiceOut, $DocsOut, $ToolsOut, $InstallerOut, $EnginesOut | Out-Null
 Copy-Item -LiteralPath $QtExe -Destination $AppOut -Force
 Copy-Item -LiteralPath $ServiceExe -Destination $ServiceOut -Force
 Copy-Item -LiteralPath (Join-Path $RepoRoot "README.md") -Destination $PackageRoot -Force
 Copy-Item -LiteralPath (Join-Path $RepoRoot "VERSION") -Destination $PackageRoot -Force
 Copy-Item -Path (Join-Path $RepoRoot "docs\*") -Destination $DocsOut -Recurse -Force
+Copy-Item -Path (Join-Path $RepoRoot "installer\*") -Destination $InstallerOut -Recurse -Force
 Copy-Item -LiteralPath (Join-Path $RepoRoot "scripts\local-ops.ps1") -Destination $ToolsOut -Force
 Copy-Item -LiteralPath (Join-Path $RepoRoot "scripts\validate-package.ps1") -Destination $ToolsOut -Force
 Copy-Item -LiteralPath (Join-Path $RepoRoot "scripts\smoke-package.ps1") -Destination $ToolsOut -Force
@@ -154,6 +156,7 @@ Copy-Item -LiteralPath (Join-Path $RepoRoot "scripts\smoke-adapter-path.ps1") -D
 Copy-Item -LiteralPath (Join-Path $RepoRoot "scripts\verify-update-manifest.ps1") -Destination $ToolsOut -Force
 Copy-Item -LiteralPath (Join-Path $RepoRoot "scripts\test-update-rehearsal.ps1") -Destination $ToolsOut -Force
 Copy-Item -LiteralPath (Join-Path $RepoRoot "scripts\test-public-updater-rollout.ps1") -Destination $ToolsOut -Force
+Copy-Item -LiteralPath (Join-Path $RepoRoot "scripts\test-installer-skeleton.ps1") -Destination $ToolsOut -Force
 Copy-Item -LiteralPath (Join-Path $RepoRoot "scripts\write-release-evidence.ps1") -Destination $ToolsOut -Force
 Copy-Item -LiteralPath (Join-Path $RepoRoot "scripts\write-release-notes.ps1") -Destination $ToolsOut -Force
 Copy-Item -LiteralPath (Join-Path $RepoRoot "scripts\test-signing-readiness.ps1") -Destination $ToolsOut -Force
@@ -200,6 +203,16 @@ $manifest = [PSCustomObject]@{
             serviceSidType = "unrestricted"
             storageRoot = "%ProgramData%\SamhainSecurity"
             readinessScript = "tools\test-privileged-service-readiness.ps1"
+        }
+        signedInstaller = [PSCustomObject]@{
+            status = "skeleton-ready-production-signing-pending"
+            project = "installer\SamhainSecurityInstaller.wxs"
+            signingPolicy = "installer\signing-policy.json"
+            handoff = "installer\installer-handoff.json"
+            preflight = "tools\test-installer-skeleton.ps1"
+            requiresElevation = $true
+            requiresProductionSigning = $true
+            publishAllowed = $false
         }
         rollback = [PSCustomObject]@{
             owner = "local-ops"
@@ -272,6 +285,10 @@ $manifest = [PSCustomObject]@{
         status = "unsigned-dev"
         expectedPublisher = "Samhain Security"
         digestAlgorithm = "SHA256"
+        policy = "installer\signing-policy.json"
+        installerHandoff = "installer\installer-handoff.json"
+        certificateSource = "environment-or-secure-ci-secret"
+        timestampRequired = $true
     }
     quality = [PSCustomObject]@{
         channel = "stable"
@@ -283,6 +300,7 @@ $manifest = [PSCustomObject]@{
         updateManifestVerifier = "tools\verify-update-manifest.ps1"
         updateRehearsalScript = "tools\test-update-rehearsal.ps1"
         publicUpdaterRolloutScript = "tools\test-public-updater-rollout.ps1"
+        installerSkeletonScript = "tools\test-installer-skeleton.ps1"
         releaseEvidenceScript = "tools\write-release-evidence.ps1"
         releaseNotesScript = "tools\write-release-notes.ps1"
         signingReadinessScript = "tools\test-signing-readiness.ps1"
@@ -309,6 +327,7 @@ $manifest = [PSCustomObject]@{
             "tools\verify-update-manifest.ps1",
             "tools\test-update-rehearsal.ps1",
             "tools\test-public-updater-rollout.ps1",
+            "tools\test-installer-skeleton.ps1",
             "tools\write-release-evidence.ps1",
             "tools\write-release-notes.ps1",
             "tools\test-signing-readiness.ps1",
@@ -338,6 +357,7 @@ $manifest = [PSCustomObject]@{
             installerHandoff = "signed-installer-required"
             rolloutGate = "tools\test-public-updater-rollout.ps1"
             requiredEvidence = @(
+                "installer-skeleton",
                 "signing-readiness",
                 "privileged-service-readiness",
                 "update-rehearsal",
@@ -363,9 +383,26 @@ $manifest = [PSCustomObject]@{
                 blockedWhenUnsigned = $true
             }
         }
+        installer = [PSCustomObject]@{
+            status = "skeleton-ready-production-signing-pending"
+            project = "installer\SamhainSecurityInstaller.wxs"
+            signingPolicy = "installer\signing-policy.json"
+            handoff = "installer\installer-handoff.json"
+            preflight = "tools\test-installer-skeleton.ps1"
+            publishAllowed = $false
+            requiresProductionSigning = $true
+            owns = @(
+                "production-signing",
+                "elevation",
+                "program-files-install",
+                "service-registration",
+                "update-apply",
+                "machine-rollback"
+            )
+        }
         docs = [PSCustomObject]@{
             stableRelease = "docs\STABLE_RELEASE.md"
-            releaseNotes = "docs\RELEASE_NOTES_1.4.9.md"
+            releaseNotes = "docs\RELEASE_NOTES_1.5.0.md"
             protocolMatrix = "docs\PROTOCOL_MATRIX.md"
             visualQa = "docs\VISUAL_QA.md"
             securityPosture = "docs\SECURITY_POSTURE.md"
@@ -395,6 +432,7 @@ $manifest = [PSCustomObject]@{
             installerHandoff = "signed-installer-required"
             rolloutGate = "tools\test-public-updater-rollout.ps1"
             requiredEvidence = @(
+                "installer-skeleton",
                 "signing-readiness",
                 "privileged-service-readiness",
                 "update-rehearsal",
@@ -431,6 +469,7 @@ $checksumTargets = @(
     "tools\verify-update-manifest.ps1",
     "tools\test-update-rehearsal.ps1",
     "tools\test-public-updater-rollout.ps1",
+    "tools\test-installer-skeleton.ps1",
     "tools\write-release-evidence.ps1",
     "tools\write-release-notes.ps1",
     "tools\test-signing-readiness.ps1",
@@ -442,6 +481,10 @@ $checksumTargets = @(
     "engine-inventory.json",
     "runtime-bundle.lock.json",
     "app\engines\runtime-bundle-state.json",
+    "installer\README.md",
+    "installer\SamhainSecurityInstaller.wxs",
+    "installer\signing-policy.json",
+    "installer\installer-handoff.json",
     "README.md",
     "VERSION"
 )
@@ -492,6 +535,16 @@ $updateManifest = [PSCustomObject]@{
             dryRunRequired = $false
             requiresElevation = $true
         }
+        signedInstaller = [PSCustomObject]@{
+            status = "skeleton-ready-production-signing-pending"
+            project = "installer\SamhainSecurityInstaller.wxs"
+            signingPolicy = "installer\signing-policy.json"
+            handoff = "installer\installer-handoff.json"
+            preflight = "tools\test-installer-skeleton.ps1"
+            requiresElevation = $true
+            requiresProductionSigning = $true
+            publishAllowed = $false
+        }
         enforcementTransaction = [PSCustomObject]@{
             owner = "service"
             model = "typed-apply-rollback"
@@ -529,6 +582,7 @@ $updateManifest = [PSCustomObject]@{
         updateManifestVerifier = "tools\verify-update-manifest.ps1"
         updateRehearsalScript = "tools\test-update-rehearsal.ps1"
         publicUpdaterRolloutScript = "tools\test-public-updater-rollout.ps1"
+        installerSkeletonScript = "tools\test-installer-skeleton.ps1"
         releaseEvidenceScript = "tools\write-release-evidence.ps1"
         releaseNotesScript = "tools\write-release-notes.ps1"
         signingReadinessScript = "tools\test-signing-readiness.ps1"
@@ -545,6 +599,34 @@ $updateManifest = [PSCustomObject]@{
         subscriptionOperationsEvidence = "service.subscription_operations"
         signingStatus = "unsigned-dev"
         expectedPublisher = "Samhain Security"
+        signingPolicy = "installer\signing-policy.json"
+        installerHandoff = "installer\installer-handoff.json"
+    }
+    signedInstaller = [PSCustomObject]@{
+        status = "skeleton-ready-production-signing-pending"
+        project = "installer\SamhainSecurityInstaller.wxs"
+        signingPolicy = "installer\signing-policy.json"
+        handoff = "installer\installer-handoff.json"
+        preflight = "tools\test-installer-skeleton.ps1"
+        publishAllowed = $false
+        requiresProductionSigning = $true
+        handoffBoundary = [PSCustomObject]@{
+            packageOwns = @(
+                "manifest-verification",
+                "archive-hash",
+                "local-update-rehearsal",
+                "current-user-fallback",
+                "release-evidence"
+            )
+            installerOwns = @(
+                "production-signing",
+                "elevation",
+                "program-files-install",
+                "service-registration",
+                "update-apply",
+                "machine-rollback"
+            )
+        }
     }
     publicRollout = [PSCustomObject]@{
         status = "blocked-until-production-signed-installer"
@@ -553,6 +635,7 @@ $updateManifest = [PSCustomObject]@{
         installerHandoff = "signed-installer-required"
         rolloutGate = "tools\test-public-updater-rollout.ps1"
         requiredEvidence = @(
+            "installer-skeleton",
             "signing-readiness",
             "privileged-service-readiness",
             "update-rehearsal",
@@ -583,6 +666,14 @@ $updateManifest = [PSCustomObject]@{
         releaseNotes = "SamhainSecurityNative-$Version-win-x64.release-notes.md"
         protocolMatrix = "docs\PROTOCOL_MATRIX.md"
         visualQa = "docs\VISUAL_QA.md"
+        signedInstaller = [PSCustomObject]@{
+            status = "skeleton-ready-production-signing-pending"
+            project = "installer\SamhainSecurityInstaller.wxs"
+            signingPolicy = "installer\signing-policy.json"
+            preflight = "tools\test-installer-skeleton.ps1"
+            publishAllowed = $false
+            requiresProductionSigning = $true
+        }
         knownLimits = @(
             "production-signing-certificate-pending",
             "production-runtime-binaries-must-be-supplied-and-validated",

@@ -124,6 +124,7 @@ $publicUpdater = $manifest.releaseReadiness.publicUpdater
 $publicRollout = $updateManifest.publicRollout
 $rolloutGate = "tools\test-public-updater-rollout.ps1"
 $requiredEvidence = @(
+    "installer-skeleton",
     "signing-readiness",
     "privileged-service-readiness",
     "update-rehearsal",

@@ -1,0 +1,46 @@
+{
+  "schema": "samhain.installerHandoff",
+  "version": "1.5.0",
+  "product": "Samhain Security",
+  "status": "skeleton-ready-production-signing-pending",
+  "installerProject": "installer\\SamhainSecurityInstaller.wxs",
+  "signingPolicy": "installer\\signing-policy.json",
+  "preflight": "tools\\test-installer-skeleton.ps1",
+  "publishAllowed": false,
+  "requiresProductionSigning": true,
+  "packageOwns": [
+    "manifest-verification",
+    "archive-hash",
+    "local-update-rehearsal",
+    "current-user-fallback",
+    "release-evidence"
+  ],
+  "installerOwns": [
+    "production-signing",
+    "elevation",
+    "program-files-install",
+    "service-registration",
+    "update-apply",
+    "machine-rollback"
+  ],
+  "service": {
+    "name": "SamhainSecurityService",
+    "displayName": "Samhain Security Service",
+    "installRoot": "%ProgramFiles%\\SamhainSecurity",
+    "dataRoot": "%ProgramData%\\SamhainSecurity",
+    "start": "auto",
+    "serviceSidType": "unrestricted"
+  },
+  "publicRollout": {
+    "status": "blocked-until-production-signed-installer",
+    "publishAllowed": false,
+    "requiredEvidence": [
+      "installer-skeleton",
+      "signing-readiness",
+      "privileged-service-readiness",
+      "update-rehearsal",
+      "clean-machine-evidence",
+      "release-evidence"
+    ]
+  }
+}

@@ -1,6 +1,6 @@
 # Roadmap
 
-Current version: `1.4.9`
+Current version: `1.5.0`
 
 This roadmap is the working contract for Samhain Security. Future implementation should follow this order unless a blocker is found and documented in the same commit.
 
@@ -28,6 +28,7 @@ Each release commit should pass:
 - `.\scripts\verify-update-manifest.ps1 -RequireStableChannel` for stable tags
 - `.\scripts\test-update-rehearsal.ps1` for stable tags
 - `.\scripts\test-public-updater-rollout.ps1` for stable tags
+- `.\scripts\test-installer-skeleton.ps1` for stable tags
 - `.\scripts\write-release-evidence.ps1` for stable tags
 - `.\scripts\test-signing-readiness.ps1`
 - `.\scripts\write-clean-machine-evidence.ps1`
@@ -768,7 +769,20 @@ Done when the package can prove it is safe for internal stable validation but bl
 
 Status: shipped in `v1.4.9` with `tools\test-public-updater-rollout.ps1`, blocked unsigned publishing metadata, and release gate integration.
 
+### 1.5.0 - Production Signing Scaffold And Installer Skeleton
+
+- Add an `installer` project skeleton for the future per-machine signed installer.
+- Add a production signing policy scaffold with expected publisher, SHA256 digest, timestamp requirement, secure certificate inputs, and desktop/service/installer signing targets.
+- Add an installer handoff contract that declares package-owned and installer-owned responsibilities.
+- Add a packaged installer skeleton preflight gate.
+- Wire the installer skeleton gate into package manifests, update manifests, validation, smoke-package, clean-machine evidence, release evidence, and release docs.
+- Keep public publishing blocked while the package remains `unsigned-dev`.
+
+Done when the package can prove the signed-installer boundary exists, the future installer owns elevation/service registration/update apply/machine rollback, and public publishing remains blocked until production signing and clean-machine installer rehearsal are available.
+
+Status: shipped in `v1.5.0` with `installer\SamhainSecurityInstaller.wxs`, `installer\signing-policy.json`, `installer\installer-handoff.json`, `tools\test-installer-skeleton.ps1`, and release gate integration.
+
 ## Immediate Next Build Order
 
-1. `1.5.0`: production signing scaffold and signed-installer project skeleton.
+1. `1.5.1`: installer build toolchain preflight and unsigned local MSI dry-run.
 2. `1.5.x`: first public update channel rehearsal on a clean Windows machine.

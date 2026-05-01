@@ -107,6 +107,7 @@ $validateScript = Join-Path $toolsRoot "validate-package.ps1"
 $verifyScript = Join-Path $toolsRoot "verify-update-manifest.ps1"
 $updateRehearsalScript = Join-Path $toolsRoot "test-update-rehearsal.ps1"
 $publicUpdaterRolloutScript = Join-Path $toolsRoot "test-public-updater-rollout.ps1"
+$installerSkeletonScript = Join-Path $toolsRoot "test-installer-skeleton.ps1"
 $smokeScript = Join-Path $toolsRoot "smoke-package.ps1"
 $proxyPathSmokeScript = Join-Path $toolsRoot "smoke-proxy-path.ps1"
 $tunPathSmokeScript = Join-Path $toolsRoot "smoke-tun-path.ps1"
@@ -171,6 +172,11 @@ Invoke-GateScript -Name "update-rehearsal" -ScriptPath $updateRehearsalScript -P
 Invoke-GateScript -Name "public-updater-rollout" -ScriptPath $publicUpdaterRolloutScript -Parameters @{
     PackageRoot = $PackageRoot
     UpdateManifestPath = $updateManifestPath
+    ExpectedVersion = $ExpectedVersion
+    Json = $true
+}
+Invoke-GateScript -Name "installer-skeleton" -ScriptPath $installerSkeletonScript -Parameters @{
+    PackageRoot = $PackageRoot
     ExpectedVersion = $ExpectedVersion
     Json = $true
 }
@@ -246,6 +252,9 @@ if ($signingStatus -ne "signed-production") {
 if ($updateManifest -and (-not [bool]$updateManifest.publicRollout.publishAllowed)) {
     $warnings.Add("Public updater rollout is blocked until production signing and signed-installer handoff are available.") | Out-Null
 }
+if ($updateManifest -and $updateManifest.signedInstaller -and (-not [bool]$updateManifest.signedInstaller.publishAllowed)) {
+    $warnings.Add("Signed installer skeleton is present, but public installer publishing is blocked until production signing is supplied.") | Out-Null
+}
 if ([string]::IsNullOrWhiteSpace($Tag)) {
     $warnings.Add("No exact release tag was detected for the current commit.") | Out-Null
 }
@@ -278,6 +287,7 @@ $evidence = [PSCustomObject]@{
         productionSigned = ($signingStatus -eq "signed-production")
     }
     publicRollout = if ($updateManifest) { $updateManifest.publicRollout } else { $null }
+    signedInstaller = if ($updateManifest) { $updateManifest.signedInstaller } else { $null }
     updatePolicy = if ($updateManifest) { $updateManifest.updatePolicy } else { $null }
     gates = $gates
     warnings = $warnings

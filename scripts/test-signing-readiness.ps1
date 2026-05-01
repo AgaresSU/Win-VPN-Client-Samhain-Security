@@ -62,6 +62,7 @@ function Add-Check {
 
 $versionPath = Join-Path $PackageRoot "VERSION"
 $manifestPath = Join-Path $PackageRoot "release-manifest.json"
+$signingPolicyPath = Join-Path $PackageRoot "installer\signing-policy.json"
 $packageVersion = ""
 if (Test-Path $versionPath) {
     $packageVersion = (Get-Content -LiteralPath $versionPath -Raw).Trim()
@@ -69,6 +70,7 @@ if (Test-Path $versionPath) {
 
 Add-Check "version:expected" ($packageVersion -eq $ExpectedVersion) "expected=$ExpectedVersion actual=$packageVersion"
 Add-Check "manifest:exists" (Test-Path $manifestPath) $manifestPath
+Add-Check "signing-policy:exists" (Test-Path $signingPolicyPath) $signingPolicyPath
 
 $manifest = $null
 if (Test-Path $manifestPath) {
@@ -76,6 +78,23 @@ if (Test-Path $manifestPath) {
     Add-Check "manifest:expected-publisher" ($manifest.signing.expectedPublisher -eq "Samhain Security") ([string]$manifest.signing.expectedPublisher)
     Add-Check "manifest:digest" ($manifest.signing.digestAlgorithm -eq "SHA256") ([string]$manifest.signing.digestAlgorithm)
     Add-Check "manifest:declared-status" ($manifest.signing.status -in @("unsigned-dev", "signed-production")) ([string]$manifest.signing.status)
+    Add-Check "manifest:signing-policy" ($manifest.signing.policy -eq "installer\signing-policy.json") ([string]$manifest.signing.policy)
+    Add-Check "manifest:installer-handoff" ($manifest.signing.installerHandoff -eq "installer\installer-handoff.json") ([string]$manifest.signing.installerHandoff)
+}
+
+if (Test-Path $signingPolicyPath) {
+    $policy = Get-Content -LiteralPath $signingPolicyPath -Raw | ConvertFrom-Json
+    $targetIds = @($policy.targets | ForEach-Object { [string]$_.id })
+    Add-Check "signing-policy:schema" ($policy.schema -eq "samhain.signingPolicy") ([string]$policy.schema)
+    Add-Check "signing-policy:version" ($policy.version -eq $ExpectedVersion) "expected=$ExpectedVersion actual=$($policy.version)"
+    Add-Check "signing-policy:publisher" ($policy.expectedPublisher -eq "Samhain Security") ([string]$policy.expectedPublisher)
+    Add-Check "signing-policy:digest" ($policy.digestAlgorithm -eq "SHA256") ([string]$policy.digestAlgorithm)
+    Add-Check "signing-policy:timestamp" ([bool]$policy.timestampRequired) ([string]$policy.timestampRequired)
+    Add-Check "signing-policy:desktop-target" ($targetIds -contains "desktop") "targets=$($targetIds -join ',')"
+    Add-Check "signing-policy:service-target" ($targetIds -contains "service") "targets=$($targetIds -join ',')"
+    Add-Check "signing-policy:installer-target" ($targetIds -contains "installer") "targets=$($targetIds -join ',')"
+    Add-Check "signing-policy:publish-blocked" (-not [bool]$policy.publicRelease.publishAllowed) ([string]$policy.publicRelease.publishAllowed)
+    Add-Check "signing-policy:production-required" ([bool]$policy.publicRelease.productionSigningRequired) ([string]$policy.publicRelease.productionSigningRequired)
 }
 
 $targets = @(

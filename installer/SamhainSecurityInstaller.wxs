@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs">
+  <Package
+    Name="Samhain Security"
+    Manufacturer="Samhain Security"
+    Version="$(var.ProductVersion)"
+    UpgradeCode="{6A4D28E4-7680-4E17-AD44-775D3A3BB4E4}"
+    Scope="perMachine">
+    <MajorUpgrade DowngradeErrorMessage="A newer version of Samhain Security is already installed." />
+    <MediaTemplate EmbedCab="yes" />
+
+    <StandardDirectory Id="ProgramFiles64Folder">
+      <Directory Id="INSTALLFOLDER" Name="SamhainSecurity">
+        <Directory Id="APPFOLDER" Name="app" />
+        <Directory Id="SERVICEFOLDER" Name="service" />
+        <Directory Id="TOOLSFOLDER" Name="tools" />
+      </Directory>
+    </StandardDirectory>
+
+    <Feature Id="MainFeature" Title="Samhain Security" Level="1">
+      <ComponentGroupRef Id="AppComponents" />
+      <ComponentGroupRef Id="ServiceComponents" />
+      <ComponentGroupRef Id="ToolComponents" />
+    </Feature>
+  </Package>
+
+  <Fragment>
+    <ComponentGroup Id="AppComponents" Directory="APPFOLDER">
+      <Component Id="DesktopBinary" Guid="{D2686B46-3DF1-4432-9C2D-B7E29B54EAF8}">
+        <File Id="SamhainSecurityNativeExe" Source="$(var.PackageRoot)\app\SamhainSecurityNative.exe" KeyPath="yes" />
+      </Component>
+    </ComponentGroup>
+
+    <ComponentGroup Id="ServiceComponents" Directory="SERVICEFOLDER">
+      <Component Id="ServiceBinary" Guid="{4319DB8C-258F-4AA1-B5C5-60D9D8866B96}">
+        <File Id="SamhainServiceExe" Source="$(var.PackageRoot)\service\samhain-service.exe" KeyPath="yes" />
+        <ServiceInstall
+          Id="SamhainSecurityServiceInstall"
+          Name="SamhainSecurityService"
+          DisplayName="Samhain Security Service"
+          Description="Samhain Security service"
+          Start="auto"
+          Type="ownProcess"
+          ErrorControl="normal" />
+        <ServiceControl Id="SamhainSecurityServiceControl" Name="SamhainSecurityService" Start="install" Stop="both" Remove="uninstall" Wait="yes" />
+      </Component>
+    </ComponentGroup>
+
+    <ComponentGroup Id="ToolComponents" Directory="TOOLSFOLDER">
+      <Component Id="LocalOpsTool" Guid="{D54325B5-7529-4C15-B4C8-A6135062A8BF}">
+        <File Id="LocalOpsScript" Source="$(var.PackageRoot)\tools\local-ops.ps1" KeyPath="yes" />
+      </Component>
+    </ComponentGroup>
+  </Fragment>
+</Wix>

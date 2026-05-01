@@ -1,6 +1,6 @@
 # Signing And Integrity
 
-Version: `1.4.9`
+Version: `1.5.0`
 
 Current status: `unsigned-dev`.
 
@@ -13,6 +13,8 @@ Public updater publishing stays blocked until the production signing pipeline an
 - `release-manifest.json`
 - `checksums.txt`
 - `SamhainSecurityNative-<version>-win-x64.update-manifest.json`
+- `installer\signing-policy.json`
+- `installer\installer-handoff.json`
 
 `checksums.txt` covers:
 
@@ -24,6 +26,7 @@ Public updater publishing stays blocked until the production signing pipeline an
 - `tools\verify-update-manifest.ps1`
 - `tools\test-update-rehearsal.ps1`
 - `tools\test-public-updater-rollout.ps1`
+- `tools\test-installer-skeleton.ps1`
 - `tools\write-release-evidence.ps1`
 - `tools\write-release-notes.ps1`
 - `tools\test-signing-readiness.ps1`
@@ -34,6 +37,10 @@ Public updater publishing stays blocked until the production signing pipeline an
 - `engine-inventory.json`
 - `runtime-bundle.lock.json`
 - `app\engines\runtime-bundle-state.json`
+- `installer\README.md`
+- `installer\SamhainSecurityInstaller.wxs`
+- `installer\signing-policy.json`
+- `installer\installer-handoff.json`
 - `release-manifest.json`
 - `README.md`
 - `VERSION`
@@ -46,5 +53,10 @@ The stable installer should:
 - verify the package manifest before install;
 - verify update manifests before applying updates;
 - run the public updater rollout gate before public publishing;
+- run the signed-installer skeleton gate before public publishing;
 - display publisher information as `Samhain Security`;
 - refuse rollback to a lower trusted version unless recovery mode is explicit.
+
+## Signing Scaffold
+
+`installer\signing-policy.json` declares the expected publisher, digest algorithm, timestamp requirement, secure certificate inputs, and the desktop, service, and installer signing targets. It intentionally keeps `publishAllowed` false until the production certificate is supplied.

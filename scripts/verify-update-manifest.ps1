@@ -106,6 +106,10 @@ Add-Check "manifest:runtime-state" ($manifest.install.runtimeContract.state -eq 
 Add-Check "manifest:runtime-prepare-script" ($manifest.install.runtimeContract.prepareScript -eq "tools\prepare-runtime-bundle.ps1") ([string]$manifest.install.runtimeContract.prepareScript)
 Add-Check "manifest:runtime-fetch-script" ($manifest.install.runtimeContract.fetchScript -eq "tools\fetch-runtime-bundle.ps1") ([string]$manifest.install.runtimeContract.fetchScript)
 Add-Check "manifest:runtime-source" ($manifest.install.runtimeContract.availabilitySource -eq "package-inventory") ([string]$manifest.install.runtimeContract.availabilitySource)
+Add-Check "manifest:installer-status" ($manifest.install.signedInstaller.status -eq "skeleton-ready-production-signing-pending") ([string]$manifest.install.signedInstaller.status)
+Add-Check "manifest:installer-project" ($manifest.install.signedInstaller.project -eq "installer\SamhainSecurityInstaller.wxs") ([string]$manifest.install.signedInstaller.project)
+Add-Check "manifest:installer-policy" ($manifest.install.signedInstaller.signingPolicy -eq "installer\signing-policy.json") ([string]$manifest.install.signedInstaller.signingPolicy)
+Add-Check "manifest:installer-preflight" ($manifest.install.signedInstaller.preflight -eq "tools\test-installer-skeleton.ps1") ([string]$manifest.install.signedInstaller.preflight)
 Add-Check "manifest:engine-inventory" ($manifest.verification.engineInventory -eq "engine-inventory.json") ([string]$manifest.verification.engineInventory)
 Add-Check "manifest:runtime-bundle-lock" ($manifest.verification.runtimeBundleLock -eq "runtime-bundle.lock.json") ([string]$manifest.verification.runtimeBundleLock)
 Add-Check "manifest:runtime-bundle-state" ($manifest.verification.runtimeBundleState -eq "app\engines\runtime-bundle-state.json") ([string]$manifest.verification.runtimeBundleState)
@@ -119,6 +123,7 @@ Add-Check "manifest:adapter-path-smoke" ($manifest.verification.adapterPathSmoke
 Add-Check "manifest:privileged-service-readiness" ($manifest.verification.privilegedServiceReadinessScript -eq "tools\test-privileged-service-readiness.ps1") ([string]$manifest.verification.privilegedServiceReadinessScript)
 Add-Check "manifest:update-rehearsal" ($manifest.verification.updateRehearsalScript -eq "tools\test-update-rehearsal.ps1") ([string]$manifest.verification.updateRehearsalScript)
 Add-Check "manifest:public-updater-rollout" ($manifest.verification.publicUpdaterRolloutScript -eq "tools\test-public-updater-rollout.ps1") ([string]$manifest.verification.publicUpdaterRolloutScript)
+Add-Check "manifest:installer-skeleton" ($manifest.verification.installerSkeletonScript -eq "tools\test-installer-skeleton.ps1") ([string]$manifest.verification.installerSkeletonScript)
 Add-Check "manifest:release-notes-script" ($manifest.verification.releaseNotesScript -eq "tools\write-release-notes.ps1") ([string]$manifest.verification.releaseNotesScript)
 Add-Check "manifest:release-readiness-status" ($manifest.releaseReadiness.status -eq "release-ready-dev-signed") ([string]$manifest.releaseReadiness.status)
 Add-Check "manifest:release-readiness-protocol-doc" ($manifest.releaseReadiness.protocolMatrix -eq "docs\PROTOCOL_MATRIX.md") ([string]$manifest.releaseReadiness.protocolMatrix)
@@ -138,6 +143,11 @@ Add-Check "manifest:public-rollout-blocked" (-not [bool]$manifest.publicRollout.
 Add-Check "manifest:public-rollout-signing" ([bool]$manifest.publicRollout.requiresProductionSigning) ([string]$manifest.publicRollout.requiresProductionSigning)
 Add-Check "manifest:public-rollout-handoff" ($manifest.publicRollout.installerHandoff -eq "signed-installer-required") ([string]$manifest.publicRollout.installerHandoff)
 Add-Check "manifest:public-rollout-gate" ($manifest.publicRollout.rolloutGate -eq "tools\test-public-updater-rollout.ps1") ([string]$manifest.publicRollout.rolloutGate)
+Add-Check "manifest:signed-installer-status" ($manifest.signedInstaller.status -eq "skeleton-ready-production-signing-pending") ([string]$manifest.signedInstaller.status)
+Add-Check "manifest:signed-installer-project" ($manifest.signedInstaller.project -eq "installer\SamhainSecurityInstaller.wxs") ([string]$manifest.signedInstaller.project)
+Add-Check "manifest:signed-installer-policy" ($manifest.signedInstaller.signingPolicy -eq "installer\signing-policy.json") ([string]$manifest.signedInstaller.signingPolicy)
+Add-Check "manifest:signed-installer-blocked" (-not [bool]$manifest.signedInstaller.publishAllowed) ([string]$manifest.signedInstaller.publishAllowed)
+Add-Check "manifest:signed-installer-signing" ([bool]$manifest.signedInstaller.requiresProductionSigning) ([string]$manifest.signedInstaller.requiresProductionSigning)
 
 if (-not [string]::IsNullOrWhiteSpace($InstalledVersion)) {
     $comparison = Compare-VersionString -Left ([string]$manifest.version) -Right $InstalledVersion

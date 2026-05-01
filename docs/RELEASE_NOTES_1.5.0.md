@@ -1,8 +1,8 @@
-# Samhain Security Native 1.4.9
+# Samhain Security Native 1.5.0
 
-Version: `1.4.9`
+Version: `1.5.0`
 
-Samhain Security `1.4.9` adds the public updater rollout boundary. The package now proves that public publishing stays blocked until production signing and signed-installer handoff are available, while internal stable archive verification and rollback rehearsal remain usable.
+Samhain Security `1.5.0` adds the production signing scaffold and signed-installer project skeleton. The package now carries the installer handoff contract, signing policy, WiX skeleton, and preflight gate while keeping public publishing blocked until the production certificate and clean-machine installer rehearsal are available.
 
 ## Included
 
@@ -29,17 +29,18 @@ Samhain Security `1.4.9` adds the public updater rollout boundary. The package n
 - Machine service plan evidence for unrestricted service SID policy used by future service-scoped rules.
 - Update rehearsal preflight with local archive hash verification, stable manifest validation, extracted-package validation, isolated previous-package snapshot, candidate apply, and rollback restore proof.
 - Public updater rollout preflight with production-signing requirement, signed-installer handoff boundary, blocked unsigned publishing, and required evidence checks.
+- Signed installer skeleton preflight with WiX project scaffold, signing policy, installer handoff contract, and blocked publishing proof.
 - Smoke validation that a launched desktop process brings up the service IPC endpoint.
 - Release readiness docs for stable gates, protocol coverage, visual QA, security posture, and clean-machine checks.
 
 ## Artifacts
 
-- `dist\SamhainSecurityNative-1.4.9-win-x64`
-- `dist\SamhainSecurityNative-1.4.9-win-x64.zip`
-- `dist\SamhainSecurityNative-1.4.9-win-x64.update-manifest.json`
-- `dist\SamhainSecurityNative-1.4.9-win-x64.release-evidence.json`
-- `dist\SamhainSecurityNative-1.4.9-win-x64.clean-machine-evidence.json`
-- `dist\SamhainSecurityNative-1.4.9-win-x64.release-notes.md`
+- `dist\SamhainSecurityNative-1.5.0-win-x64`
+- `dist\SamhainSecurityNative-1.5.0-win-x64.zip`
+- `dist\SamhainSecurityNative-1.5.0-win-x64.update-manifest.json`
+- `dist\SamhainSecurityNative-1.5.0-win-x64.release-evidence.json`
+- `dist\SamhainSecurityNative-1.5.0-win-x64.clean-machine-evidence.json`
+- `dist\SamhainSecurityNative-1.5.0-win-x64.release-notes.md`
 
 ## Verification
 
@@ -51,24 +52,26 @@ cargo test --workspace
 .\scripts\fetch-runtime-bundle.ps1
 .\scripts\prepare-runtime-bundle.ps1
 .\scripts\package.ps1
-.\scripts\validate-package.ps1 -ExpectedVersion 1.4.9 -RunServiceStatus
-.\scripts\prepare-runtime-bundle.ps1 -PackageRoot .\dist\SamhainSecurityNative-1.4.9-win-x64 -ValidateOnly
-.\scripts\verify-update-manifest.ps1 -ExpectedVersion 1.4.9 -RequireStableChannel
-.\scripts\test-update-rehearsal.ps1 -ExpectedVersion 1.4.9
-.\scripts\test-public-updater-rollout.ps1 -ExpectedVersion 1.4.9
-.\scripts\test-signing-readiness.ps1 -ExpectedVersion 1.4.9
-.\scripts\test-privileged-service-readiness.ps1 -ExpectedVersion 1.4.9
-.\scripts\write-clean-machine-evidence.ps1 -ExpectedVersion 1.4.9 -SkipLaunch
-.\scripts\smoke-proxy-path.ps1 -ExpectedVersion 1.4.9
-.\scripts\smoke-tun-path.ps1 -ExpectedVersion 1.4.9
-.\scripts\smoke-adapter-path.ps1 -ExpectedVersion 1.4.9
-.\scripts\smoke-package.ps1 -ExpectedVersion 1.4.9
-.\scripts\write-release-evidence.ps1 -ExpectedVersion 1.4.9 -Tag v1.4.9
+.\scripts\validate-package.ps1 -ExpectedVersion 1.5.0 -RunServiceStatus
+.\scripts\prepare-runtime-bundle.ps1 -PackageRoot .\dist\SamhainSecurityNative-1.5.0-win-x64 -ValidateOnly
+.\scripts\verify-update-manifest.ps1 -ExpectedVersion 1.5.0 -RequireStableChannel
+.\scripts\test-update-rehearsal.ps1 -ExpectedVersion 1.5.0
+.\scripts\test-public-updater-rollout.ps1 -ExpectedVersion 1.5.0
+.\scripts\test-installer-skeleton.ps1 -ExpectedVersion 1.5.0
+.\scripts\test-signing-readiness.ps1 -ExpectedVersion 1.5.0
+.\scripts\test-privileged-service-readiness.ps1 -ExpectedVersion 1.5.0
+.\scripts\write-clean-machine-evidence.ps1 -ExpectedVersion 1.5.0 -SkipLaunch
+.\scripts\smoke-proxy-path.ps1 -ExpectedVersion 1.5.0
+.\scripts\smoke-tun-path.ps1 -ExpectedVersion 1.5.0
+.\scripts\smoke-adapter-path.ps1 -ExpectedVersion 1.5.0
+.\scripts\smoke-package.ps1 -ExpectedVersion 1.5.0
+.\scripts\write-release-evidence.ps1 -ExpectedVersion 1.5.0 -Tag v1.5.0
 ```
 
 ## Known Limits
 
 - Production code signing certificate is not applied yet; the package remains `unsigned-dev`.
+- Signed installer publishing remains blocked until the production certificate and clean-machine installer rehearsal are complete.
 - Fetched runtime binaries still need live protocol validation for each protocol family before public installer rollout.
 - Live TUN route creation remains opt-in through `smoke-tun-path.ps1 -AllowLiveTun` and requires a privileged trusted service environment.
 - Live adapter service installation remains opt-in through `smoke-adapter-path.ps1 -AllowLiveAdapter` and requires a privileged trusted service environment.
